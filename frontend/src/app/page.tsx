@@ -55,9 +55,12 @@ export default function Home() {
             La plateforme numérique de gestion scolaire pour la Côte d&apos;Ivoire
           </p>
 
-          <div style={{ marginTop: 28, display: "flex", gap: 12, justifyContent: "center" }}>
+          <div style={{ marginTop: 28, display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/login" className="btn btn-primary">
               🔐 Se connecter
+            </Link>
+            <Link href="/ecole/DEMO-001" className="btn btn-secondary">
+              🌐 Voir la vitrine de l&apos;école
             </Link>
             <a href="http://localhost:4000/api/docs" className="btn btn-outline">
               📚 API Docs

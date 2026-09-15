@@ -47,6 +47,9 @@ model School {
   isActive              Boolean  @default(true)
   currentAcademicYear   String?
   maxStudentsPerClass   Int      @default(50)
+  tagline               String?  // Short marketing tagline for the public showcase
+  description           String?  // Longer presentation text for the public showcase
+  website               String?
   academicYears         AcademicYear[]
   users                 User[]
   students              Student[]
@@ -55,6 +58,10 @@ model School {
   admissions            Admission[]
   attendance            Attendance[]
   invoices              Invoice[]
+  vehicles              Vehicle[]
+  transportRoutes       TransportRoute[]
+  payslips              Payslip[]
+  announcements         Announcement[]
   auditLogs             AuditLog[]
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -187,6 +194,7 @@ model User {
   parent            Parent?
   permissions       Permission[]
   auditLogs         AuditLog[] @relation("userAuditLogs")
+  notifications     Notification[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   lastLogin         DateTime?
@@ -216,8 +224,10 @@ model StaffMember {
   position          String   // "Teacher", "Secretary", etc.
   department        String?
   hireDate          DateTime
+  baseSalary        Float?
   classes           Class[] @relation("TeacherClasses")
   classSubjects     ClassSubject[]
+  payslips          Payslip[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -250,6 +260,7 @@ model Student {
   grades            Grade[]
   invoices          Invoice[]
   payments          Payment[]
+  transportSubscriptions TransportSubscription[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -551,6 +562,7 @@ model AuditLog {
 model Notification {
   id                String   @id @default(cuid())
   userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   type              String   // "email", "sms", "in_app"
   subject           String?
   message           String
@@ -562,4 +574,107 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+}
+
+// ==================== Transport ====================
+
+model Vehicle {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  plateNumber       String
+  brand             String?
+  capacity          Int      @default(30)
+  driverName        String?
+  driverPhone       String?
+  isActive          Boolean  @default(true)
+  lastLat           Float?
+  lastLng           Float?
+  lastPingAt        DateTime?
+  routes            TransportRoute[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([schoolId, plateNumber])
+  @@index([schoolId])
+}
+
+model TransportRoute {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name              String   // "Circuit Cocody"
+  vehicleId         String?
+  vehicle           Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  departureTime     String?  // "06:30"
+  monthlyFee        Float    @default(0)
+  subscriptions     TransportSubscription[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([vehicleId])
+}
+
+model TransportSubscription {
+  id                String   @id @default(cuid())
+  routeId           String
+  route             TransportRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  isActive          Boolean  @default(true)
+  startDate         DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([routeId, studentId])
+  @@index([routeId])
+  @@index([studentId])
+}
+
+// ==================== Payroll ====================
+
+enum PayslipStatus {
+  DRAFT
+  VALIDATED
+  PAID
+}
+
+model Payslip {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  staffMemberId     String
+  staffMember       StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  period            String   // "2026-01"
+  baseSalary        Float
+  bonuses           Float    @default(0)
+  deductions        Float    @default(0)
+  netSalary         Float
+  status            PayslipStatus @default(DRAFT)
+  paidAt            DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([staffMemberId, period])
+  @@index([schoolId])
+  @@index([staffMemberId])
+  @@index([period])
+}
+
+// ==================== Public Showcase ====================
+
+model Announcement {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title             String
+  content           String
+  isPublished       Boolean  @default(true)
+  publishedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([isPublished])
 }

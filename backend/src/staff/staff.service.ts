@@ -35,6 +35,7 @@ export class StaffService {
             position: dto.position,
             department: dto.department,
             hireDate: new Date(dto.hireDate),
+            baseSalary: dto.baseSalary,
           },
         },
       },
@@ -70,6 +71,14 @@ export class StaffService {
     }
     const { password, ...rest } = found;
     return rest;
+  }
+
+  async updateSalary(user: AuthUser, id: string, baseSalary: number) {
+    const found = await this.prisma.user.findUnique({ where: { id }, include: { staffMember: true } });
+    if (!found || found.schoolId !== user.schoolId || !found.staffMember) {
+      throw new NotFoundException('Membre du personnel introuvable');
+    }
+    return this.prisma.staffMember.update({ where: { id: found.staffMember.id }, data: { baseSalary } });
   }
 
   async remove(user: AuthUser, id: string) {

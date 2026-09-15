@@ -1,15 +1,21 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { PaymentProvidersRegistry } from './providers/payment-providers.registry';
+
+function formatFCFA(amount: number) {
+  return new Intl.NumberFormat('fr-FR').format(Math.round(amount)) + ' FCFA';
+}
 
 @Injectable()
 export class BillingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentProviders: PaymentProvidersRegistry,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async resolveCurrentYear(schoolId: string) {
@@ -95,6 +101,19 @@ export class BillingService {
       totalPaid >= invoice.totalAmount ? 'PAID' : totalPaid > 0 ? 'PARTIALLY_PAID' : invoice.status;
 
     await this.prisma.invoice.update({ where: { id: invoiceId }, data: { status: newStatus } });
+
+    if (result.status === 'SUCCESS') {
+      const parents = await this.prisma.parent.findMany({
+        where: { students: { some: { id: invoice.studentId } }, userId: { not: null } },
+      });
+      for (const parent of parents) {
+        await this.notifications.notify(
+          parent.userId,
+          'Paiement reçu',
+          `Paiement de ${formatFCFA(dto.amount)} reçu pour la facture ${invoice.reference} (${invoice.student.firstName} ${invoice.student.lastName}).`,
+        );
+      }
+    }
 
     return payment;
   }

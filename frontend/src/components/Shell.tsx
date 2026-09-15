@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AuthUser, ROLE_LABELS, clearSession, getStoredUser, getToken } from "../lib/auth";
+import NotificationBell from "./NotificationBell";
 
 interface NavItem {
   href: string;
@@ -22,6 +23,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/attendance", label: "Présence", icon: "✅", roles: ["SUPER_ADMIN", "DIRECTOR", "SECRETARY", "ENSEIGNANT"] },
   { href: "/grades", label: "Notes & Bulletins", icon: "📚", roles: ["SUPER_ADMIN", "DIRECTOR", "ENSEIGNANT"] },
   { href: "/billing", label: "Facturation", icon: "💰", roles: ["SUPER_ADMIN", "DIRECTOR", "SECRETARY", "COMPTABLE"] },
+  { href: "/transport", label: "Transport", icon: "🚌", roles: ["SUPER_ADMIN", "DIRECTOR", "SECRETARY"] },
+  { href: "/payroll", label: "Paie du personnel", icon: "💵", roles: ["SUPER_ADMIN", "DIRECTOR", "COMPTABLE"] },
+  { href: "/announcements", label: "Annonces & Vitrine", icon: "📢", roles: ["SUPER_ADMIN", "DIRECTOR"] },
   { href: "/portal", label: "Mes enfants", icon: "👨‍👩‍👧", roles: ["PARENT"] },
 ];
 
@@ -84,9 +88,12 @@ export default function Shell({ title, children }: { title: string; children: Re
         <div className="flag-stripe" />
         <header className="topbar">
           <div className="topbar-title">{title}</div>
-          <button className="btn btn-outline btn-sm" onClick={logout}>
-            Déconnexion
-          </button>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <NotificationBell />
+            <button className="btn btn-outline btn-sm" onClick={logout}>
+              Déconnexion
+            </button>
+          </div>
         </header>
         <main className="page-content">{children}</main>
       </div>

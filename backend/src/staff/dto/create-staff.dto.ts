@@ -1,4 +1,4 @@
-import { IsDateString, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsDateString, IsEmail, IsIn, IsNumber, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
 
 const STAFF_ROLES = ['DIRECTOR', 'SECRETARY', 'COMPTABLE', 'ENSEIGNANT'] as const;
 
@@ -31,6 +31,11 @@ export class CreateStaffDto {
 
   @IsDateString()
   hireDate!: string;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  baseSalary?: number;
 
   @IsOptional()
   @IsString()

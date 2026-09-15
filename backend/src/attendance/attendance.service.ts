@@ -1,11 +1,15 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { NotificationsService } from '../notifications/notifications.service';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
 
 @Injectable()
 export class AttendanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async mark(user: AuthUser, dto: MarkAttendanceDto) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
@@ -31,6 +35,26 @@ export class AttendanceService {
         }),
       ),
     );
+
+    const toNotify = dto.records.filter((r) => r.status === 'ABSENT' || r.status === 'RETARD');
+    if (toNotify.length > 0) {
+      const students = await this.prisma.student.findMany({
+        where: { id: { in: toNotify.map((r) => r.studentId) } },
+        include: { parents: { where: { userId: { not: null } } } },
+      });
+      for (const record of toNotify) {
+        const student = students.find((s) => s.id === record.studentId);
+        if (!student) continue;
+        const label = record.status === 'ABSENT' ? 'est absent(e)' : 'est arrivé(e) en retard';
+        for (const parent of student.parents) {
+          await this.notifications.notify(
+            parent.userId,
+            'Présence',
+            `Votre enfant ${student.firstName} ${student.lastName} ${label} aujourd'hui.`,
+          );
+        }
+      }
+    }
 
     return results;
   }

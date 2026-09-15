@@ -18,6 +18,11 @@ import { BulletinsModule } from './bulletins/bulletins.module';
 import { BillingModule } from './billing/billing.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { TransportModule } from './transport/transport.module';
+import { PayrollModule } from './payroll/payroll.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { PublicModule } from './public/public.module';
 
 @Module({
   imports: [
@@ -41,6 +46,11 @@ import { ParentPortalModule } from './parent-portal/parent-portal.module';
     BillingModule,
     DashboardModule,
     ParentPortalModule,
+    NotificationsModule,
+    TransportModule,
+    PayrollModule,
+    AnnouncementsModule,
+    PublicModule,
   ],
   controllers: [AppController],
   providers: [AppService],
