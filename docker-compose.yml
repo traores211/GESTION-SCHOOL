@@ -90,6 +90,8 @@ services:
       MAIL_PASS: ""
       API_URL: http://localhost:4000
       FRONTEND_URL: http://localhost:3000
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
     ports:
       - "4000:4000"
     volumes:
@@ -121,6 +123,7 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
+      WATCHPACK_POLLING: "true"
     ports:
       - "3000:3000"
     volumes:

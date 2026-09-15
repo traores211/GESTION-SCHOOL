@@ -51,8 +51,10 @@ model School {
   users                 User[]
   students              Student[]
   classes               Class[]
+  subjects              Subject[]
   admissions            Admission[]
   attendance            Attendance[]
+  invoices              Invoice[]
   auditLogs             AuditLog[]
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -72,6 +74,8 @@ model AcademicYear {
   isCurrent         Boolean  @default(false)
   classes           Class[]
   admissions        Admission[]
+  terms             Term[]
+  invoices          Invoice[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -128,6 +132,44 @@ enum AttendanceStatus {
   ABSENCE_JUSTIFIEE   @map("ABSENCE_JUSTIFIÉE")
 }
 
+enum GradeType {
+  DEVOIR
+  INTERROGATION
+  COMPOSITION
+  EXAMEN
+  ORAL
+  TP
+  PROJET
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY_ORANGE
+  MOBILE_MONEY_MTN
+  MOBILE_MONEY_MOOV
+  WAVE
+  BANK_TRANSFER
+  CHEQUE
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
 // ==================== Users & Permissions ====================
 
 model User {
@@ -142,6 +184,7 @@ model User {
   schoolId          String?
   school            School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
   staffMember       StaffMember?
+  parent            Parent?
   permissions       Permission[]
   auditLogs         AuditLog[] @relation("userAuditLogs")
   createdAt         DateTime @default(now())
@@ -174,6 +217,7 @@ model StaffMember {
   department        String?
   hireDate          DateTime
   classes           Class[] @relation("TeacherClasses")
+  classSubjects     ClassSubject[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -203,6 +247,9 @@ model Student {
   attendance        Attendance[]
   documents         Document[]
   admissions        Admission[] @relation("AdmissionStudent")
+  grades            Grade[]
+  invoices          Invoice[]
+  payments          Payment[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -213,6 +260,8 @@ model Student {
 
 model Parent {
   id                String   @id @default(cuid())
+  userId            String?  @unique
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   firstName         String
   lastName          String
   email             String
@@ -243,6 +292,8 @@ model Class {
   teacher           StaffMember? @relation(name: "TeacherClasses", fields: [teacherId], references: [id], onDelete: SetNull)
   enrollments       Enrollment[]
   attendance        Attendance[]
+  classSubjects     ClassSubject[]
+  grades            Grade[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -281,6 +332,7 @@ model Admission {
   email             String
   phone             String?
   dateOfBirth       DateTime?
+  gender            String   @default("M")
   status            AdmissionStatus @default(CANDIDATURE)
   documents         Document[]
   submittedAt       DateTime @default(now())
@@ -316,6 +368,140 @@ model Attendance {
   @@index([studentId])
   @@index([schoolId])
   @@index([date])
+  @@index([status])
+}
+
+// ==================== Academic: Subjects, Terms, Grades ====================
+
+model Subject {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name              String
+  code              String
+  coefficient       Int      @default(1)
+  classSubjects     ClassSubject[]
+  grades            Grade[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+}
+
+model ClassSubject {
+  id                String   @id @default(cuid())
+  classId           String
+  class             Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId         String
+  subject           Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId         String?
+  teacher           StaffMember? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  coefficient       Int      @default(1)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([classId, subjectId])
+  @@index([classId])
+  @@index([subjectId])
+  @@index([teacherId])
+}
+
+model Term {
+  id                String   @id @default(cuid())
+  academicYearId    String
+  academicYear      AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  name              String   // "Trimestre 1"
+  order             Int
+  startDate         DateTime
+  endDate           DateTime
+  grades            Grade[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([academicYearId, order])
+  @@index([academicYearId])
+}
+
+model Grade {
+  id                String   @id @default(cuid())
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId         String
+  subject           Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  classId           String
+  class             Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  termId            String
+  term              Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  type              GradeType @default(DEVOIR)
+  score             Float
+  maxScore          Float    @default(20)
+  coefficient       Int      @default(1)
+  comment           String?
+  enteredById       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([classId])
+  @@index([termId])
+}
+
+// ==================== Billing & Payments ====================
+
+model Invoice {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYearId    String
+  academicYear      AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  reference         String   @unique
+  label             String
+  totalAmount       Float
+  dueDate           DateTime
+  status            InvoiceStatus @default(PENDING)
+  items             InvoiceItem[]
+  payments          Payment[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([academicYearId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id                String   @id @default(cuid())
+  invoiceId         String
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  label             String
+  amount            Float
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  invoiceId         String
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  transactionId     String   @unique @default(cuid())
+  reference         String?
+  amount            Float
+  method            PaymentMethod
+  status            PaymentStatus @default(SUCCESS)
+  receivedById      String?
+  paidAt            DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([studentId])
   @@index([status])
 }
 

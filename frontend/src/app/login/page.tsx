@@ -2,11 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { api, ApiError } from "../../lib/api";
+import { setSession } from "../../lib/auth";
+
+interface LoginResponse {
+  accessToken: string;
+  user: { id: string; email: string; firstName: string; lastName: string; role: string };
+}
+
+const DEMO_ACCOUNTS = [
+  { role: "Direction", email: "admin@school.local", password: "admin123" },
+  { role: "Enseignant", email: "k.kouassi@school.local", password: "teach123" },
+  { role: "Secrétariat", email: "secretaire@school.local", password: "secret123" },
+  { role: "Parent", email: "parent@school.local", password: "parent123" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("admin@school.local");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("admin123");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -15,60 +29,110 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
-      const response = await fetch(`${apiUrl}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.message || "Identifiants invalides");
-      }
-      const data = await response.json();
-      localStorage.setItem("schoolerp_token", data.accessToken);
-      localStorage.setItem("schoolerp_user", JSON.stringify(data.user));
-      router.push("/dashboard");
+      const data = await api.post<LoginResponse>("/auth/login", { email, password });
+      setSession(data.accessToken, data.user);
+      router.push(data.user.role === "PARENT" ? "/portal" : "/dashboard");
     } catch (err) {
-      setError((err as Error).message);
+      setError(err instanceof ApiError ? err.message : "Une erreur est survenue");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main style={{ maxWidth: 400, margin: "80px auto", padding: "0 20px", fontFamily: "system-ui, sans-serif" }}>
-      <h1>🎓 School ERP</h1>
-      <h2>Connexion</h2>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20 }}>
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          />
-        </label>
-        <label>
-          Mot de passe
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          />
-        </label>
-        {error && <p style={{ color: "red" }}>{error}</p>}
-        <button type="submit" disabled={loading}>
-          {loading ? "Connexion..." : "Se connecter"}
-        </button>
-      </form>
-      <p style={{ marginTop: 20, fontSize: 13, color: "#666" }}>
-        Compte de démo : admin@school.local / admin123
-      </p>
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background:
+          "linear-gradient(135deg, var(--ci-green-dark) 0%, var(--ci-green) 45%, #ffffff 45%, #ffffff 55%, var(--ci-orange) 55%, var(--ci-orange-dark) 100%)",
+        padding: 20,
+      }}
+    >
+      <div
+        className="card"
+        style={{ width: "100%", maxWidth: 420, boxShadow: "var(--shadow-md)" }}
+      >
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 14,
+              background: "var(--ci-orange)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 28,
+              margin: "0 auto 12px",
+            }}
+          >
+            🎓
+          </div>
+          <h1 style={{ fontSize: 20 }}>School ERP</h1>
+          <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+            Gestion scolaire — Côte d&apos;Ivoire
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label htmlFor="email">Adresse email</label>
+            <input
+              id="email"
+              type="email"
+              className="input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="password">Mot de passe</label>
+            <input
+              id="password"
+              type="password"
+              className="input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          {error && (
+            <p className="text-danger" style={{ fontSize: 13, marginBottom: 12 }}>
+              {error}
+            </p>
+          )}
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+            {loading ? "Connexion..." : "Se connecter"}
+          </button>
+        </form>
+
+        <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
+          <p style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>
+            Comptes de démonstration
+          </p>
+          <div style={{ display: "grid", gap: 6 }}>
+            {DEMO_ACCOUNTS.map((acc) => (
+              <button
+                key={acc.email}
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ justifyContent: "space-between" }}
+                onClick={() => {
+                  setEmail(acc.email);
+                  setPassword(acc.password);
+                }}
+              >
+                <span>{acc.role}</span>
+                <span className="muted">{acc.email}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     </main>
   );
 }
