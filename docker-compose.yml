@@ -1,0 +1,171 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: school-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-schooladmin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-SchoolAdmin123!}
+      POSTGRES_DB: ${DB_NAME:-school_erp}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-schooladmin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - school-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: school-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - school-network
+
+  # OpenLDAP (Authentication)
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: school-ldap
+    environment:
+      LDAP_ORGANISATION: "School Network"
+      LDAP_DOMAIN: school.local
+      LDAP_ADMIN_PASSWORD: ${LDAP_PASSWORD:-LdapAdmin123!}
+    ports:
+      - "389:389"
+      - "636:636"
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+    healthcheck:
+      test: ["CMD", "ldapwhoami", "-H", "ldap://localhost", "-D", "cn=admin,dc=school,dc=local", "-w", "${LDAP_PASSWORD:-LdapAdmin123!}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - school-network
+
+  # MailHog (Email testing)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: school-mailhog
+    ports:
+      - "1025:1025"    # SMTP
+      - "8025:8025"    # Web UI
+    networks:
+      - school-network
+
+  # NestJS Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: school-backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://${DB_USER:-schooladmin}:${DB_PASSWORD:-SchoolAdmin123!}@postgres:5432/${DB_NAME:-school_erp}
+      REDIS_URL: redis://redis:6379
+      LDAP_URL: ldap://openldap:389
+      LDAP_BASE_DN: dc=school,dc=local
+      LDAP_ADMIN_DN: cn=admin,dc=school,dc=local
+      LDAP_ADMIN_PASSWORD: ${LDAP_PASSWORD:-LdapAdmin123!}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      MAIL_USER: ""
+      MAIL_PASS: ""
+      API_URL: http://localhost:4000
+      FRONTEND_URL: http://localhost:3000
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend/src:/app/src
+      - backend_node_modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      openldap:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - school-network
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: school-frontend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - school-network
+
+  # NGINX Reverse Proxy (Optional - for production-like setup)
+  # Disabled by default due to Windows file mount issues
+  # Enable with: docker-compose --profile nginx up -d
+  nginx:
+    image: nginx:alpine
+    container_name: school-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - school-network
+    profiles:
+      - nginx
+
+volumes:
+  postgres_data:
+  redis_data:
+  ldap_data:
+  ldap_config:
+  backend_node_modules:
+  frontend_node_modules:
+  frontend_next:
+
+networks:
+  school-network:
+    driver: bridge

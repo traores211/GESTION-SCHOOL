@@ -1,0 +1,530 @@
+// prisma/schema.prisma
+// School ERP Phase 1 - Core Data Model
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  SUPER_ADMIN        // System administrator
+  ADMIN_ORGANISATION // Organization admin
+  DIRECTOR           // School director
+  SECRETARY          // School secretary
+  COMPTABLE          // Accountant
+  ENSEIGNANT         // Teacher
+  ELEVE              // Student
+  PARENT             // Parent/Guardian
+  SURVEILLANT        // Supervisor
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum StudentStatus {
+  INSCRIT            // Enrolled
+  PRESENT            // Currently attending
+  RETIRÉ             // Withdrawn
+  DIPLÔMÉ            // Graduated
+  REDOUBLANT         // Repeating year
+}
+
+enum AdmissionStatus {
+  CANDIDATURE        // Application submitted
+  DOSSIER_INCOMPLET  // Incomplete file
+  DOSSIER_COMPLET    // Complete file
+  ETUDE              // Under review
+  TEST               // Testing phase
+  ENTRETIEN          // Interview phase
+  ADMIS              // Admitted
+  REJETÉ             // Rejected
+  LISTE_ATTENTE      // Waitlist
+  INSCRIPTION        // Enrolled
+  CONFIRMÉ           // Confirmed enrollment
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  RETARD             // Late
+  ABSENCE_JUSTIFIÉE  // Justified absence
+}
+
+// ============================================
+// MULTI-TENANT / ORGANIZATIONS
+// ============================================
+
+model Organisation {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  slug             String   @unique
+  description      String?
+  logo             String?
+  website          String?
+  email            String
+  phone            String
+  address          String
+  city             String
+  country          String   @default("Côte d'Ivoire")
+  currency         String   @default("XOF")
+  timezone         String   @default("Africa/Abidjan")
+  language         String   @default("fr")
+  
+  // Subscription/SaaS
+  subscriptionPlan String   @default("STARTER")
+  subscriptionEnd  DateTime?
+  isActive         Boolean  @default(true)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  schools          School[]
+  users            User[]
+  auditLogs        AuditLog[]
+  
+  @@index([isActive])
+}
+
+// ============================================
+// SCHOOLS / ESTABLISHMENTS
+// ============================================
+
+model School {
+  id               String   @id @default(cuid())
+  organisationId   String
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  
+  name             String
+  code             String   @unique
+  email            String
+  phone            String
+  address          String
+  city             String
+  logo             String?
+  directeur        String?
+  
+  // Academic settings
+  currentAcademicYear String?
+  maxStudentsPerClass Int   @default(50)
+  
+  // Financial settings
+  currency         String   @default("XOF")
+  
+  // Operational
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  academicYears    AcademicYear[]
+  users            User[]
+  students         Student[]
+  staff            StaffMember[]
+  classes          Class[]
+  admissions       Admission[]
+  attendance       Attendance[]
+  auditLogs        AuditLog[]
+  
+  @@index([organisationId])
+  @@index([code])
+  @@index([isActive])
+}
+
+// ============================================
+// USERS & AUTHENTICATION
+// ============================================
+
+model User {
+  id               String   @id @default(cuid())
+  organisationId   String
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  schoolId         String?
+  school           School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  
+  // Identity
+  email            String   @unique
+  username         String   @unique
+  firstName        String
+  lastName         String
+  phone            String?
+  avatar           String?
+  
+  // Authentication
+  passwordHash     String?  // Null if LDAP sync only
+  ldapDn           String?  // LDAP Distinguished Name
+  
+  // Authorization
+  role             UserRole
+  permissions      Permission[]
+  
+  // Status
+  status           UserStatus @default(ACTIVE)
+  isEmailVerified  Boolean  @default(false)
+  
+  // Session/Security
+  lastLogin        DateTime?
+  lastLoginIp      String?
+  loginAttempts    Int      @default(0)
+  lockedUntil      DateTime?
+  
+  // Timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  staff            StaffMember?
+  student          Student?
+  parent           Parent?
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  
+  @@index([organisationId])
+  @@index([schoolId])
+  @@index([role])
+  @@index([status])
+  @@index([email])
+}
+
+model Permission {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  description      String?
+  resource         String   // e.g., "students", "payments", "reports"
+  action           String   // e.g., "read", "create", "update", "delete"
+  
+  users            User[]
+  
+  @@unique([resource, action])
+}
+
+// ============================================
+// STAFF & HR
+// ============================================
+
+model StaffMember {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId         String
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  // Professional
+  position         String   // e.g., "Director", "Teacher", "Secretary"
+  department       String?
+  employmentDate   DateTime
+  contractType     String?  // "CDI", "CDD", "Stage"
+  
+  // Contact
+  phone            String?
+  email            String?
+  address          String?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  classes          Class[]  // Classes taught
+  attendanceLogs   Attendance[]
+  
+  @@index([schoolId])
+  @@index([position])
+}
+
+// ============================================
+// ACADEMIC YEARS / PERIODS
+// ============================================
+
+model AcademicYear {
+  id               String   @id @default(cuid())
+  schoolId         String
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  name             String   // e.g., "2024-2025"
+  code             String
+  startDate        DateTime
+  endDate          DateTime
+  isCurrent        Boolean  @default(false)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  classes          Class[]
+  admissions       Admission[]
+  
+  @@unique([schoolId, code])
+  @@index([schoolId])
+  @@index([isCurrent])
+}
+
+// ============================================
+// CLASSES & ORGANIZATION
+// ============================================
+
+model Class {
+  id               String   @id @default(cuid())
+  schoolId         String
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYearId   String
+  academicYear     AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  
+  name             String   // e.g., "5ème A"
+  code             String
+  level            String   // e.g., "5ème", "Terminale"
+  capacity         Int      @default(50)
+  
+  // Staff
+  teacherId        String?
+  teacher          StaffMember? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  enrollments      Enrollment[]
+  attendance       Attendance[]
+  
+  @@unique([schoolId, academicYearId, code])
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@index([level])
+}
+
+// ============================================
+// STUDENTS
+// ============================================
+
+model Student {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId         String
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  // Identity
+  firstName        String
+  lastName         String
+  dateOfBirth      DateTime
+  placeOfBirth     String?
+  nationality      String   @default("Côte d'Ivoire")
+  gender           String   // "M", "F"
+  
+  // Student info
+  matricule        String   @unique
+  status           StudentStatus @default(INSCRIT)
+  
+  // Contact
+  address          String?
+  phone            String?
+  
+  // Medical/Special
+  allergies        String?
+  specialNeeds     String?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  parents          Parent[]
+  enrollments      Enrollment[]
+  admissions       Admission[]
+  attendance       Attendance[]
+  
+  @@index([schoolId])
+  @@index([matricule])
+  @@index([status])
+}
+
+// ============================================
+// PARENTS / GUARDIANS
+// ============================================
+
+model Parent {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Identity
+  firstName        String
+  lastName         String
+  phone            String?
+  email            String?
+  
+  // Relationship
+  relationship     String   // "Father", "Mother", "Guardian", etc.
+  
+  // Contact
+  address          String?
+  profession       String?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  students         Student[]
+  
+  @@index([relationship])
+}
+
+// ============================================
+// ADMISSIONS
+// ============================================
+
+model Admission {
+  id               String   @id @default(cuid())
+  schoolId         String
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYearId   String
+  academicYear     AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  studentId        String?
+  student          Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  
+  // Application
+  firstName        String
+  lastName         String
+  email            String
+  phone            String?
+  dateOfBirth      DateTime?
+  
+  // Status
+  status           AdmissionStatus @default(CANDIDATURE)
+  
+  // Documents
+  documentsJson    String?  // JSON array of uploaded docs
+  
+  // Decision
+  admittedDate     DateTime?
+  admittedBy       String?
+  rejectionReason  String?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@index([status])
+}
+
+// ============================================
+// ENROLLMENT
+// ============================================
+
+model Enrollment {
+  id               String   @id @default(cuid())
+  classId          String
+  class            Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  enrollmentDate   DateTime @default(now())
+  withdrawalDate   DateTime?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@unique([classId, studentId])
+  @@index([classId])
+  @@index([studentId])
+}
+
+// ============================================
+// ATTENDANCE
+// ============================================
+
+model Attendance {
+  id               String   @id @default(cuid())
+  schoolId         String
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classId          String
+  class            Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  staffId          String?
+  staff            StaffMember? @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  
+  // Attendance info
+  date             DateTime
+  status           AttendanceStatus @default(PRESENT)
+  
+  // Details
+  entryTime        DateTime?
+  exitTime         DateTime?
+  reason           String?  // For absences
+  justification    String?
+  isJustified      Boolean  @default(false)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@unique([classId, studentId, date])
+  @@index([schoolId])
+  @@index([classId])
+  @@index([studentId])
+  @@index([date])
+  @@index([status])
+}
+
+// ============================================
+// AUDIT & LOGGING
+// ============================================
+
+model AuditLog {
+  id               String   @id @default(cuid())
+  organisationId   String
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  schoolId         String?
+  school           School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Action
+  action           String   // "CREATE", "UPDATE", "DELETE", "LOGIN", etc.
+  resource         String   // "User", "Student", "Attendance", etc.
+  resourceId       String?
+  
+  // Details
+  oldValues        String?  // JSON
+  newValues        String?  // JSON
+  
+  // Context
+  ipAddress        String?
+  userAgent        String?
+  
+  createdAt        DateTime @default(now())
+  
+  @@index([organisationId])
+  @@index([schoolId])
+  @@index([userId])
+  @@index([resource])
+  @@index([createdAt])
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title            String
+  message          String
+  type             String   // "INFO", "WARNING", "ERROR"
+  channel          String   // "INTERNAL", "EMAIL", "SMS", "WHATSAPP"
+  
+  isRead           Boolean  @default(false)
+  readAt           DateTime?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}

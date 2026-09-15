@@ -1,0 +1,18 @@
+{
+  "name": "school-erp",
+  "version": "0.1.0",
+  "description": "School ERP SaaS for Côte d'Ivoire",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
+    "test": "npm test --workspace=backend && npm test --workspace=frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
