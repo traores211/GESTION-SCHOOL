@@ -103,8 +103,8 @@ enum UserStatus {
 enum StudentStatus {
   INSCRIT
   PRESENT
-  RETIRÉ
-  DIPLÔMÉ
+  RETIRE     @map("RETIRÉ")
+  DIPLOME    @map("DIPLÔMÉ")
   REDOUBLANT
 }
 
@@ -115,17 +115,17 @@ enum AdmissionStatus {
   ETUDE
   TEST
   ENTRETIEN
-  REJETÉ
+  REJETE     @map("REJETÉ")
   ADMIS
   INSCRIPTION
-  CONFIRMÉ
+  CONFIRME   @map("CONFIRMÉ")
 }
 
 enum AttendanceStatus {
   PRESENT
   ABSENT
   RETARD
-  ABSENCE_JUSTIFIÉE
+  ABSENCE_JUSTIFIEE   @map("ABSENCE_JUSTIFIÉE")
 }
 
 // ==================== Users & Permissions ====================
@@ -198,7 +198,6 @@ model Student {
   allergies         String?
   specialNeeds      String?
   status            StudentStatus @default(INSCRIT)
-  user              User?    // Optional: if student has login
   parents           Parent[]
   enrollments       Enrollment[]
   attendance        Attendance[]

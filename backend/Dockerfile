@@ -2,8 +2,8 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init curl
+# Install dumb-init, curl, and openssl (required by Prisma's query/schema engines)
+RUN apk add --no-cache dumb-init curl openssl
 
 # Copy package files
 COPY package*.json ./

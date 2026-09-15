@@ -48,6 +48,7 @@ export default function Home() {
       <div style={{ marginTop: "20px", padding: "20px", backgroundColor: "#f5f5f5", borderRadius: "8px" }}>
         <h3>📋 Quick Links</h3>
         <ul>
+          <li><a href="/login">🔐 Connexion (Login)</a></li>
           <li><a href="http://localhost:4000/api/docs">📚 API Swagger Docs</a></li>
           <li><a href="http://localhost:8025">📧 MailHog (Email Testing)</a></li>
         </ul>
