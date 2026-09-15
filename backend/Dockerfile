@@ -19,7 +19,7 @@ EXPOSE 4000
 
 # Health check (allow initial startup)
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:4000/health || exit 0
+  CMD curl -f http://localhost:4000/api/health || exit 0
 
 # Run application
 ENTRYPOINT ["dumb-init", "--"]
