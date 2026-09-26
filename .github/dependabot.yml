@@ -1,0 +1,35 @@
+# Épingler par SHA protège de la redirection d'un tag, mais fige aussi les correctifs :
+# sans mise à jour, un pin devient une vulnérabilité qu'on a choisi de garder.
+# Dependabot rouvre le sujet chaque semaine, sous forme de PR relisible (et scannée par les gates).
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(ci)"
+    labels: [dependencies, security]
+
+  # Monorepo npm workspaces : un seul lockfile racine pour backend/ et frontend/.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps)"
+    labels: [dependencies, security]
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories: ["/backend", "/frontend"]
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(docker)"
+    labels: [dependencies, security]

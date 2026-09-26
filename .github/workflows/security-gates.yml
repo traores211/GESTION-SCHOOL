@@ -1,0 +1,147 @@
+# Gates de sécurité — CE SONT EUX QUI BLOQUENT.
+#
+# Division du travail :
+#   claude-security-review.yml  ->  l'IA commente, ne bloque pas (elle peut se tromper)
+#   security-gates.yml          ->  les automates prouvent et bloquent (déterministes)
+#   branch protection           ->  l'humain merge
+#
+# Aucun `continue-on-error` ici : un gate qui n'arrête rien n'est pas un gate, c'est une décoration.
+# Actions épinglées par SHA complet, version en commentaire : un tag peut être redéplacé vers
+# un autre commit, pas un SHA. Dependabot (.github/dependabot.yml) les maintient à jour.
+#
+# Pour rendre ces contrôles réellement bloquants, il faut ENCORE les déclarer en
+# required status checks : Settings -> Branches -> Branch protection rules (voir docs/devsecops.md).
+
+name: Security Gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # Gitleaks scanne l'historique : une profondeur de 1 ne verrait rien.
+
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE n'est requis que pour les dépôts d'organisation, pas pour un dépôt personnel.
+
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - run: pip install semgrep==1.177.0
+
+      # Règles explicites plutôt que `--config auto` (qui interroge le cloud Semgrep et envoie
+      # des métriques). p/typescript couvre NestJS/Next.js. `--error` fait échouer le job sur finding.
+      - name: semgrep scan
+        run: >-
+          semgrep scan --error --metrics=off
+          --config p/owasp-top-ten --config p/secrets --config p/typescript
+          backend/src backend/prisma frontend/src
+
+  sca:
+    name: Dépendances (npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Monorepo npm workspaces : le lockfile racine couvre backend/ et frontend/.
+      # `--omit=dev` volontairement ABSENT : un outil de build compromis compromet l'image.
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+  iac:
+    name: IaC & Dockerfiles (Checkov)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf # v12.1347.0
+        with:
+          directory: .
+          framework: dockerfile,github_actions,secrets
+          quiet: true
+          soft_fail: false # Explicite : Checkov doit faire échouer le job.
+
+  container:
+    name: Image (Trivy)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # voir le résultat des deux images même si l'une échoue
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build ${{ matrix.service }}
+        run: docker build -t school-${{ matrix.service }}:ci ./${{ matrix.service }}
+
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: school-${{ matrix.service }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true # Une CVE sans correctif upstream n'est pas actionnable ici.
+          exit-code: "1"
+
+  kit-consistency:
+    name: Cohérence du kit DevSecOps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Les sous-agents opencode sont dérivés de ceux de Claude Code. S'ils divergent,
+      # les utilisateurs d'opencode tournent avec un reviewer périmé sans le savoir.
+      - name: Les agents opencode sont-ils à jour ?
+        run: ./scripts/sync-opencode.sh --check
+
+      - name: Le frontmatter est-il valide ?
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'PY'
+          import glob, sys, yaml, json, os
+          ok = True
+          for f in glob.glob('.claude/agents/*.md') + glob.glob('.opencode/agents/*.md') + glob.glob('.claude/skills/*/SKILL.md'):
+              head = open(f, encoding='utf-8').read().split('---', 2)
+              if len(head) < 3:
+                  print(f'KO  {f} : frontmatter absent'); ok = False; continue
+              try:
+                  data = yaml.safe_load(head[1])
+              except Exception as e:
+                  print(f'KO  {f} : YAML invalide ({e})'); ok = False; continue
+              if not data.get('description'):
+                  print(f'KO  {f} : description manquante'); ok = False
+              # opencode exige que le nom du skill corresponde à son dossier.
+              if f.endswith('SKILL.md') and data.get('name') != os.path.basename(os.path.dirname(f)):
+                  print(f'KO  {f} : "name" ne correspond pas au nom du dossier'); ok = False
+          for f in ['opencode.json', '.claude/settings.json']:
+              try:
+                  json.load(open(f, encoding='utf-8'))
+              except Exception as e:
+                  print(f'KO  {f} : JSON invalide ({e})'); ok = False
+          sys.exit(0 if ok else 1)
+          PY
+
+      - name: Les hooks sont-ils exécutables et syntaxiquement valides ?
+        run: |
+          for h in .claude/hooks/*.sh scripts/*.sh; do
+            [ -x "$h" ] || { echo "KO  $h n'est pas exécutable"; exit 1; }
+            bash -n "$h" || exit 1
+          done
+          echo "OK  hooks et scripts valides"

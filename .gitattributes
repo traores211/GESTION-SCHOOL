@@ -1,0 +1,2 @@
+# Les hooks et scripts du kit DevSecOps sont exécutés par bash : un CRLF les casse.
+*.sh text eol=lf

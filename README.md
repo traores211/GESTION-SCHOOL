@@ -81,6 +81,13 @@ docker-compose logs -f
 
 See `/docs` folder for detailed documentation.
 
+## 🛡️ DevSecOps
+
+Le dépôt intègre une méthode DevSecOps agentique (règles de l'agent dans `CLAUDE.md`, sous-agents
+et workflows `/security-review`, `/threat-model`, `/harden-dockerfile`, `/dependency-check`,
+`/incident-report`, garde-fous automatiques et gates CI bloquants).
+Guide : [`docs/devsecops.md`](docs/devsecops.md) · Politique : [`SECURITY.md`](SECURITY.md).
+
 ## 🔐 Test Accounts (Phase 1)
 
 | Role | Email | Password |
