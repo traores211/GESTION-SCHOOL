@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-SchoolAdmin123!}
       POSTGRES_DB: ${DB_NAME:-school_erp}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +24,7 @@ services:
     image: redis:7-alpine
     container_name: school-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -45,8 +45,8 @@ services:
       LDAP_DOMAIN: school.local
       LDAP_ADMIN_PASSWORD: ${LDAP_PASSWORD:-LdapAdmin123!}
     ports:
-      - "389:389"
-      - "636:636"
+      - "127.0.0.1:389:389"
+      - "127.0.0.1:636:636"
     volumes:
       - ldap_data:/var/lib/ldap
       - ldap_config:/etc/ldap/slapd.d
@@ -63,16 +63,17 @@ services:
     image: mailhog/mailhog:latest
     container_name: school-mailhog
     ports:
-      - "1025:1025"    # SMTP
-      - "8025:8025"    # Web UI
+      - "127.0.0.1:1025:1025"    # SMTP
+      - "127.0.0.1:8025:8025"    # Web UI
     networks:
       - school-network
 
   # NestJS Backend
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
+      target: dev
     container_name: school-backend
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -93,10 +94,9 @@ services:
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "1000"
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     volumes:
-      - ./backend/src:/app/src
-      - backend_node_modules:/app/node_modules
+      - ./backend/src:/app/backend/src
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,21 +115,23 @@ services:
   # Next.js Frontend
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: dev
     container_name: school-frontend
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      INTERNAL_API_URL: http://backend:4000/api
+      NEXT_PUBLIC_DEMO_MODE: "true"
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
       WATCHPACK_POLLING: "true"
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
-      - ./frontend/src:/app/src
-      - frontend_node_modules:/app/node_modules
-      - frontend_next:/app/.next
+      - ./frontend/src:/app/frontend/src
+      - frontend_next:/app/frontend/.next
     depends_on:
       - backend
     healthcheck:

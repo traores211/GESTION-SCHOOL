@@ -1,0 +1,114 @@
+# Quality pipeline — complements security-gates.yml (Gitleaks, Semgrep, npm audit, Checkov, Trivy).
+#
+#   lint/types → unit tests → build → deploy to an ephemeral acceptance stack →
+#   smoke → functional E2E (API, desktop, tablet, mobile) → security (ZAP baseline) → report
+#
+# Functional tests run AFTER deployment, against the running stack: a green build is not
+# a working application. Any failure blocks the merge (declare these jobs as required checks).
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Types, tests unitaires, build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: gs
+          POSTGRES_PASSWORD: ci_only
+          POSTGRES_DB: gs_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gs" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://gs:ci_only@localhost:5432/gs_ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Prisma client + migrations sur base vierge
+        working-directory: backend
+        run: npx prisma generate && npx prisma migrate deploy
+      - name: Type-check backend
+        working-directory: backend
+        run: npx tsc --noEmit -p .
+      - name: Tests unitaires backend (Jest)
+        run: npm test --workspace=backend -- --ci
+      - name: Type-check frontend
+        working-directory: frontend
+        run: npx tsc --noEmit
+      - name: Build backend
+        working-directory: backend
+        run: npx nest build
+      - name: Build frontend (taille des bundles dans le log)
+        working-directory: frontend
+        run: npx next build
+
+  acceptance:
+    name: Déploiement recette + tests fonctionnels post-déploiement
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RECETTE_WEB: http://localhost:13000
+      RECETTE_API: http://localhost:14000/api
+      RECETTE_DB_CONTAINER: gs-recette-db-1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Secrets éphémères de recette
+        run: |
+          echo "RECETTE_DB_PASSWORD=$(openssl rand -hex 18)" >> "$GITHUB_ENV"
+          echo "JWT_SECRET=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
+          echo "APP_VERSION=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - name: Déployer la stack de recette (images de production)
+        run: docker compose -p gs-recette -f docker-compose.recette.yml up -d --build --wait
+      - name: Navigateurs Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Tests de fumée (bloquants)
+        run: npx playwright test -c tests --project=api tests/e2e/smoke.spec.ts
+      - name: Tests fonctionnels API + IA + performance
+        run: npx playwright test -c tests --project=api tests/e2e/api.spec.ts tests/e2e/ai.spec.ts tests/e2e/perf.spec.ts
+      - name: Tests E2E navigateur (bureau, tablette, mobile)
+        run: npx playwright test -c tests --project=desktop --project=tablet --project=mobile
+      - name: Scan de sécurité dynamique (OWASP ZAP baseline)
+        run: |
+          docker run --rm --network host -v "$PWD:/zap/wrk" ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t "$RECETTE_WEB/ecole/DEMO-001" -r zap-report.html -I
+      - name: Journaux en cas d'échec
+        if: failure()
+        run: docker compose -p gs-recette -f docker-compose.recette.yml logs --no-color > recette-logs.txt
+      - name: Rapport
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rapport-recette
+          path: |
+            playwright-report
+            test-results
+            zap-report.html
+            recette-logs.txt
+      - name: Arrêt de la stack
+        if: always()
+        run: docker compose -p gs-recette -f docker-compose.recette.yml down -v

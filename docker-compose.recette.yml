@@ -1,0 +1,80 @@
+# Acceptance (recette) environment: production images, isolated project and ports.
+#   JWT_SECRET=$(openssl rand -base64 48) docker compose -p gs-recette -f docker-compose.recette.yml up -d --build
+# Nothing is published on 0.0.0.0: web 127.0.0.1:13000, API 127.0.0.1:14000, DB 127.0.0.1:15432.
+# See docs/runbooks/deploiement.md.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gs
+      POSTGRES_PASSWORD: ${RECETTE_DB_PASSWORD:?set RECETTE_DB_PASSWORD}
+      POSTGRES_DB: gs_recette
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - recette_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gs -d gs_recette"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot job: apply versioned migrations, then load demo/acceptance data.
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: prod
+    environment:
+      DATABASE_URL: postgresql://gs:${RECETTE_DB_PASSWORD}@db:5432/gs_recette
+    command: ["sh", "-c", "npx prisma migrate deploy && npx ts-node prisma/seed.ts"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: prod
+    environment:
+      NODE_ENV: production
+      APP_VERSION: ${APP_VERSION:-recette}
+      DATABASE_URL: postgresql://gs:${RECETTE_DB_PASSWORD}@db:5432/gs_recette
+      JWT_SECRET: ${JWT_SECRET:?set a random JWT_SECRET of 32+ chars}
+      JWT_EXPIRATION: 8h
+      FRONTEND_URL: http://localhost:13000
+      CORS_ORIGINS: http://demo-001.localhost:13000,http://lycee-horizon.localhost:13000
+      PLATFORM_DOMAIN: localhost
+      # AI is enabled only if a key is provided by the operator's environment (never written here).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_EFFORT: low
+      # Acceptance tests hit the API hard from one IP: keep limits but raise the global one.
+      API_RATE_LIMIT: ${API_RATE_LIMIT:-2000}
+    ports:
+      - "127.0.0.1:14000:4000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: prod
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:14000/api
+        NEXT_PUBLIC_DEMO_MODE: "true"
+    environment:
+      INTERNAL_API_URL: http://backend:4000/api
+      PLATFORM_DOMAIN: localhost
+    ports:
+      - "127.0.0.1:13000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  recette_db:

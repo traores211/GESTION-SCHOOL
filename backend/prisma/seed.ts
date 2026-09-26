@@ -475,9 +475,153 @@ async function main() {
     });
   }
 
+  // ---------- SaaS: plan, branding, showcase of the demo school ----------
+  await prisma.school.update({
+    where: { id: school.id },
+    data: {
+      plan: 'ENTERPRISE',
+      directeur: 'M. Konan Yao',
+      primaryColor: '#1f5f4a',
+      secondaryColor: '#b45309',
+      footerText: 'Établissement privé agréé — Arrêté n° 0000/MENA',
+      seoTitle: 'Groupe Scolaire La Réussite — Collège et Lycée à Cocody',
+      seoDescription: "Collège et lycée à Abidjan-Cocody : inscriptions ouvertes, encadrement personnalisé, résultats d'excellence.",
+      socialLinks: { facebook: 'https://facebook.com/lareussite.demo', whatsapp: '+225 07 00 00 00 00' },
+      showcaseSections: [
+        { type: 'hero', enabled: true },
+        { type: 'about', enabled: true, title: 'Notre établissement' },
+        {
+          type: 'director',
+          enabled: true,
+          title: 'Le mot du directeur',
+          content:
+            "Chers parents, chers élèves, notre ambition est simple : que chaque enfant quitte La Réussite plus confiant, plus curieux et mieux préparé qu'à son arrivée.",
+        },
+        { type: 'levels', enabled: true, title: 'Niveaux et formations' },
+        {
+          type: 'values',
+          enabled: true,
+          title: 'Nos valeurs',
+          items: [
+            { title: 'Excellence', text: 'Des exigences élevées et un suivi individuel.' },
+            { title: 'Respect', text: 'Un cadre bienveillant et discipliné.' },
+            { title: 'Ouverture', text: 'Langues, numérique, sorties culturelles.' },
+          ],
+        },
+        { type: 'news', enabled: true, title: 'Actualités' },
+        { type: 'admissions', enabled: true, title: 'Préinscription en ligne' },
+        { type: 'contact', enabled: true, title: 'Nous contacter' },
+      ],
+    },
+  });
+
+  // Director account (school administration without platform rights).
+  await prisma.user.upsert({
+    where: { email: 'directeur@school.local' },
+    update: { password: await hash('direct123'), status: 'ACTIVE', role: 'DIRECTOR', schoolId: school.id },
+    create: {
+      email: 'directeur@school.local',
+      password: await hash('direct123'),
+      firstName: 'Yao',
+      lastName: 'Konan',
+      role: 'DIRECTOR',
+      schoolId: school.id,
+      staffMember: { create: { position: 'Directeur', hireDate: new Date('2018-09-01') } },
+    },
+  });
+
+  // Student account (ELEVE) — used to check that a student reaches no management screen.
+  await prisma.user.upsert({
+    where: { email: 'eleve@school.local' },
+    update: { password: await hash('eleve123'), status: 'ACTIVE' },
+    create: { email: 'eleve@school.local', password: await hash('eleve123'), firstName: 'Aya', lastName: 'Kouamé', role: 'ELEVE', schoolId: school.id },
+  });
+
+  // Weekly hours per subject (timetable generator input) and rooms.
+  const WEEKLY: Record<string, number> = { MATH: 5, FR: 5, ANG: 3, SVT: 2, HG: 3, EPS: 2 };
+  for (const [code, hours] of Object.entries(WEEKLY)) {
+    await prisma.classSubject.updateMany({ where: { subject: { schoolId: school.id, code } }, data: { weeklyHours: hours } });
+  }
+  for (const name of ['Salle 1', 'Salle 2', 'Salle 3', 'Laboratoire']) {
+    await prisma.room.upsert({ where: { schoolId_name: { schoolId: school.id, name } }, update: {}, create: { schoolId: school.id, name } });
+  }
+
+  // ---------- Second tenant (STARTER plan): isolation and feature-flag checks ----------
+  const org2 = await prisma.organisation.upsert({
+    where: { slug: 'lycee-horizon' },
+    update: {},
+    create: { name: 'Lycée Horizon', slug: 'lycee-horizon', email: 'contact@horizon.local' },
+  });
+  const school2 = await prisma.school.upsert({
+    where: { code: 'lycee-horizon' },
+    update: { plan: 'STARTER' },
+    create: {
+      organisationId: org2.id,
+      name: 'Lycée Horizon',
+      code: 'lycee-horizon',
+      email: 'contact@horizon.local',
+      city: 'Bouaké',
+      plan: 'STARTER',
+      tagline: 'Le lycée qui ouvre des horizons.',
+    },
+  });
+  let year2 = await prisma.academicYear.findFirst({ where: { schoolId: school2.id, isCurrent: true } });
+  if (!year2) {
+    year2 = await prisma.academicYear.create({
+      data: {
+        schoolId: school2.id,
+        name: '2025-2026',
+        startDate: new Date('2025-09-15'),
+        endDate: new Date('2026-06-30'),
+        isCurrent: true,
+        terms: { create: [{ name: 'Trimestre 1', order: 1, startDate: new Date('2025-09-15'), endDate: new Date('2025-12-19') }] },
+      },
+    });
+  }
+  const class2 = await prisma.class.upsert({
+    where: { academicYearId_code: { academicYearId: year2.id, code: '2A' } },
+    update: {},
+    create: { schoolId: school2.id, academicYearId: year2.id, name: 'Seconde A', code: '2A', level: 'Seconde' },
+  });
+  // Same matricule as a student of the first school: allowed now that uniqueness is per school.
+  const student2 = await prisma.student.upsert({
+    where: { schoolId_matricule: { schoolId: school2.id, matricule: '2026-0001' } },
+    update: {},
+    create: { schoolId: school2.id, firstName: 'Awa', lastName: 'Traoré', matricule: '2026-0001', dateOfBirth: new Date('2010-03-12'), gender: 'F' },
+  });
+  await prisma.enrollment.upsert({
+    where: { classId_studentId: { classId: class2.id, studentId: student2.id } },
+    update: {},
+    create: { classId: class2.id, studentId: student2.id },
+  });
+  await prisma.user.upsert({
+    where: { email: 'directeur@horizon.local' },
+    update: { password: await hash('horizon123'), status: 'ACTIVE' },
+    create: {
+      email: 'directeur@horizon.local',
+      password: await hash('horizon123'),
+      firstName: 'Mariam',
+      lastName: 'Ouattara',
+      role: 'DIRECTOR',
+      schoolId: school2.id,
+      staffMember: { create: { position: 'Proviseure', hireDate: new Date('2020-09-01') } },
+    },
+  });
+
+  // ---------- SaaS operator ----------
+  await prisma.user.upsert({
+    where: { email: 'platform@gestion.school' },
+    update: { password: await hash('platform123'), status: 'ACTIVE', role: 'PLATFORM_ADMIN', schoolId: null },
+    create: { email: 'platform@gestion.school', password: await hash('platform123'), firstName: 'Opérateur', lastName: 'Plateforme', role: 'PLATFORM_ADMIN' },
+  });
+
   console.log('\nSeed complete.');
   console.log(`  ${students.length} élèves répartis sur ${Object.keys(classes).length} classes`);
-  console.log('\nAccounts:');
+  console.log('\nAccounts (DEMO ONLY — never use these passwords outside local/acceptance environments):');
+  console.log('  PLATFORM_ADMIN : platform@gestion.school / platform123');
+  console.log('  DIRECTOR    : directeur@school.local / direct123');
+  console.log('  DIRECTOR (2e école, plan Starter) : directeur@horizon.local / horizon123');
+  console.log('  ELEVE       : eleve@school.local / eleve123');
   console.log('  SUPER_ADMIN : admin@school.local / admin123');
   console.log('  ENSEIGNANT  : k.kouassi@school.local / teach123 (Maths, SVT, HG, EPS)');
   console.log('  ENSEIGNANT  : y.diallo@school.local / teach123 (Français)');

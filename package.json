@@ -13,6 +13,7 @@
     "test": "npm test --workspace=backend && npm test --workspace=frontend"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.52.0",
     "concurrently": "^8.2.2"
   }
