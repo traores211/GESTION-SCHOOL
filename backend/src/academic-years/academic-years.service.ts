@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { assertAcademicYearInSchool } from '../common/tenant-ownership';
 import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 
 @Injectable()
@@ -41,10 +42,12 @@ export class AcademicYearsService {
 
   async setCurrent(user: AuthUser, id: string) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
-    await this.prisma.academicYear.updateMany({
-      where: { schoolId: user.schoolId },
-      data: { isCurrent: false },
-    });
-    return this.prisma.academicYear.update({ where: { id }, data: { isCurrent: true } });
+    // Check ownership before touching anything: otherwise another school's year could be switched.
+    await assertAcademicYearInSchool(this.prisma, id, user.schoolId);
+    const [, current] = await this.prisma.$transaction([
+      this.prisma.academicYear.updateMany({ where: { schoolId: user.schoolId }, data: { isCurrent: false } }),
+      this.prisma.academicYear.update({ where: { id }, data: { isCurrent: true } }),
+    ]);
+    return current;
   }
 }

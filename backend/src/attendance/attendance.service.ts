@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { assertStudentsEnrolledInClass } from '../common/tenant-ownership';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
 
@@ -15,6 +16,8 @@ export class AttendanceService {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
     const klass = await this.prisma.class.findUnique({ where: { id: dto.classId } });
     if (!klass || klass.schoolId !== user.schoolId) throw new NotFoundException('Classe introuvable');
+    // Also prevents notifying the parents of a student from another school.
+    await assertStudentsEnrolledInClass(this.prisma, dto.classId, dto.records.map((r) => r.studentId));
 
     const date = new Date(dto.date);
     date.setHours(0, 0, 0, 0);

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { can } from '../authz/permissions';
 import { AttendanceService } from '../attendance/attendance.service';
 import { BillingService } from '../billing/billing.service';
 
@@ -32,7 +33,8 @@ export class DashboardService {
         where: { schoolId: user.schoolId, status: { notIn: ['CONFIRME', 'REJETE'] } },
       }),
       this.attendanceService.todayStats(user),
-      this.billingService.financeStats(user),
+      // Finance figures only for roles allowed to see billing (not teachers).
+      can(user, 'billing:read') ? this.billingService.financeStats(user) : Promise.resolve(null),
     ]);
 
     return { studentsCount, teachersCount, classesCount, pendingAdmissions, attendance, finance };

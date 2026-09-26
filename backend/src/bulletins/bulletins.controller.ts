@@ -1,18 +1,18 @@
-import { Controller, Get, Param, Res, UseGuards } from '@nestjs/common';
+import { RequirePermissions } from '../authz/decorators';
+import { Controller, Get, Param, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import PDFDocument from 'pdfkit';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { GradesService } from '../grades/grades.service';
 
 @Controller('bulletins')
 @ApiTags('Bulletins')
-@UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class BulletinsController {
   constructor(private readonly gradesService: GradesService) {}
 
+  @RequirePermissions('grades:read')
   @Get(':studentId/:termId/pdf')
   async downloadPdf(
     @CurrentUser() user: AuthUser,

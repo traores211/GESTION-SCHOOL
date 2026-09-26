@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { can } from '../authz/permissions';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 
@@ -93,7 +94,15 @@ export class StudentsService {
       _avg: { score: true },
     });
 
-    return { ...student, attendanceStats, averageScore: gradeAgg._avg.score };
+    // Field-level authorization: keep the payload shape (empty arrays) so the 360° page still renders.
+    const canSeeGrades = can(user, 'grades:read');
+    return {
+      ...student,
+      grades: canSeeGrades ? student.grades : [],
+      invoices: can(user, 'billing:read') ? student.invoices : [],
+      attendanceStats,
+      averageScore: canSeeGrades ? gradeAgg._avg.score : null,
+    };
   }
 
   async update(user: AuthUser, id: string, dto: UpdateStudentDto) {

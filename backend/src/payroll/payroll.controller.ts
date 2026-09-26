@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { RequirePermissions } from '../authz/decorators';
+import { Body, Controller, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import PDFDocument from 'pdfkit';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { PayrollService } from './payroll.service';
 import { GeneratePayslipsDto } from './dto/generate-payslips.dto';
@@ -14,41 +14,47 @@ function formatFCFA(amount: number) {
 
 @Controller('payroll')
 @ApiTags('Payroll')
-@UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class PayrollController {
   constructor(private readonly payrollService: PayrollService) {}
 
+  @RequirePermissions('payroll:write')
   @Post('generate')
   generate(@CurrentUser() user: AuthUser, @Body() dto: GeneratePayslipsDto) {
     return this.payrollService.generate(user, dto.period);
   }
 
+  @RequirePermissions('payroll:read')
   @Get()
   findAll(@CurrentUser() user: AuthUser, @Query('period') period?: string) {
     return this.payrollService.findAll(user, period);
   }
 
+  @RequirePermissions('payroll:read')
   @Get('stats')
   stats(@CurrentUser() user: AuthUser, @Query('period') period: string) {
     return this.payrollService.stats(user, period);
   }
 
+  @RequirePermissions('payroll:write')
   @Patch(':id')
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdatePayslipDto) {
     return this.payrollService.update(user, id, dto);
   }
 
+  @RequirePermissions('payroll:write')
   @Patch(':id/validate')
   validate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.payrollService.validate(user, id);
   }
 
+  @RequirePermissions('payroll:write')
   @Patch(':id/pay')
   pay(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.payrollService.pay(user, id);
   }
 
+  @RequirePermissions('payroll:read')
   @Get(':id/pdf')
   async downloadPdf(@CurrentUser() user: AuthUser, @Param('id') id: string, @Res() res: Response) {
     const payslip = await this.payrollService.findOne(user, id);

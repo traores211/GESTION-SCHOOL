@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { PUBLIC_USER_SELECT } from '../common/user-select';
+import { assertTeacherInSchool } from '../common/tenant-ownership';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 
 @Injectable()
@@ -27,12 +29,13 @@ export class SubjectsService {
     if (!subject || subject.schoolId !== user.schoolId) throw new NotFoundException('Matière introuvable');
     const klass = await this.prisma.class.findUnique({ where: { id: classId } });
     if (!klass || klass.schoolId !== user.schoolId) throw new NotFoundException('Classe introuvable');
+    if (teacherId) await assertTeacherInSchool(this.prisma, teacherId, klass.schoolId);
 
     return this.prisma.classSubject.upsert({
       where: { classId_subjectId: { classId, subjectId } },
       update: { teacherId, coefficient: coefficient ?? subject.coefficient },
       create: { classId, subjectId, teacherId, coefficient: coefficient ?? subject.coefficient },
-      include: { subject: true, teacher: { include: { user: true } } },
+      include: { subject: true, teacher: { include: { user: { select: PUBLIC_USER_SELECT } } } },
     });
   }
 

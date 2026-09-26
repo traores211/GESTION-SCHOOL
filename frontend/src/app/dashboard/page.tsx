@@ -10,13 +10,14 @@ interface Overview {
   classesCount: number;
   pendingAdmissions: number;
   attendance: { present: number; absent: number; late: number; justified?: number; total: number; rate: number };
+  /** null when the signed-in role may not see billing (e.g. teachers). */
   finance: {
     totalInvoiced: number;
     totalCollected: number;
     outstanding: number;
     recoveryRate: number;
     collectedToday: number;
-  };
+  } | null;
 }
 
 function formatFCFA(amount: number) {
@@ -72,6 +73,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {data.finance && (
           <div className="card" style={{ marginBottom: 24 }}>
             <h2 style={{ fontSize: 15, marginBottom: 16 }}>💰 Finances</h2>
             <div className="kpi-grid" style={{ marginBottom: 0 }}>
@@ -121,6 +123,7 @@ export default function DashboardPage() {
               Encaissé aujourd&apos;hui : {formatFCFA(data.finance.collectedToday)}
             </p>
           </div>
+          )}
         </>
       )}
     </Shell>

@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { PUBLIC_USER_SELECT } from '../common/user-select';
+import { assertAcademicYearInSchool, assertTeacherInSchool } from '../common/tenant-ownership';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 
@@ -9,7 +11,10 @@ export class ClassesService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async resolveAcademicYearId(schoolId: string, academicYearId?: string) {
-    if (academicYearId) return academicYearId;
+    if (academicYearId) {
+      await assertAcademicYearInSchool(this.prisma, academicYearId, schoolId);
+      return academicYearId;
+    }
     const current = await this.prisma.academicYear.findFirst({
       where: { schoolId, isCurrent: true },
     });
@@ -22,6 +27,7 @@ export class ClassesService {
   async create(user: AuthUser, dto: CreateClassDto) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
     const academicYearId = await this.resolveAcademicYearId(user.schoolId, dto.academicYearId);
+    if (dto.teacherId) await assertTeacherInSchool(this.prisma, dto.teacherId, user.schoolId);
 
     return this.prisma.class.create({
       data: {
@@ -33,7 +39,7 @@ export class ClassesService {
         capacity: dto.capacity ?? 50,
         teacherId: dto.teacherId,
       },
-      include: { teacher: { include: { user: true } }, academicYear: true },
+      include: { teacher: { include: { user: { select: PUBLIC_USER_SELECT } } }, academicYear: true },
     });
   }
 
@@ -47,7 +53,7 @@ export class ClassesService {
         ...(resolvedYearId ? { academicYearId: resolvedYearId } : {}),
       },
       include: {
-        teacher: { include: { user: true } },
+        teacher: { include: { user: { select: PUBLIC_USER_SELECT } } },
         academicYear: true,
         _count: { select: { enrollments: true } },
       },
@@ -59,14 +65,14 @@ export class ClassesService {
     const klass = await this.prisma.class.findUnique({
       where: { id },
       include: {
-        teacher: { include: { user: true } },
+        teacher: { include: { user: { select: PUBLIC_USER_SELECT } } },
         academicYear: true,
         enrollments: {
           where: { withdrawalDate: null },
           include: { student: true },
           orderBy: { student: { lastName: 'asc' } },
         },
-        classSubjects: { include: { subject: true, teacher: { include: { user: true } } } },
+        classSubjects: { include: { subject: true, teacher: { include: { user: { select: PUBLIC_USER_SELECT } } } } },
       },
     });
     if (!klass) throw new NotFoundException('Classe introuvable');
@@ -78,6 +84,8 @@ export class ClassesService {
     const existing = await this.prisma.class.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Classe introuvable');
     if (existing.schoolId !== user.schoolId) throw new ForbiddenException();
+    if (dto.teacherId) await assertTeacherInSchool(this.prisma, dto.teacherId, existing.schoolId);
+    if (dto.academicYearId) await assertAcademicYearInSchool(this.prisma, dto.academicYearId, existing.schoolId);
     return this.prisma.class.update({ where: { id }, data: dto });
   }
 

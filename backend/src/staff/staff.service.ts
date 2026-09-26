@@ -1,11 +1,20 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { can } from '../authz/permissions';
 import { CreateStaffDto } from './dto/create-staff.dto';
 
 function randomPassword() {
-  return Math.random().toString(36).slice(-10);
+  // 12 characters from a CSPRNG (Math.random is predictable).
+  return randomBytes(9).toString('base64url');
+}
+
+/** Salaries are only visible to holders of payroll:read (the staff directory is shared more widely). */
+function redactSalary<T extends { staffMember: { baseSalary: number | null } | null }>(viewer: AuthUser, member: T): T {
+  if (!member.staffMember || can(viewer, 'payroll:read')) return member;
+  return { ...member, staffMember: { ...member.staffMember, baseSalary: null } };
 }
 
 @Injectable()
@@ -58,7 +67,7 @@ export class StaffService {
       },
       orderBy: [{ lastName: 'asc' }],
     });
-    return users.map(({ password, ...rest }) => rest);
+    return users.map(({ password, ...rest }) => redactSalary(user, rest));
   }
 
   async findOne(user: AuthUser, id: string) {
@@ -70,7 +79,7 @@ export class StaffService {
       throw new NotFoundException('Membre du personnel introuvable');
     }
     const { password, ...rest } = found;
-    return rest;
+    return redactSalary(user, rest);
   }
 
   async updateSalary(user: AuthUser, id: string, baseSalary: number) {

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { PUBLIC_USER_SELECT } from '../common/user-select';
 import { UpdatePayslipDto } from './dto/update-payslip.dto';
 
 @Injectable()
@@ -44,7 +45,7 @@ export class PayrollService {
     if (!user.schoolId) return [];
     return this.prisma.payslip.findMany({
       where: { schoolId: user.schoolId, ...(period ? { period } : {}) },
-      include: { staffMember: { include: { user: true } } },
+      include: { staffMember: { include: { user: { select: PUBLIC_USER_SELECT } } } },
       orderBy: [{ period: 'desc' }, { staffMember: { user: { lastName: 'asc' } } }],
     });
   }
@@ -52,7 +53,7 @@ export class PayrollService {
   async findOne(user: AuthUser, id: string) {
     const payslip = await this.prisma.payslip.findUnique({
       where: { id },
-      include: { staffMember: { include: { user: true } }, school: true },
+      include: { staffMember: { include: { user: { select: PUBLIC_USER_SELECT } } }, school: true },
     });
     if (!payslip) throw new NotFoundException('Bulletin de paie introuvable');
     if (payslip.schoolId !== user.schoolId) throw new ForbiddenException();

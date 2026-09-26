@@ -1,6 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { PUBLIC_USER_SELECT } from '../common/user-select';
+import {
+  assertStudentsEnrolledInClass,
+  assertSubjectInSchool,
+  assertTermInSchool,
+} from '../common/tenant-ownership';
 import { EnterGradesDto } from './dto/enter-grades.dto';
 
 @Injectable()
@@ -10,6 +16,9 @@ export class GradesService {
   async enter(user: AuthUser, dto: EnterGradesDto) {
     const klass = await this.prisma.class.findUnique({ where: { id: dto.classId } });
     if (!klass || klass.schoolId !== user.schoolId) throw new NotFoundException('Classe introuvable');
+    await assertSubjectInSchool(this.prisma, dto.subjectId, klass.schoolId);
+    await assertTermInSchool(this.prisma, dto.termId, klass.schoolId);
+    await assertStudentsEnrolledInClass(this.prisma, dto.classId, dto.records.map((r) => r.studentId));
 
     const maxScore = dto.maxScore ?? 20;
 
@@ -67,12 +76,11 @@ export class GradesService {
     const enrollment = student.enrollments[0];
     if (!enrollment) throw new BadRequestException("L'élève n'est inscrit dans aucune classe");
 
-    const term = await this.prisma.term.findUnique({ where: { id: termId } });
-    if (!term) throw new NotFoundException('Période introuvable');
+    const term = await assertTermInSchool(this.prisma, termId, student.schoolId);
 
     const classSubjects = await this.prisma.classSubject.findMany({
       where: { classId: enrollment.classId },
-      include: { subject: true, teacher: { include: { user: true } } },
+      include: { subject: true, teacher: { include: { user: { select: PUBLIC_USER_SELECT } } } },
     });
 
     const allGrades = await this.prisma.grade.findMany({

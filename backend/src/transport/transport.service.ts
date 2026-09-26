@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { assertVehicleInSchool } from '../common/tenant-ownership';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { CreateRouteDto } from './dto/create-route.dto';
 
@@ -54,8 +55,9 @@ export class TransportService {
 
   // ---------- Routes ----------
 
-  createRoute(user: AuthUser, dto: CreateRouteDto) {
+  async createRoute(user: AuthUser, dto: CreateRouteDto) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
+    if (dto.vehicleId) await assertVehicleInSchool(this.prisma, dto.vehicleId, user.schoolId);
     return this.prisma.transportRoute.create({ data: { ...dto, schoolId: user.schoolId } });
   }
 
