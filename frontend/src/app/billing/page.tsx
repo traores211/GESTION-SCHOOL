@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
+import { useSession } from "../../lib/session";
+import { ErrorAlert } from "../../components/ui/States";
+import Modal from "../../components/ui/Modal";
 import { api, ApiError } from "../../lib/api";
 
 interface StudentOption {
@@ -38,6 +41,8 @@ function formatFCFA(amount: number) {
 }
 
 export default function BillingPage() {
+  const { can } = useSession();
+  const [reminder, setReminder] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -106,12 +111,31 @@ export default function BillingPage() {
           <h1>Facturation & Paiements</h1>
           <p>{invoices.length} facture(s) — Mobile Money, espèces, virement, chèque</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowInvoiceForm(true)}>
-          + Nouvelle facture
+        {can("billing:write") && (
+          <div className="row">
+          <button
+            className="btn btn-outline"
+            onClick={async () => {
+              setReminder(null);
+              try {
+                const r = await api.post<{ invoices: number; notified: number }>("/billing/reminders");
+                setReminder(r.invoices ? `${r.invoices} facture(s) échue(s) : ${r.notified} parent(s) relancé(s).` : "Aucune facture échue à relancer.");
+              } catch (err) {
+                setError(err instanceof ApiError ? err.message : "Relance impossible");
+              }
+            }}
+          >
+            Relancer les impayés échus
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowInvoiceForm(true)}>
+          Nouvelle facture
         </button>
+          </div>
+        )}
       </div>
 
-      {error && <p className="text-danger">{error}</p>}
+      <ErrorAlert message={error} />
+      {reminder && <div className="alert alert-success" role="status">{reminder}</div>}
 
       <div className="table-wrap">
         <table>
@@ -156,7 +180,7 @@ export default function BillingPage() {
                           setPaymentForm({ amount: inv.totalAmount - paid, method: "CASH", reference: "" });
                         }}
                       >
-                        💳 Encaisser
+                        Encaisser
                       </button>
                     )}
                   </td>
@@ -169,13 +193,12 @@ export default function BillingPage() {
       </div>
 
       {showInvoiceForm && (
-        <div className="modal-overlay" onClick={() => setShowInvoiceForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouvelle facture</h2>
+        <Modal title={<>Nouvelle facture</>} onClose={() => setShowInvoiceForm(false)}>
+            
             <form onSubmit={createInvoice}>
               <div className="field">
-                <label>Élève</label>
-                <select className="input" required value={invoiceForm.studentId} onChange={(e) => setInvoiceForm({ ...invoiceForm, studentId: e.target.value })}>
+                <label htmlFor="billing-f1">Élève</label>
+                <select id="billing-f1" className="input" required value={invoiceForm.studentId} onChange={(e) => setInvoiceForm({ ...invoiceForm, studentId: e.target.value })}>
                   <option value="">— Sélectionner —</option>
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>{s.lastName} {s.firstName} ({s.matricule})</option>
@@ -184,16 +207,16 @@ export default function BillingPage() {
               </div>
               <div className="form-grid">
                 <div className="field">
-                  <label>Libellé</label>
-                  <input className="input" required value={invoiceForm.label} onChange={(e) => setInvoiceForm({ ...invoiceForm, label: e.target.value })} />
+                  <label htmlFor="billing-f2">Libellé</label>
+                  <input id="billing-f2" className="input" required value={invoiceForm.label} onChange={(e) => setInvoiceForm({ ...invoiceForm, label: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Montant (FCFA)</label>
-                  <input type="number" className="input" required value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: Number(e.target.value) })} />
+                  <label htmlFor="billing-f3">Montant (FCFA)</label>
+                  <input id="billing-f3" type="number" className="input" required value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: Number(e.target.value) })} />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Échéance</label>
-                  <input type="date" className="input" required value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} />
+                  <label htmlFor="billing-f4">Échéance</label>
+                  <input id="billing-f4" type="date" className="input" required value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} />
                 </div>
               </div>
               {formError && <p className="text-danger" style={{ marginBottom: 12 }}>{formError}</p>}
@@ -202,32 +225,30 @@ export default function BillingPage() {
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer la facture"}</button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {payingInvoice && (
-        <div className="modal-overlay" onClick={() => setPayingInvoice(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 4 }}>Encaisser un paiement</h2>
+        <Modal title={<>Encaisser un paiement</>} onClose={() => setPayingInvoice(null)}>
+            
             <p className="muted" style={{ marginBottom: 16, fontSize: 13 }}>
               {payingInvoice.reference} — {payingInvoice.student.lastName} {payingInvoice.student.firstName}
             </p>
             <form onSubmit={recordPayment}>
               <div className="form-grid">
                 <div className="field">
-                  <label>Montant (FCFA)</label>
-                  <input type="number" className="input" required value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: Number(e.target.value) })} />
+                  <label htmlFor="billing-f5">Montant (FCFA)</label>
+                  <input id="billing-f5" type="number" className="input" required value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: Number(e.target.value) })} />
                 </div>
                 <div className="field">
-                  <label>Moyen de paiement</label>
-                  <select className="input" value={paymentForm.method} onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}>
+                  <label htmlFor="billing-f6">Moyen de paiement</label>
+                  <select id="billing-f6" className="input" value={paymentForm.method} onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}>
                     {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Référence (optionnel)</label>
-                  <input className="input" value={paymentForm.reference} onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })} />
+                  <label htmlFor="billing-f7">Référence (optionnel)</label>
+                  <input id="billing-f7" className="input" value={paymentForm.reference} onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })} />
                 </div>
               </div>
               {formError && <p className="text-danger" style={{ marginBottom: 12 }}>{formError}</p>}
@@ -236,8 +257,7 @@ export default function BillingPage() {
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Traitement…" : "Confirmer le paiement"}</button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
     </Shell>
   );

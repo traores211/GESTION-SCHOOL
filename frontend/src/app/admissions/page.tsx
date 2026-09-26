@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
+import { useSession } from "../../lib/session";
+import Modal from "../../components/ui/Modal";
 import { api, ApiError } from "../../lib/api";
 
 interface AdmissionRow {
@@ -41,6 +43,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function AdmissionsPage() {
+  const { can } = useSession();
   const [admissions, setAdmissions] = useState<AdmissionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -96,9 +99,11 @@ export default function AdmissionsPage() {
           <h1>Admissions</h1>
           <p>{admissions.length} candidature(s) — workflow complet de l&apos;inscription</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+        {can("admissions:write") && (
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           + Nouvelle candidature
         </button>
+        )}
       </div>
 
       {error && <p className="text-danger">{error}</p>}
@@ -148,30 +153,29 @@ export default function AdmissionsPage() {
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouvelle candidature</h2>
+        <Modal title={<>Nouvelle candidature</>} onClose={() => setShowForm(false)}>
+            
             <form onSubmit={handleCreate}>
               <div className="form-grid">
                 <div className="field">
-                  <label>Prénom</label>
-                  <input className="input" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                  <label htmlFor="admissions-f1">Prénom</label>
+                  <input id="admissions-f1" className="input" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Nom</label>
-                  <input className="input" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                  <label htmlFor="admissions-f2">Nom</label>
+                  <input id="admissions-f2" className="input" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Email</label>
-                  <input type="email" className="input" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  <label htmlFor="admissions-f3">Email</label>
+                  <input id="admissions-f3" type="email" className="input" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Téléphone</label>
-                  <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <label htmlFor="admissions-f4">Téléphone</label>
+                  <input id="admissions-f4" className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Sexe</label>
-                  <select className="input" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+                  <label htmlFor="admissions-f5">Sexe</label>
+                  <select id="admissions-f5" className="input" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
                     <option value="M">Masculin</option>
                     <option value="F">Féminin</option>
                   </select>
@@ -183,8 +187,7 @@ export default function AdmissionsPage() {
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer la candidature"}</button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
     </Shell>
   );

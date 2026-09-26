@@ -48,7 +48,7 @@ export default function Home() {
               boxShadow: "var(--shadow-md)",
             }}
           >
-            🎓
+            
           </div>
           <h1 style={{ fontSize: 30 }}>School ERP</h1>
           <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
@@ -57,13 +57,13 @@ export default function Home() {
 
           <div style={{ marginTop: 28, display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/login" className="btn btn-primary">
-              🔐 Se connecter
+              Se connecter
             </Link>
             <Link href="/ecole/DEMO-001" className="btn btn-secondary">
-              🌐 Voir la vitrine de l&apos;école
+              Voir la vitrine de l&apos;école
             </Link>
             <a href="http://localhost:4000/api/docs" className="btn btn-outline">
-              📚 API Docs
+              API Docs
             </a>
           </div>
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
+import { useSession } from "../../lib/session";
+import Modal from "../../components/ui/Modal";
 import { api, ApiError } from "../../lib/api";
 
 interface StudentOption {
@@ -22,6 +24,7 @@ interface ParentRow {
 }
 
 export default function ParentsPage() {
+  const { can } = useSession();
   const [parents, setParents] = useState<ParentRow[]>([]);
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -77,9 +80,11 @@ export default function ParentsPage() {
           <h1>Parents & Tuteurs</h1>
           <p>{parents.length} contact(s) parental(aux)</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+        {can("parents:write") && (
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           + Nouveau parent
         </button>
+        )}
       </div>
 
       {error && <p className="text-danger">{error}</p>}
@@ -113,30 +118,29 @@ export default function ParentsPage() {
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouveau parent</h2>
+        <Modal title={<>Nouveau parent</>} onClose={() => setShowForm(false)}>
+            
             <form onSubmit={handleCreate}>
               <div className="form-grid">
                 <div className="field">
-                  <label>Prénom</label>
-                  <input className="input" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                  <label htmlFor="parents-f1">Prénom</label>
+                  <input id="parents-f1" className="input" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Nom</label>
-                  <input className="input" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                  <label htmlFor="parents-f2">Nom</label>
+                  <input id="parents-f2" className="input" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Email</label>
-                  <input type="email" className="input" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  <label htmlFor="parents-f3">Email</label>
+                  <input id="parents-f3" type="email" className="input" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Téléphone</label>
-                  <input className="input" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <label htmlFor="parents-f4">Téléphone</label>
+                  <input id="parents-f4" className="input" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Lien de parenté</label>
-                  <select className="input" value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })}>
+                  <label htmlFor="parents-f5">Lien de parenté</label>
+                  <select id="parents-f5" className="input" value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })}>
                     <option>Père</option>
                     <option>Mère</option>
                     <option>Tuteur</option>
@@ -144,8 +148,8 @@ export default function ParentsPage() {
                 </div>
               </div>
               <div className="field">
-                <label>Enfants rattachés</label>
-                <div style={{ maxHeight: 160, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8, padding: 8 }}>
+                <span className="field-label" id="parents-children-label">Enfants rattachés</span>
+                <div role="group" aria-labelledby="parents-children-label" style={{ maxHeight: 160, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8, padding: 8 }}>
                   {students.map((s) => (
                     <label key={s.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "4px 0", fontWeight: 400 }}>
                       <input type="checkbox" checked={form.studentIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />
@@ -164,8 +168,7 @@ export default function ParentsPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
     </Shell>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
+import Modal from "../../components/ui/Modal";
 import { api, ApiError } from "../../lib/api";
 
 interface Vehicle {
@@ -111,7 +112,7 @@ export default function TransportPage() {
     <Shell title="Transport scolaire">
       <div className="page-header">
         <div>
-          <h1>🚌 Transport scolaire</h1>
+          <h1>Transport scolaire</h1>
           <p>Véhicules, circuits et abonnements élèves</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -133,17 +134,17 @@ export default function TransportPage() {
               <span className="badge badge-green">Actif</span>
             </div>
             <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
-              👤 {v.driverName || "Chauffeur non assigné"} {v.driverPhone ? `· ${v.driverPhone}` : ""}
+              {v.driverName || "Chauffeur non assigné"} {v.driverPhone ? `· ${v.driverPhone}` : ""}
             </p>
             <p style={{ fontSize: 12, marginTop: 6 }}>
               {v.lastPingAt ? (
-                <>📍 {v.lastLat?.toFixed(4)}, {v.lastLng?.toFixed(4)} <span className="muted">({new Date(v.lastPingAt).toLocaleTimeString("fr-FR")})</span></>
+                <>{v.lastLat?.toFixed(4)}, {v.lastLng?.toFixed(4)} <span className="muted">({new Date(v.lastPingAt).toLocaleTimeString("fr-FR")})</span></>
               ) : (
                 <span className="muted">Aucune position GPS reçue</span>
               )}
             </p>
             <button className="btn btn-outline btn-sm" style={{ marginTop: 10 }} onClick={() => pingVehicle(v.id)}>
-              📡 Simuler position GPS
+              Simuler position GPS
             </button>
           </div>
         ))}
@@ -190,30 +191,29 @@ export default function TransportPage() {
       {routes.length === 0 && <div className="empty-state">Aucun circuit créé.</div>}
 
       {showVehicleForm && (
-        <div className="modal-overlay" onClick={() => setShowVehicleForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouveau véhicule</h2>
+        <Modal title={<>Nouveau véhicule</>} onClose={() => setShowVehicleForm(false)}>
+            
             <form onSubmit={createVehicle}>
               <div className="form-grid">
                 <div className="field">
-                  <label>Immatriculation</label>
-                  <input className="input" required value={vehicleForm.plateNumber} onChange={(e) => setVehicleForm({ ...vehicleForm, plateNumber: e.target.value })} />
+                  <label htmlFor="transport-f1">Immatriculation</label>
+                  <input id="transport-f1" className="input" required value={vehicleForm.plateNumber} onChange={(e) => setVehicleForm({ ...vehicleForm, plateNumber: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Marque / Modèle</label>
-                  <input className="input" value={vehicleForm.brand} onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value })} />
+                  <label htmlFor="transport-f2">Marque / Modèle</label>
+                  <input id="transport-f2" className="input" value={vehicleForm.brand} onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Capacité</label>
-                  <input type="number" className="input" value={vehicleForm.capacity} onChange={(e) => setVehicleForm({ ...vehicleForm, capacity: Number(e.target.value) })} />
+                  <label htmlFor="transport-f3">Capacité</label>
+                  <input id="transport-f3" type="number" className="input" value={vehicleForm.capacity} onChange={(e) => setVehicleForm({ ...vehicleForm, capacity: Number(e.target.value) })} />
                 </div>
                 <div className="field">
-                  <label>Chauffeur</label>
-                  <input className="input" value={vehicleForm.driverName} onChange={(e) => setVehicleForm({ ...vehicleForm, driverName: e.target.value })} />
+                  <label htmlFor="transport-f4">Chauffeur</label>
+                  <input id="transport-f4" className="input" value={vehicleForm.driverName} onChange={(e) => setVehicleForm({ ...vehicleForm, driverName: e.target.value })} />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Téléphone chauffeur</label>
-                  <input className="input" value={vehicleForm.driverPhone} onChange={(e) => setVehicleForm({ ...vehicleForm, driverPhone: e.target.value })} />
+                  <label htmlFor="transport-f5">Téléphone chauffeur</label>
+                  <input id="transport-f5" className="input" value={vehicleForm.driverPhone} onChange={(e) => setVehicleForm({ ...vehicleForm, driverPhone: e.target.value })} />
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
@@ -221,34 +221,32 @@ export default function TransportPage() {
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer"}</button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
 
       {showRouteForm && (
-        <div className="modal-overlay" onClick={() => setShowRouteForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouveau circuit</h2>
+        <Modal title={<>Nouveau circuit</>} onClose={() => setShowRouteForm(false)}>
+            
             <form onSubmit={createRoute}>
               <div className="form-grid">
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Nom du circuit</label>
-                  <input className="input" required placeholder="Ex: Circuit Cocody" value={routeForm.name} onChange={(e) => setRouteForm({ ...routeForm, name: e.target.value })} />
+                  <label htmlFor="transport-f6">Nom du circuit</label>
+                  <input id="transport-f6" className="input" required placeholder="Ex: Circuit Cocody" value={routeForm.name} onChange={(e) => setRouteForm({ ...routeForm, name: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Véhicule</label>
-                  <select className="input" value={routeForm.vehicleId} onChange={(e) => setRouteForm({ ...routeForm, vehicleId: e.target.value })}>
+                  <label htmlFor="transport-f7">Véhicule</label>
+                  <select id="transport-f7" className="input" value={routeForm.vehicleId} onChange={(e) => setRouteForm({ ...routeForm, vehicleId: e.target.value })}>
                     <option value="">— Aucun —</option>
                     {vehicles.map((v) => <option key={v.id} value={v.id}>{v.plateNumber}</option>)}
                   </select>
                 </div>
                 <div className="field">
-                  <label>Heure de départ</label>
-                  <input className="input" value={routeForm.departureTime} onChange={(e) => setRouteForm({ ...routeForm, departureTime: e.target.value })} />
+                  <label htmlFor="transport-f8">Heure de départ</label>
+                  <input id="transport-f8" className="input" value={routeForm.departureTime} onChange={(e) => setRouteForm({ ...routeForm, departureTime: e.target.value })} />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Tarif mensuel (FCFA)</label>
-                  <input type="number" className="input" value={routeForm.monthlyFee} onChange={(e) => setRouteForm({ ...routeForm, monthlyFee: Number(e.target.value) })} />
+                  <label htmlFor="transport-f9">Tarif mensuel (FCFA)</label>
+                  <input id="transport-f9" type="number" className="input" value={routeForm.monthlyFee} onChange={(e) => setRouteForm({ ...routeForm, monthlyFee: Number(e.target.value) })} />
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
@@ -256,8 +254,7 @@ export default function TransportPage() {
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer"}</button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
     </Shell>
   );

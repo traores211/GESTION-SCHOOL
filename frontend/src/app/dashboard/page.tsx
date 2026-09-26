@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
 import { api, ApiError } from "../../lib/api";
+import { ErrorAlert, SkeletonRows } from "../../components/ui/States";
 
 interface Overview {
   studentsCount: number;
@@ -44,7 +45,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {error && <p className="text-danger">{error}</p>}
+      <ErrorAlert message={error} />
+      {!data && !error && <SkeletonRows rows={4} height={64} />}
 
       {data && (
         <>
@@ -75,7 +77,7 @@ export default function DashboardPage() {
 
           {data.finance && (
           <div className="card" style={{ marginBottom: 24 }}>
-            <h2 style={{ fontSize: 15, marginBottom: 16 }}>💰 Finances</h2>
+            <h2 style={{ fontSize: 15, marginBottom: 16 }}>Finances</h2>
             <div className="kpi-grid" style={{ marginBottom: 0 }}>
               <div>
                 <div className="kpi-label">Total facturé</div>

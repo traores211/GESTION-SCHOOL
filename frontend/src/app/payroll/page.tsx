@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
 import { api, ApiError } from "../../lib/api";
+import Modal from "../../components/ui/Modal";
 import { getToken } from "../../lib/auth";
 
 interface Payslip {
@@ -108,18 +109,18 @@ export default function PayrollPage() {
     <Shell title="Paie du personnel">
       <div className="page-header">
         <div>
-          <h1>💵 Paie du personnel</h1>
+          <h1>Paie du personnel</h1>
           <p>Salaires, primes, retenues et bulletins de paie</p>
         </div>
       </div>
 
       <div className="card" style={{ marginBottom: 16, display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div className="field" style={{ marginBottom: 0 }}>
-          <label>Période</label>
-          <input type="month" className="input" value={period} onChange={(e) => setPeriod(e.target.value)} />
+          <label htmlFor="payroll-f1">Période</label>
+          <input id="payroll-f1" type="month" className="input" value={period} onChange={(e) => setPeriod(e.target.value)} />
         </div>
         <button className="btn btn-primary" onClick={generate} disabled={generating}>
-          {generating ? "Génération…" : "⚙️ Générer les bulletins"}
+          {generating ? "Génération…" : "Générer les bulletins"}
         </button>
         <div className="kpi-card" style={{ marginBottom: 0 }}>
           <div className="kpi-label">Masse salariale nette ({period})</div>
@@ -168,7 +169,7 @@ export default function PayrollPage() {
                   {p.status === "VALIDATED" && (
                     <button className="btn btn-secondary btn-sm" onClick={() => pay(p.id)}>Payer</button>
                   )}
-                  <button className="btn btn-outline btn-sm" onClick={() => downloadPdf(p.id)}>📄</button>
+                  <button className="btn btn-outline btn-sm" onClick={() => downloadPdf(p.id)}></button>
                 </td>
               </tr>
             ))}
@@ -181,8 +182,8 @@ export default function PayrollPage() {
         <h2 style={{ fontSize: 14, marginBottom: 12 }}>Définir le salaire de base</h2>
         <form onSubmit={setStaffSalary} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div className="field" style={{ marginBottom: 0, minWidth: 220 }}>
-            <label>Employé</label>
-            <select className="input" value={salaryForm.staffId} onChange={(e) => setSalaryForm({ ...salaryForm, staffId: e.target.value })}>
+            <label htmlFor="payroll-f2">Employé</label>
+            <select id="payroll-f2" className="input" value={salaryForm.staffId} onChange={(e) => setSalaryForm({ ...salaryForm, staffId: e.target.value })}>
               <option value="">— Sélectionner —</option>
               {staff.filter((s) => s.staffMember).map((s) => (
                 <option key={s.id} value={s.id}>
@@ -192,17 +193,16 @@ export default function PayrollPage() {
             </select>
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>Salaire de base (FCFA)</label>
-            <input type="number" className="input" value={salaryForm.baseSalary} onChange={(e) => setSalaryForm({ ...salaryForm, baseSalary: Number(e.target.value) })} />
+            <label htmlFor="payroll-f3">Salaire de base (FCFA)</label>
+            <input id="payroll-f3" type="number" className="input" value={salaryForm.baseSalary} onChange={(e) => setSalaryForm({ ...salaryForm, baseSalary: Number(e.target.value) })} />
           </div>
           <button type="submit" className="btn btn-secondary" disabled={!salaryForm.staffId}>Enregistrer</button>
         </form>
       </div>
 
       {editing && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 4 }}>Ajuster le bulletin</h2>
+        <Modal title={<>Ajuster le bulletin</>} onClose={() => setEditing(null)}>
+            
             <p className="muted" style={{ marginBottom: 16, fontSize: 13 }}>
               {editing.staffMember.user.firstName} {editing.staffMember.user.lastName} — {editing.period}
             </p>
@@ -217,12 +217,12 @@ export default function PayrollPage() {
             >
               <div className="form-grid">
                 <div className="field">
-                  <label>Primes (FCFA)</label>
-                  <input name="bonuses" type="number" className="input" defaultValue={editing.bonuses} />
+                  <label htmlFor="payroll-f4">Primes (FCFA)</label>
+                  <input id="payroll-f4" name="bonuses" type="number" className="input" defaultValue={editing.bonuses} />
                 </div>
                 <div className="field">
-                  <label>Retenues (FCFA)</label>
-                  <input name="deductions" type="number" className="input" defaultValue={editing.deductions} />
+                  <label htmlFor="payroll-f5">Retenues (FCFA)</label>
+                  <input id="payroll-f5" name="deductions" type="number" className="input" defaultValue={editing.deductions} />
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
@@ -230,8 +230,7 @@ export default function PayrollPage() {
                 <button type="submit" className="btn btn-primary">Enregistrer</button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
     </Shell>
   );

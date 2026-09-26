@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
+import Modal from "../../components/ui/Modal";
 import { api, ApiError } from "../../lib/api";
 
 interface Announcement {
@@ -57,7 +58,7 @@ export default function AnnouncementsPage() {
     <Shell title="Annonces & Vitrine">
       <div className="page-header">
         <div>
-          <h1>📢 Annonces & Vitrine publique</h1>
+          <h1>Annonces & Vitrine publique</h1>
           <p>Les actualités publiées apparaissent sur le site public de l&apos;établissement</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Nouvelle annonce</button>
@@ -65,7 +66,7 @@ export default function AnnouncementsPage() {
 
       <div className="card" style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <p style={{ fontWeight: 700, fontSize: 13 }}>🌐 Site vitrine public</p>
+          <p style={{ fontWeight: 700, fontSize: 13 }}>Site vitrine public</p>
           <p className="muted" style={{ fontSize: 12.5 }}>Page de présentation accessible sans compte, avec formulaire de candidature en ligne.</p>
         </div>
         <a href={`/ecole/${schoolCode}`} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
@@ -112,25 +113,23 @@ export default function AnnouncementsPage() {
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouvelle annonce</h2>
+        <Modal title={<>Nouvelle annonce</>} onClose={() => setShowForm(false)}>
+            
             <form onSubmit={create}>
               <div className="field">
-                <label>Titre</label>
-                <input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                <label htmlFor="announcements-f1">Titre</label>
+                <input id="announcements-f1" className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
               </div>
               <div className="field">
-                <label>Contenu</label>
-                <textarea className="input" required rows={5} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
+                <label htmlFor="announcements-f2">Contenu</label>
+                <textarea id="announcements-f2" className="input" required rows={5} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
                 <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>Annuler</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Publication…" : "Publier"}</button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
     </Shell>
   );

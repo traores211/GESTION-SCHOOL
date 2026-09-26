@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
+import Modal from "../../components/ui/Modal";
 import { api, ApiError } from "../../lib/api";
 
 interface StaffRow {
@@ -98,13 +99,12 @@ export default function StaffPage() {
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouveau membre du personnel</h2>
+        <Modal title={<>Nouveau membre du personnel</>} onClose={() => setShowForm(false)}>
+            
 
             {created ? (
               <div>
-                <p style={{ marginBottom: 8 }}>✅ Compte créé pour <strong>{created.email}</strong>.</p>
+                <p style={{ marginBottom: 8 }}>Compte créé pour <strong>{created.email}</strong>.</p>
                 {created.temporaryPassword && (
                   <p className="card" style={{ fontSize: 13 }}>
                     Mot de passe temporaire : <strong>{created.temporaryPassword}</strong>
@@ -118,20 +118,20 @@ export default function StaffPage() {
               <form onSubmit={handleCreate}>
                 <div className="form-grid">
                   <div className="field">
-                    <label>Prénom</label>
-                    <input className="input" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                    <label htmlFor="staff-f1">Prénom</label>
+                    <input id="staff-f1" className="input" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
                   </div>
                   <div className="field">
-                    <label>Nom</label>
-                    <input className="input" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                    <label htmlFor="staff-f2">Nom</label>
+                    <input id="staff-f2" className="input" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
                   </div>
                   <div className="field" style={{ gridColumn: "1 / -1" }}>
-                    <label>Email</label>
-                    <input type="email" className="input" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                    <label htmlFor="staff-f3">Email</label>
+                    <input id="staff-f3" type="email" className="input" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                   </div>
                   <div className="field">
-                    <label>Rôle</label>
-                    <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                    <label htmlFor="staff-f4">Rôle</label>
+                    <select id="staff-f4" className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
                       <option value="ENSEIGNANT">Enseignant</option>
                       <option value="SECRETARY">Secrétaire</option>
                       <option value="COMPTABLE">Comptable</option>
@@ -139,12 +139,12 @@ export default function StaffPage() {
                     </select>
                   </div>
                   <div className="field">
-                    <label>Poste</label>
-                    <input className="input" required placeholder="Ex: Professeur de Maths" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
+                    <label htmlFor="staff-f5">Poste</label>
+                    <input id="staff-f5" className="input" required placeholder="Ex: Professeur de Maths" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
                   </div>
                   <div className="field" style={{ gridColumn: "1 / -1" }}>
-                    <label>Date d&apos;embauche</label>
-                    <input type="date" className="input" required value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} />
+                    <label htmlFor="staff-f6">Date d&apos;embauche</label>
+                    <input id="staff-f6" type="date" className="input" required value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} />
                   </div>
                 </div>
                 {formError && <p className="text-danger" style={{ marginBottom: 12 }}>{formError}</p>}
@@ -154,8 +154,7 @@ export default function StaffPage() {
                 </div>
               </form>
             )}
-          </div>
-        </div>
+          </Modal>
       )}
     </Shell>
   );

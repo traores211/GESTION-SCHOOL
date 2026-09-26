@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Shell from "../../components/Shell";
+import { useSession } from "../../lib/session";
+import Modal from "../../components/ui/Modal";
 import { api, ApiError } from "../../lib/api";
 
 interface ClassRow {
@@ -23,6 +25,7 @@ interface TeacherOption {
 }
 
 export default function ClassesPage() {
+  const { can } = useSession();
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +67,11 @@ export default function ClassesPage() {
           <h1>Classes</h1>
           <p>{classes.length} classe(s) — année scolaire en cours</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+        {can("classes:write") && (
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           + Nouvelle classe
         </button>
+        )}
       </div>
 
       {error && <p className="text-danger">{error}</p>}
@@ -82,7 +87,7 @@ export default function ClassesPage() {
               <span className="badge badge-orange">{c._count.enrollments}/{c.capacity}</span>
             </div>
             <p className="muted" style={{ marginTop: 10, fontSize: 12.5 }}>
-              👨‍🏫 {c.teacher ? `${c.teacher.user.firstName} ${c.teacher.user.lastName}` : "Aucun professeur principal"}
+              {c.teacher ? `${c.teacher.user.firstName} ${c.teacher.user.lastName}` : "Aucun professeur principal"}
             </p>
           </Link>
         ))}
@@ -90,30 +95,29 @@ export default function ClassesPage() {
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouvelle classe</h2>
+        <Modal title={<>Nouvelle classe</>} onClose={() => setShowForm(false)}>
+            
             <form onSubmit={handleCreate}>
               <div className="form-grid">
                 <div className="field">
-                  <label>Nom</label>
-                  <input className="input" required placeholder="Ex: 6ème A" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  <label htmlFor="classes-f1">Nom</label>
+                  <input id="classes-f1" className="input" required placeholder="Ex: 6ème A" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Code</label>
-                  <input className="input" required placeholder="Ex: 6A" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+                  <label htmlFor="classes-f2">Code</label>
+                  <input id="classes-f2" className="input" required placeholder="Ex: 6A" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Niveau</label>
-                  <input className="input" required placeholder="Ex: 6ème" value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} />
+                  <label htmlFor="classes-f3">Niveau</label>
+                  <input id="classes-f3" className="input" required placeholder="Ex: 6ème" value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Capacité</label>
-                  <input type="number" className="input" required value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
+                  <label htmlFor="classes-f4">Capacité</label>
+                  <input id="classes-f4" type="number" className="input" required value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Professeur principal</label>
-                  <select className="input" value={form.teacherId} onChange={(e) => setForm({ ...form, teacherId: e.target.value })}>
+                  <label htmlFor="classes-f5">Professeur principal</label>
+                  <select id="classes-f5" className="input" value={form.teacherId} onChange={(e) => setForm({ ...form, teacherId: e.target.value })}>
                     <option value="">— Aucun —</option>
                     {teachers.map((t) => t.staffMember && (
                       <option key={t.id} value={t.staffMember.id}>{t.firstName} {t.lastName}</option>
@@ -127,8 +131,7 @@ export default function ClassesPage() {
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer la classe"}</button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
     </Shell>
   );

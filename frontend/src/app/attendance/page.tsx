@@ -98,16 +98,16 @@ export default function AttendancePage() {
 
       <div className="card" style={{ marginBottom: 16, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div className="field" style={{ marginBottom: 0, minWidth: 220 }}>
-          <label>Classe</label>
-          <select className="input" value={classId} onChange={(e) => setClassId(e.target.value)}>
+          <label htmlFor="attendance-f1">Classe</label>
+          <select id="attendance-f1" className="input" value={classId} onChange={(e) => setClassId(e.target.value)}>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
-          <label>Date</label>
-          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+          <label htmlFor="attendance-f2">Date</label>
+          <input id="attendance-f2" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <button className="btn btn-outline" onClick={markAllPresent}>Tout marquer présent</button>
       </div>
@@ -156,7 +156,7 @@ export default function AttendancePage() {
       </div>
 
       <button className="btn btn-primary" onClick={save} disabled={saving || students.length === 0}>
-        {saving ? "Enregistrement…" : "💾 Enregistrer la présence"}
+        {saving ? "Enregistrement…" : "Enregistrer la présence"}
       </button>
     </Shell>
   );

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../lib/api";
+import Icon from "./ui/Icon";
 
 interface Notification {
   id: string;
@@ -16,6 +17,7 @@ export default function NotificationBell() {
   const [items, setItems] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const panelId = useId();
 
   const loadCount = () => {
     api
@@ -33,17 +35,23 @@ export default function NotificationBell() {
 
   useEffect(() => {
     loadCount();
-    const interval = setInterval(loadCount, 30000);
+    const interval = setInterval(loadCount, 60000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
+    if (!open) return;
     const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const handleKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
 
   const toggle = () => {
     if (!open) loadList();
@@ -65,23 +73,27 @@ export default function NotificationBell() {
   return (
     <div style={{ position: "relative" }} ref={ref}>
       <button
-        className="btn btn-outline btn-sm"
+        type="button"
+        className="btn btn-ghost btn-icon"
         onClick={toggle}
-        style={{ position: "relative", padding: "8px 10px" }}
-        aria-label="Notifications"
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label={unread > 0 ? `Notifications, ${unread} non lue(s)` : "Notifications"}
+        style={{ position: "relative" }}
       >
-        🔔
+        <Icon name="bell" />
         {unread > 0 && (
           <span
+            aria-hidden="true"
             style={{
               position: "absolute",
-              top: -4,
-              right: -4,
-              background: "var(--ci-orange)",
+              top: 4,
+              right: 4,
+              background: "var(--danger)",
               color: "#fff",
               borderRadius: 999,
               fontSize: 10,
-              fontWeight: 800,
+              fontWeight: 700,
               minWidth: 16,
               height: 16,
               display: "flex",
@@ -97,45 +109,47 @@ export default function NotificationBell() {
 
       {open && (
         <div
+          id={panelId}
           className="card"
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 8px)",
-            width: 340,
-            maxHeight: 420,
-            overflowY: "auto",
-            padding: 0,
-            zIndex: 50,
-          }}
+          role="region"
+          aria-label="Notifications"
+          style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", width: "min(360px, 92vw)", maxHeight: 440, overflowY: "auto", padding: 0, zIndex: 50 }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-            <strong style={{ fontSize: 13 }}>Notifications</strong>
+          <div className="row" style={{ justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+            <strong>Notifications</strong>
             {unread > 0 && (
-              <button className="btn btn-outline btn-sm" style={{ padding: "4px 8px", fontSize: 11 }} onClick={markAllRead}>
-                Tout marquer lu
+              <button type="button" className="btn btn-ghost btn-sm" onClick={markAllRead}>
+                Tout marquer comme lu
               </button>
             )}
           </div>
-          {items.length === 0 && <p className="muted" style={{ padding: 16, fontSize: 12.5 }}>Aucune notification.</p>}
-          {items.map((n) => (
-            <div
-              key={n.id}
-              onClick={() => !n.isRead && markRead(n.id)}
-              style={{
-                padding: "10px 16px",
-                borderBottom: "1px solid var(--border)",
-                background: n.isRead ? "transparent" : "var(--ci-green-light)",
-                cursor: n.isRead ? "default" : "pointer",
-              }}
-            >
-              {n.subject && <div style={{ fontWeight: 700, fontSize: 12.5 }}>{n.subject}</div>}
-              <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{n.message}</div>
-              <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 2 }}>
-                {new Date(n.createdAt).toLocaleString("fr-FR")}
-              </div>
-            </div>
-          ))}
+          {items.length === 0 && <p className="muted" style={{ padding: 16 }}>Aucune notification.</p>}
+          <ul style={{ listStyle: "none" }}>
+            {items.map((n) => (
+              <li key={n.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                <button
+                  type="button"
+                  onClick={() => !n.isRead && markRead(n.id)}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    border: 0,
+                    padding: "10px 16px",
+                    background: n.isRead ? "transparent" : "var(--brand-soft)",
+                    color: "var(--text)",
+                    cursor: n.isRead ? "default" : "pointer",
+                  }}
+                >
+                  {n.subject && <div style={{ fontWeight: 600, fontSize: 13.5 }}>{n.subject}</div>}
+                  <div className="muted" style={{ fontSize: 13.5 }}>{n.message}</div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                    {new Date(n.createdAt).toLocaleString("fr-FR")}
+                    {!n.isRead && <span className="sr-only"> — non lue, activer pour marquer comme lue</span>}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

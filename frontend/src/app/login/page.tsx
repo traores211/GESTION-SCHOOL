@@ -1,138 +1,172 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { api, ApiError } from "../../lib/api";
+import { Suspense, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { api, errorMessage } from "../../lib/api";
 import { setSession } from "../../lib/auth";
+import { useSession } from "../../lib/session";
 
 interface LoginResponse {
-  accessToken: string;
-  user: { id: string; email: string; firstName: string; lastName: string; role: string };
+  accessToken?: string;
+  mfaRequired?: boolean;
+  mfaToken?: string;
+  user?: { id: string; email: string; firstName: string; lastName: string; role: string };
 }
 
+// Demo accounts are shown ONLY in demo/acceptance environments, never in production.
+const DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 const DEMO_ACCOUNTS = [
-  { role: "Direction", email: "admin@school.local", password: "admin123" },
+  { role: "Direction", email: "directeur@school.local", password: "direct123" },
   { role: "Enseignant", email: "k.kouassi@school.local", password: "teach123" },
-  { role: "Secrétariat", email: "secretaire@school.local", password: "secret123" },
+  { role: "Comptable", email: "comptable@school.local", password: "compta123" },
   { role: "Parent", email: "parent@school.local", password: "parent123" },
+  { role: "Plateforme", email: "platform@gestion.school", password: "platform123" },
 ];
 
-export default function LoginPage() {
+function homeFor(role: string) {
+  if (role === "PARENT") return "/portal";
+  if (role === "PLATFORM_ADMIN") return "/platform";
+  return "/dashboard";
+}
+
+function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@school.local");
-  const [password, setPassword] = useState("admin123");
-  const [error, setError] = useState<string | null>(null);
+  const params = useSearchParams();
+  const { refresh } = useSession();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(params.get("expired") ? "Votre session a expiré. Reconnectez-vous." : null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const finish = (data: LoginResponse) => {
+    setSession(data.accessToken!, data.user!);
+    refresh();
+    router.push(homeFor(data.user!.role));
+  };
+
+  const submitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
       const data = await api.post<LoginResponse>("/auth/login", { email, password });
-      setSession(data.accessToken, data.user);
-      router.push(data.user.role === "PARENT" ? "/portal" : "/dashboard");
+      if (data.mfaRequired && data.mfaToken) setMfaToken(data.mfaToken);
+      else finish(data);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Une erreur est survenue");
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      finish(await api.post<LoginResponse>("/auth/mfa/verify", { mfaToken, code }));
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background:
-          "linear-gradient(135deg, var(--ci-green-dark) 0%, var(--ci-green) 45%, #ffffff 45%, #ffffff 55%, var(--ci-orange) 55%, var(--ci-orange-dark) 100%)",
-        padding: 20,
-      }}
-    >
-      <div
-        className="card"
-        style={{ width: "100%", maxWidth: 420, boxShadow: "var(--shadow-md)" }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 14,
-              background: "var(--ci-orange)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
-              margin: "0 auto 12px",
-            }}
-          >
-            🎓
+    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 16 }}>
+      <div className="card" style={{ width: "100%", maxWidth: 420, padding: 28 }}>
+        <div style={{ marginBottom: 24 }}>
+          <div className="sidebar-brand-badge" aria-hidden="true" style={{ marginBottom: 12 }}>
+            G
           </div>
-          <h1 style={{ fontSize: 20 }}>School ERP</h1>
-          <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-            Gestion scolaire — Côte d&apos;Ivoire
-          </p>
+          <h1>Connexion</h1>
+          <p className="muted">Accédez à l&apos;espace de votre établissement.</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="field">
-            <label htmlFor="email">Adresse email</label>
-            <input
-              id="email"
-              type="email"
-              className="input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+        {error && (
+          <div className="alert alert-error" role="alert">
+            {error}
           </div>
-          <div className="field">
-            <label htmlFor="password">Mot de passe</label>
-            <input
-              id="password"
-              type="password"
-              className="input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          {error && (
-            <p className="text-danger" style={{ fontSize: 13, marginBottom: 12 }}>
-              {error}
+        )}
+
+        {!mfaToken ? (
+          <form onSubmit={submitPassword} noValidate>
+            <div className="field">
+              <label htmlFor="email">Adresse email</label>
+              <input id="email" type="email" className="input" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label htmlFor="password">Mot de passe</label>
+              <input id="password" type="password" className="input" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+            <button type="submit" className="btn btn-primary btn-block" disabled={loading || !email || !password}>
+              {loading ? "Connexion…" : "Se connecter"}
+            </button>
+            <p style={{ marginTop: 16, textAlign: "center" }}>
+              <Link href="/mot-de-passe-oublie">Mot de passe oublié ?</Link>
             </p>
-          )}
-          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? "Connexion..." : "Se connecter"}
-          </button>
-        </form>
+          </form>
+        ) : (
+          <form onSubmit={submitCode}>
+            <p style={{ marginBottom: 12 }}>Saisissez le code à 6 chiffres affiché par votre application d&apos;authentification.</p>
+            <div className="field">
+              <label htmlFor="code">Code de vérification</label>
+              <input
+                id="code"
+                className="input"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="\d{6}"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                autoFocus
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary btn-block" disabled={loading || code.length !== 6}>
+              {loading ? "Vérification…" : "Valider"}
+            </button>
+            <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 8 }} onClick={() => setMfaToken(null)}>
+              Retour
+            </button>
+          </form>
+        )}
 
-        <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
-          <p style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>
-            Comptes de démonstration
-          </p>
-          <div style={{ display: "grid", gap: 6 }}>
-            {DEMO_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.email}
-                type="button"
-                className="btn btn-outline btn-sm"
-                style={{ justifyContent: "space-between" }}
-                onClick={() => {
-                  setEmail(acc.email);
-                  setPassword(acc.password);
-                }}
-              >
-                <span>{acc.role}</span>
-                <span className="muted">{acc.email}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        {DEMO && !mfaToken && (
+          <details style={{ marginTop: 20 }}>
+            <summary className="muted" style={{ cursor: "pointer" }}>
+              Comptes de démonstration
+            </summary>
+            <div className="stack" style={{ marginTop: 8 }}>
+              {DEMO_ACCOUNTS.map((a) => (
+                <button
+                  key={a.email}
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => {
+                    setEmail(a.email);
+                    setPassword(a.password);
+                  }}
+                >
+                  {a.role} — {a.email}
+                </button>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

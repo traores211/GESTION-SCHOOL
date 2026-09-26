@@ -123,7 +123,7 @@ export default function ClassDetailPage() {
             </div>
 
             <div className="card">
-              <h2 style={{ fontSize: 14, marginBottom: 10 }}>📚 Matières enseignées</h2>
+              <h2 style={{ fontSize: 14, marginBottom: 10 }}>Matières enseignées</h2>
               {klass.classSubjects.map((cs) => (
                 <div key={cs.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
                   <span>{cs.subject.name}</span>

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Shell from "../../components/Shell";
+import { useSession } from "../../lib/session";
+import Modal from "../../components/ui/Modal";
 import { api, ApiError } from "../../lib/api";
 
 interface ClassRef {
@@ -34,6 +36,7 @@ const STATUS_LABELS: Record<string, { label: string; badge: string }> = {
 };
 
 export default function StudentsPage() {
+  const { can } = useSession();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [search, setSearch] = useState("");
@@ -93,9 +96,11 @@ export default function StudentsPage() {
           <h1>Élèves</h1>
           <p>{students.length} élève(s) — dossier 360° de chaque élève</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+        {can("students:write") && (
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           + Nouvel élève
         </button>
+        )}
       </div>
 
       <form onSubmit={handleSearch} style={{ display: "flex", gap: 8, marginBottom: 16, maxWidth: 420 }}>
@@ -151,14 +156,13 @@ export default function StudentsPage() {
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouvel élève</h2>
+        <Modal title={<>Nouvel élève</>} onClose={() => setShowForm(false)}>
+            
             <form onSubmit={handleCreate}>
               <div className="form-grid">
                 <div className="field">
-                  <label>Prénom</label>
-                  <input
+                  <label htmlFor="students-f1">Prénom</label>
+                  <input id="students-f1"
                     className="input"
                     required
                     value={form.firstName}
@@ -166,8 +170,8 @@ export default function StudentsPage() {
                   />
                 </div>
                 <div className="field">
-                  <label>Nom</label>
-                  <input
+                  <label htmlFor="students-f2">Nom</label>
+                  <input id="students-f2"
                     className="input"
                     required
                     value={form.lastName}
@@ -175,8 +179,8 @@ export default function StudentsPage() {
                   />
                 </div>
                 <div className="field">
-                  <label>Date de naissance</label>
-                  <input
+                  <label htmlFor="students-f3">Date de naissance</label>
+                  <input id="students-f3"
                     type="date"
                     className="input"
                     required
@@ -185,8 +189,8 @@ export default function StudentsPage() {
                   />
                 </div>
                 <div className="field">
-                  <label>Sexe</label>
-                  <select
+                  <label htmlFor="students-f4">Sexe</label>
+                  <select id="students-f4"
                     className="input"
                     value={form.gender}
                     onChange={(e) => setForm({ ...form, gender: e.target.value })}
@@ -196,8 +200,8 @@ export default function StudentsPage() {
                   </select>
                 </div>
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Classe (optionnel)</label>
-                  <select
+                  <label htmlFor="students-f5">Classe (optionnel)</label>
+                  <select id="students-f5"
                     className="input"
                     value={form.classId}
                     onChange={(e) => setForm({ ...form, classId: e.target.value })}
@@ -221,8 +225,7 @@ export default function StudentsPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </Modal>
       )}
     </Shell>
   );

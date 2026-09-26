@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
 import { api, ApiError } from "../../lib/api";
+import { EmptyState, ErrorAlert, SkeletonRows } from "../../components/ui/States";
 
 interface Child {
   id: string;
@@ -27,6 +28,7 @@ export default function ParentPortalPage() {
   const [children, setChildren] = useState<Child[]>([]);
   const [selected, setSelected] = useState<ChildDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api
@@ -35,7 +37,8 @@ export default function ParentPortalPage() {
         setChildren(list);
         if (list[0]) loadChild(list[0].id);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Erreur de chargement"));
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Erreur de chargement"))
+      .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -47,12 +50,14 @@ export default function ParentPortalPage() {
     <Shell title="Mon espace parent">
       <div className="page-header">
         <div>
-          <h1>👨‍👩‍👧 Mes enfants</h1>
+          <h1>Mes enfants</h1>
           <p>Suivi scolaire, présence, notes et scolarité</p>
         </div>
       </div>
 
-      {error && <p className="text-danger">{error}</p>}
+      <ErrorAlert message={error} />
+      {loading && <SkeletonRows rows={4} height={48} />}
+      {!loading && !error && children.length === 0 && <EmptyState title="Aucun enfant rattaché" text="Votre compte n'est encore rattaché à aucun élève. Contactez le secrétariat de l'établissement." />}
 
       {children.length > 1 && (
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -79,7 +84,7 @@ export default function ParentPortalPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div className="card">
-              <h3 style={{ fontSize: 14, marginBottom: 12 }}>✅ Présence récente</h3>
+              <h3 style={{ fontSize: 14, marginBottom: 12 }}>Présence récente</h3>
               {selected.attendance.slice(0, 8).map((a, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
                   <span>{new Date(a.date).toLocaleDateString("fr-FR")}</span>
@@ -96,7 +101,7 @@ export default function ParentPortalPage() {
             </div>
 
             <div className="card">
-              <h3 style={{ fontSize: 14, marginBottom: 12 }}>📚 Dernières notes</h3>
+              <h3 style={{ fontSize: 14, marginBottom: 12 }}>Dernières notes</h3>
               {selected.grades.slice(0, 8).map((g, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
                   <span>{g.subject.name} <span className="muted">({g.term.name})</span></span>
@@ -108,7 +113,7 @@ export default function ParentPortalPage() {
           </div>
 
           <div className="card" style={{ marginTop: 16 }}>
-            <h3 style={{ fontSize: 14, marginBottom: 12 }}>💰 Scolarité</h3>
+            <h3 style={{ fontSize: 14, marginBottom: 12 }}>Scolarité</h3>
             <div className="table-wrap">
               <table>
                 <thead>

@@ -94,7 +94,7 @@ export default function StudentDetailPage() {
           {tab === "info" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div className="card">
-                <h2 style={{ fontSize: 15, marginBottom: 12 }}>👤 Identité</h2>
+                <h2 style={{ fontSize: 15, marginBottom: 12 }}>Identité</h2>
                 <p>
                   <strong>Date de naissance :</strong>{" "}
                   {new Date(student.dateOfBirth).toLocaleDateString("fr-FR")}
@@ -113,7 +113,7 @@ export default function StudentDetailPage() {
                 </p>
               </div>
               <div className="card">
-                <h2 style={{ fontSize: 15, marginBottom: 12 }}>👪 Parents / Tuteurs</h2>
+                <h2 style={{ fontSize: 15, marginBottom: 12 }}>Parents / Tuteurs</h2>
                 {student.parents.length === 0 && <p className="muted">Aucun parent renseigné.</p>}
                 {student.parents.map((p) => (
                   <div key={p.id} style={{ marginBottom: 10 }}>

@@ -130,26 +130,26 @@ export default function GradesPage() {
 
       <div className="card" style={{ marginBottom: 16, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div className="field" style={{ marginBottom: 0, minWidth: 180 }}>
-          <label>Classe</label>
-          <select className="input" value={classId} onChange={(e) => setClassId(e.target.value)}>
+          <label htmlFor="grades-f1">Classe</label>
+          <select id="grades-f1" className="input" value={classId} onChange={(e) => setClassId(e.target.value)}>
             {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         <div className="field" style={{ marginBottom: 0, minWidth: 180 }}>
-          <label>Matière</label>
-          <select className="input" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+          <label htmlFor="grades-f2">Matière</label>
+          <select id="grades-f2" className="input" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
             {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
         <div className="field" style={{ marginBottom: 0, minWidth: 160 }}>
-          <label>Période</label>
-          <select className="input" value={termId} onChange={(e) => setTermId(e.target.value)}>
+          <label htmlFor="grades-f3">Période</label>
+          <select id="grades-f3" className="input" value={termId} onChange={(e) => setTermId(e.target.value)}>
             {terms.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
         <div className="field" style={{ marginBottom: 0, minWidth: 160 }}>
-          <label>Type d&apos;évaluation</label>
-          <select className="input" value={type} onChange={(e) => setType(e.target.value)}>
+          <label htmlFor="grades-f4">Type d&apos;évaluation</label>
+          <select id="grades-f4" className="input" value={type} onChange={(e) => setType(e.target.value)}>
             {GRADE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
@@ -187,7 +187,7 @@ export default function GradesPage() {
                 </td>
                 <td>
                   <button className="btn btn-outline btn-sm" onClick={() => downloadBulletin(e.student.id)} disabled={!termId}>
-                    📄 PDF
+                    PDF
                   </button>
                 </td>
               </tr>
@@ -198,7 +198,7 @@ export default function GradesPage() {
       </div>
 
       <button className="btn btn-primary" onClick={save} disabled={saving || students.length === 0}>
-        {saving ? "Enregistrement…" : "💾 Enregistrer les notes"}
+        {saving ? "Enregistrement…" : "Enregistrer les notes"}
       </button>
     </Shell>
   );
