@@ -1,0 +1,59 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "instructions": ["CLAUDE.md"],
+
+  "permission": {
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow",
+      "*.pem": "deny",
+      "*.key": "deny",
+      "id_rsa*": "deny",
+      "*.tfstate": "deny",
+      "*.tfstate.backup": "deny",
+      "secrets/**": "deny",
+      "certs/**": "deny",
+      "*.crt": "deny",
+      "~/.aws/**": "deny",
+      "~/.ssh/**": "deny"
+    },
+
+    "external_directory": {
+      "~/.aws/**": "deny",
+      "~/.ssh/**": "deny"
+    },
+
+    "bash": {
+      "*": "ask",
+
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "npm test*": "allow",
+      "npm audit*": "allow",
+      "npm run lint*": "allow",
+      "npm run type-check*": "allow",
+      "npx tsc --noEmit*": "allow",
+      "gitleaks*": "allow",
+      "semgrep*": "allow",
+      "trivy*": "allow",
+      "checkov*": "allow",
+      "syft*": "allow",
+      "docker build*": "allow",
+      "docker compose config*": "allow",
+      "docker compose build*": "allow",
+
+      "git push --force*": "deny",
+      "git push -f*": "deny",
+      "git commit --no-verify*": "deny",
+      "git commit -n*": "deny",
+      "docker compose down -v*": "deny",
+      "npx prisma migrate reset*": "deny",
+      "docker run --privileged*": "deny",
+      "rm -rf /*": "deny"
+    }
+  }
+}

@@ -43,3 +43,32 @@ temp/
 
 # Prisma
 prisma/migrations/
+
+# --- DevSecOps (agentic-devsecops-kit) ---
+# Claude Code — préférences personnelles, overrides locaux et worktrees (ne pas versionner)
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
+
+# Secrets et matériel cryptographique (l'agent a aussi l'interdiction de les lire)
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+id_rsa*
+certs/
+secrets/
+
+# Preuves d'incident : à archiver hors du dépôt si sensibles
+docs/security/evidence/
+
+# Rapports de scan locaux
+gitleaks-report*.json
+sbom*.json
+
+# opencode — dépendances installées automatiquement dans les dossiers de config
+.opencode/node_modules/
+.opencode/bun.lock
+.opencode/package-lock.json
