@@ -1,5 +1,8 @@
 import { RequirePermissions } from '../authz/decorators';
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { InvoiceStatus } from '@prisma/client';
+
+const INVOICE_STATUSES: string[] = Object.values(InvoiceStatus);
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { BillingService } from './billing.service';
@@ -21,7 +24,20 @@ export class BillingController {
   @RequirePermissions('billing:read')
   @Get('invoices')
   findAll(@CurrentUser() user: AuthUser, @Query('studentId') studentId?: string, @Query('status') status?: string) {
+    if (status && !INVOICE_STATUSES.includes(status)) throw new BadRequestException('Statut de facture invalide');
     return this.billingService.findAll(user, studentId, status);
+  }
+
+  @RequirePermissions('billing:read')
+  @Get('unpaid')
+  unpaid(@CurrentUser() user: AuthUser, @Query('overdue') overdue?: string) {
+    return this.billingService.unpaid(user, overdue === 'true');
+  }
+
+  @RequirePermissions('billing:write')
+  @Post('reminders')
+  reminders(@CurrentUser() user: AuthUser) {
+    return this.billingService.sendReminders(user);
   }
 
   @RequirePermissions('billing:read')

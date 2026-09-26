@@ -1,4 +1,6 @@
 import { AuthUser } from './current-user.decorator';
+
+const audit = { record: jest.fn() };
 import { StaffService } from '../staff/staff.service';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { StudentsService } from '../students/students.service';
@@ -17,7 +19,7 @@ const staffRow = {
 
 describe('Staff directory', () => {
   const prisma = { user: { findMany: jest.fn().mockResolvedValue([staffRow]), findUnique: jest.fn().mockResolvedValue(staffRow) } };
-  const service = new StaffService(prisma as any);
+  const service = new StaffService(prisma as any, audit as any);
 
   it('hides salaries from a teacher', async () => {
     const [row] = await service.findAll(user('ENSEIGNANT'));
@@ -66,7 +68,7 @@ describe('Student 360° record', () => {
     attendance: { groupBy: jest.fn().mockResolvedValue([]) },
     grade: { aggregate: jest.fn().mockResolvedValue({ _avg: { score: 15 } }) },
   };
-  const service = new StudentsService(prisma as any);
+  const service = new StudentsService(prisma as any, {} as any, audit as any);
 
   it('hides invoices from a teacher but keeps grades', async () => {
     const r = await service.findOne(user('ENSEIGNANT'), 'st1');

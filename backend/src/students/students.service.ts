@@ -2,25 +2,29 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { can } from '../authz/permissions';
+import { AuditService } from '../common/audit.service';
+import { SequenceService } from '../common/sequence.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 
 @Injectable()
 export class StudentsService {
-  constructor(private readonly prisma: PrismaService) {}
-
-  private async generateMatricule(schoolId: string): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.student.count({ where: { schoolId } });
-    return `${year}-${String(count + 1).padStart(4, '0')}`;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sequences: SequenceService,
+    private readonly audit: AuditService,
+  ) {}
 
   async create(user: AuthUser, dto: CreateStudentDto) {
     if (!user.schoolId) {
       throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
     }
     const { classId, ...data } = dto;
-    const matricule = await this.generateMatricule(user.schoolId);
+    if (classId) {
+      const klass = await this.prisma.class.findFirst({ where: { id: classId, schoolId: user.schoolId } });
+      if (!klass) throw new NotFoundException('Classe introuvable');
+    }
+    const matricule = await this.sequences.matricule(user.schoolId);
 
     return this.prisma.student.create({
       data: {
@@ -38,33 +42,40 @@ export class StudentsService {
     });
   }
 
-  async findAll(user: AuthUser, search?: string, classId?: string) {
-    if (!user.schoolId) return [];
-
-    return this.prisma.student.findMany({
-      where: {
-        schoolId: user.schoolId,
-        ...(search
-          ? {
-              OR: [
-                { firstName: { contains: search, mode: 'insensitive' } },
-                { lastName: { contains: search, mode: 'insensitive' } },
-                { matricule: { contains: search, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-        ...(classId ? { enrollments: { some: { classId, withdrawalDate: null } } } : {}),
-      },
-      include: {
-        enrollments: {
-          where: { withdrawalDate: null },
-          include: { class: true },
-          orderBy: { enrollmentDate: 'desc' },
-          take: 1,
+  /** Paginated (max 500 per page); the total is exposed by the controller in X-Total-Count. */
+  async findAll(user: AuthUser, search?: string, classId?: string, page = 1, pageSize = 500) {
+    if (!user.schoolId) return { items: [], total: 0 };
+    const where = this.listWhere(user.schoolId, search, classId);
+    const take = Math.min(Math.max(pageSize, 1), 500);
+    const [items, total] = await Promise.all([
+      this.prisma.student.findMany({
+        where,
+        include: {
+          enrollments: { where: { withdrawalDate: null }, include: { class: true }, orderBy: { enrollmentDate: 'desc' }, take: 1 },
         },
-      },
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        skip: (Math.max(page, 1) - 1) * take,
+        take,
+      }),
+      this.prisma.student.count({ where }),
+    ]);
+    return { items, total };
+  }
+
+  private listWhere(schoolId: string, search?: string, classId?: string) {
+    return {
+      schoolId,
+      ...(search
+        ? {
+            OR: [
+              { firstName: { contains: search, mode: 'insensitive' as const } },
+              { lastName: { contains: search, mode: 'insensitive' as const } },
+              { matricule: { contains: search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+      ...(classId ? { enrollments: { some: { classId, withdrawalDate: null } } } : {}),
+    };
   }
 
   async findOne(user: AuthUser, id: string) {
@@ -127,6 +138,7 @@ export class StudentsService {
     if (existing.schoolId !== user.schoolId) throw new ForbiddenException();
 
     await this.prisma.student.delete({ where: { id } });
+    await this.audit.record(user, 'DELETE', 'Student', id, { before: { matricule: existing.matricule } });
     return { success: true };
   }
 }

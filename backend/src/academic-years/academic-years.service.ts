@@ -2,11 +2,15 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { assertAcademicYearInSchool } from '../common/tenant-ownership';
+import { AuditService } from '../common/audit.service';
 import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 
 @Injectable()
 export class AcademicYearsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   findAll(user: AuthUser) {
     if (!user.schoolId) return [];
@@ -48,6 +52,7 @@ export class AcademicYearsService {
       this.prisma.academicYear.updateMany({ where: { schoolId: user.schoolId }, data: { isCurrent: false } }),
       this.prisma.academicYear.update({ where: { id }, data: { isCurrent: true } }),
     ]);
+    await this.audit.record(user, 'SET_CURRENT', 'AcademicYear', id);
     return current;
   }
 }

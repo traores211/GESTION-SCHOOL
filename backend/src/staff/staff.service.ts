@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { can } from '../authz/permissions';
 import { CreateStaffDto } from './dto/create-staff.dto';
+import { AuditService } from '../common/audit.service';
 
 function randomPassword() {
   // 12 characters from a CSPRNG (Math.random is predictable).
@@ -19,7 +20,10 @@ function redactSalary<T extends { staffMember: { baseSalary: number | null } | n
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async create(user: AuthUser, dto: CreateStaffDto) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
@@ -51,6 +55,7 @@ export class StaffService {
       include: { staffMember: true },
     });
 
+    await this.audit.record(user, 'CREATE', 'User', created.id, { after: { role: dto.role } });
     return { ...created, temporaryPassword: dto.password ? undefined : plainPassword, password: undefined };
   }
 
@@ -87,13 +92,19 @@ export class StaffService {
     if (!found || found.schoolId !== user.schoolId || !found.staffMember) {
       throw new NotFoundException('Membre du personnel introuvable');
     }
-    return this.prisma.staffMember.update({ where: { id: found.staffMember.id }, data: { baseSalary } });
+    const updated = await this.prisma.staffMember.update({ where: { id: found.staffMember.id }, data: { baseSalary } });
+    await this.audit.record(user, 'UPDATE_SALARY', 'StaffMember', found.staffMember.id, {
+      before: { baseSalary: found.staffMember.baseSalary },
+      after: { baseSalary },
+    });
+    return updated;
   }
 
   async remove(user: AuthUser, id: string) {
     const found = await this.prisma.user.findUnique({ where: { id } });
     if (!found || found.schoolId !== user.schoolId) throw new NotFoundException('Membre du personnel introuvable');
     await this.prisma.user.delete({ where: { id } });
+    await this.audit.record(user, 'DELETE', 'User', id, { before: { role: found.role } });
     return { success: true };
   }
 }

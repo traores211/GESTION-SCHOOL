@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AuthUser } from './current-user.decorator';
+
+const audit = { record: jest.fn() };
 import { GradesService } from '../grades/grades.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { AcademicYearsService } from '../academic-years/academic-years.service';
@@ -49,7 +51,7 @@ describe('Cross-tenant writes are refused', () => {
     it('refuses a subject of another school', async () => {
       prisma.class.findUnique.mockResolvedValue(ownClass);
       prisma.subject.findFirst.mockResolvedValue(null);
-      await expect(new GradesService(prisma as any).enter(directorA, dto as any)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(new GradesService(prisma as any, audit as any).enter(directorA, dto as any)).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.grade.create).not.toHaveBeenCalled();
     });
 
@@ -57,7 +59,7 @@ describe('Cross-tenant writes are refused', () => {
       prisma.class.findUnique.mockResolvedValue(ownClass);
       prisma.subject.findFirst.mockResolvedValue({ id: 'subj' });
       prisma.term.findFirst.mockResolvedValue(null);
-      await expect(new GradesService(prisma as any).enter(directorA, dto as any)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(new GradesService(prisma as any, audit as any).enter(directorA, dto as any)).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.grade.create).not.toHaveBeenCalled();
     });
 
@@ -66,7 +68,7 @@ describe('Cross-tenant writes are refused', () => {
       prisma.subject.findFirst.mockResolvedValue({ id: 'subj' });
       prisma.term.findFirst.mockResolvedValue({ id: 'term' });
       prisma.enrollment.count.mockResolvedValue(0);
-      await expect(new GradesService(prisma as any).enter(directorA, dto as any)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(new GradesService(prisma as any, audit as any).enter(directorA, dto as any)).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.grade.create).not.toHaveBeenCalled();
     });
 
@@ -76,7 +78,7 @@ describe('Cross-tenant writes are refused', () => {
       prisma.term.findFirst.mockResolvedValue({ id: 'term' });
       prisma.enrollment.count.mockResolvedValue(1);
       prisma.grade.create.mockResolvedValue({ id: 'g1' });
-      await expect(new GradesService(prisma as any).enter(directorA, dto as any)).resolves.toEqual([{ id: 'g1' }]);
+      await expect(new GradesService(prisma as any, audit as any).enter(directorA, dto as any)).resolves.toEqual([{ id: 'g1' }]);
     });
   });
 
@@ -92,7 +94,7 @@ describe('Cross-tenant writes are refused', () => {
 
   it('PATCH /academic-years/:id/set-current refuses a year of another school without touching its own', async () => {
     prisma.academicYear.findFirst.mockResolvedValue(null);
-    await expect(new AcademicYearsService(prisma as any).setCurrent(directorA, 'year-B')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(new AcademicYearsService(prisma as any, audit as any).setCurrent(directorA, 'year-B')).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.academicYear.updateMany).not.toHaveBeenCalled();
     expect(prisma.academicYear.update).not.toHaveBeenCalled();
   });

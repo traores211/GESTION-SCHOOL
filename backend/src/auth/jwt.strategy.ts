@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { PrismaService } from '../prisma/prisma.service';
 import { resolveJwtSecret } from './jwt-secret';
 
 export interface JwtPayload {
@@ -8,11 +9,12 @@ export interface JwtPayload {
   email: string;
   role: string;
   schoolId: string | null;
+  purpose?: string;
 }
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -21,11 +23,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-    return {
-      userId: payload.sub,
-      email: payload.email,
-      role: payload.role,
-      schoolId: payload.schoolId,
-    };
+    // Intermediate tokens (MFA step) are never session tokens.
+    if (payload.purpose) throw new UnauthorizedException();
+
+    // Re-checked on every request: a suspended account or school loses access immediately,
+    // and a role change takes effect without waiting for the token to expire.
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { status: true, role: true, schoolId: true, school: { select: { isActive: true } } },
+    });
+    if (!user || user.status !== 'ACTIVE' || (user.school && !user.school.isActive)) {
+      throw new UnauthorizedException();
+    }
+    return { userId: payload.sub, email: payload.email, role: user.role, schoolId: user.schoolId };
   }
 }

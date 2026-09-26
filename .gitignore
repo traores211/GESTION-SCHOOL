@@ -41,8 +41,6 @@ temp/
 *.db
 *.sqlite
 
-# Prisma
-prisma/migrations/
 
 # --- DevSecOps (agentic-devsecops-kit) ---
 # Claude Code — préférences personnelles, overrides locaux et worktrees (ne pas versionner)

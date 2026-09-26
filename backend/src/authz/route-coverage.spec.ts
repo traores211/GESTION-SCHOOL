@@ -70,10 +70,19 @@ describe('Route access rules', () => {
   it('keeps anonymous access to login, health and the public showcase only', () => {
     const publicRoutes = routes.filter((r) => r.rule?.kind === 'public').map((r) => r.id).sort();
     expect(publicRoutes).toEqual([
+      // Each anonymous route is deliberate: health probes, login/MFA/password reset (rate limited),
+      // public showcase and its forms (rate limited + honeypot), document authenticity check.
       'GET /health',
+      'GET /health/ready',
+      'GET /public/documents/verify/:code',
+      'GET /public/resolve',
       'GET /public/schools/:code/showcase',
+      'POST /auth/forgot-password',
       'POST /auth/login',
+      'POST /auth/mfa/verify',
+      'POST /auth/reset-password',
       'POST /public/schools/:code/admissions',
+      'POST /public/schools/:code/contact',
     ]);
   });
 
@@ -93,6 +102,15 @@ describe('Route access rules', () => {
     expect(forbidden).toEqual([]);
   });
 
+  it('keeps the platform console for PLATFORM_ADMIN only, and gives it no school data', () => {
+    const platformRoutes = routes.filter((r) => r.id.includes('/platform/')).map((r) => r.id);
+    expect(platformRoutes.length).toBe(5);
+    for (const role of ['SUPER_ADMIN', 'DIRECTOR', 'COMPTABLE', 'ENSEIGNANT', 'PARENT']) {
+      expect(allowedFor(role, routes).filter((id) => id.includes('/platform/'))).toEqual([]);
+    }
+    expect(allowedFor('PLATFORM_ADMIN', routes).every((id) => id.includes('/platform/'))).toBe(true);
+  });
+
   it('never lets a secretary reach payroll', () => {
     expect(allowedFor('SECRETARY', routes).filter((id) => /payroll|salary/.test(id))).toEqual([]);
   });
@@ -103,7 +121,7 @@ describe('Route access rules', () => {
       COMPTABLE: ['GET /students', 'GET /billing/invoices', 'POST /billing/invoices/:id/payments', 'GET /staff', 'PATCH /staff/:id/salary', 'POST /payroll/generate', 'GET /dashboard/overview'],
       SECRETARY: ['GET /students', 'POST /students', 'GET /staff', 'POST /classes', 'POST /attendance/mark', 'POST /billing/invoices', 'POST /transport/routes', 'GET /parents', 'PATCH /admissions/:id/status'],
       ENSEIGNANT: ['GET /classes', 'GET /classes/:id', 'GET /students', 'GET /staff', 'GET /subjects', 'GET /academic-years', 'POST /grades', 'POST /attendance/mark', 'GET /bulletins/:studentId/:termId/pdf', 'GET /dashboard/overview'],
-      DIRECTOR: routes.filter((r) => r.rule?.kind === 'permissions' && !r.id.includes('parent-portal')).map((r) => r.id),
+      DIRECTOR: routes.filter((r) => r.rule?.kind === 'permissions' && !r.id.includes('parent-portal') && !r.id.includes('/platform/')).map((r) => r.id),
     };
     for (const [role, ids] of Object.entries(needs)) {
       const allowed = allowedFor(role, routes);

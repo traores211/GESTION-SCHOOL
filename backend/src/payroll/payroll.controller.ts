@@ -1,3 +1,4 @@
+import { RequireFeature } from '../platform/feature.guard';
 import { RequirePermissions } from '../authz/decorators';
 import { Body, Controller, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ function formatFCFA(amount: number) {
 @Controller('payroll')
 @ApiTags('Payroll')
 @ApiBearerAuth()
+@RequireFeature('payroll')
 export class PayrollController {
   constructor(private readonly payrollService: PayrollService) {}
 

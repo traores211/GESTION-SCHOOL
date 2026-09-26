@@ -8,10 +8,14 @@ import {
   assertTermInSchool,
 } from '../common/tenant-ownership';
 import { EnterGradesDto } from './dto/enter-grades.dto';
+import { AuditService } from '../common/audit.service';
 
 @Injectable()
 export class GradesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async enter(user: AuthUser, dto: EnterGradesDto) {
     const klass = await this.prisma.class.findUnique({ where: { id: dto.classId } });
@@ -40,6 +44,9 @@ export class GradesService {
       ),
     );
 
+    await this.audit.record(user, 'CREATE', 'Grade', dto.classId, {
+      after: { subjectId: dto.subjectId, termId: dto.termId, count: results.length },
+    });
     return results;
   }
 

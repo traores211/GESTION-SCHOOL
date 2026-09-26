@@ -1,3 +1,4 @@
+import { RequireFeature } from '../platform/feature.guard';
 import { RequirePermissions } from '../authz/decorators';
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -9,6 +10,7 @@ import { CreateRouteDto } from './dto/create-route.dto';
 @Controller('transport')
 @ApiTags('Transport')
 @ApiBearerAuth()
+@RequireFeature('transport')
 export class TransportController {
   constructor(private readonly transportService: TransportService) {}
 

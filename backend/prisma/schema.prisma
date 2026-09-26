@@ -50,6 +50,37 @@ model School {
   tagline               String?  // Short marketing tagline for the public showcase
   description           String?  // Longer presentation text for the public showcase
   website               String?
+  // ---- SaaS: plan, feature flags, domain ----
+  plan                  SaasPlan @default(PROFESSIONAL)
+  featureOverrides      Json?    // { "ai.chat": false, ... } overrides the plan defaults
+  customDomain          String?  @unique
+  // ---- Branding (white-label) ----
+  logoUrl               String?
+  faviconUrl            String?
+  primaryColor          String?  // #RRGGBB, contrast-checked on save
+  secondaryColor        String?
+  fontFamily            String?
+  footerText            String?
+  signatureUrl          String?
+  stampUrl              String?
+  socialLinks           Json?    // { facebook, instagram, whatsapp, linkedin, youtube }
+  // ---- Public showcase ----
+  showcasePublished     Boolean  @default(true)
+  showcaseSections      Json?    // ordered [{ type, enabled, title?, content? }]
+  seoTitle              String?
+  seoDescription        String?
+  latitude              Float?
+  longitude             Float?
+  // ---- Timetable settings ----
+  timetableSettings     Json?    // { days: [1..6], periodsPerDay, periodLabels[] }
+  sequences             Sequence[]
+  contactMessages       ContactMessage[]
+  rooms                 Room[]
+  timetables            Timetable[]
+  documentTemplates     DocumentTemplate[]
+  generatedDocuments    GeneratedDocument[]
+  pendingActions        AiPendingAction[]
+  savedViews            SavedView[]
   academicYears         AcademicYear[]
   users                 User[]
   students              Student[]
@@ -93,7 +124,14 @@ model AcademicYear {
 
 // ==================== Enums ====================
 
+enum SaasPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
 enum UserRole {
+  PLATFORM_ADMIN        // SaaS operator: manages schools, plans, flags. No access to school data.
   SUPER_ADMIN           // Full system access
   ADMIN_ORGANISATION    // Organisation admin
   DIRECTOR              // School director
@@ -195,6 +233,10 @@ model User {
   permissions       Permission[]
   auditLogs         AuditLog[] @relation("userAuditLogs")
   notifications     Notification[]
+  mfaEnabled        Boolean  @default(false)
+  mfaSecret         String?  // base32 TOTP secret (RFC 6238)
+  passwordResetHash String?  // sha256 of the one-time reset token
+  passwordResetExpires DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   lastLogin         DateTime?
@@ -228,6 +270,8 @@ model StaffMember {
   classes           Class[] @relation("TeacherClasses")
   classSubjects     ClassSubject[]
   payslips          Payslip[]
+  unavailability    Json?    // [{ day, period }] slots the teacher cannot teach
+  timetableEntries  TimetableEntry[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -305,6 +349,7 @@ model Class {
   attendance        Attendance[]
   classSubjects     ClassSubject[]
   grades            Grade[]
+  timetables        Timetable[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -393,6 +438,7 @@ model Subject {
   coefficient       Int      @default(1)
   classSubjects     ClassSubject[]
   grades            Grade[]
+  timetableEntries  TimetableEntry[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -409,6 +455,7 @@ model ClassSubject {
   teacherId         String?
   teacher           StaffMember? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   coefficient       Int      @default(1)
+  weeklyHours       Int      @default(2) // periods per week, used by the timetable generator
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -678,4 +725,202 @@ model Announcement {
 
   @@index([schoolId])
   @@index([isPublished])
+}
+
+// ==================== SaaS platform ====================
+
+/// Atomic per-school counters (matricules, invoice numbers...). Replaces count()+1.
+model Sequence {
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  key               String   // e.g. "matricule:2026", "invoice:2026"
+  value             Int      @default(0)
+
+  @@id([schoolId, key])
+}
+
+enum MessageChannel {
+  EMAIL
+  SMS
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+/// Outbox of emails / SMS. Delivered by the configured provider (console/simulated by default).
+model OutboundMessage {
+  id                String   @id @default(cuid())
+  schoolId          String?
+  channel           MessageChannel
+  to                String
+  subject           String?
+  body              String
+  status            MessageStatus @default(QUEUED)
+  provider          String?
+  error             String?
+  createdAt         DateTime @default(now())
+  sentAt            DateTime?
+
+  @@index([schoolId, createdAt])
+  @@index([status])
+}
+
+/// Message sent from the public showcase contact form.
+model ContactMessage {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name              String
+  email             String
+  phone             String?
+  message           String
+  handled           Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId, handled])
+}
+
+// ==================== Timetable ====================
+
+model Room {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name              String
+  capacity          Int      @default(40)
+  entries           TimetableEntry[]
+  createdAt         DateTime @default(now())
+
+  @@unique([schoolId, name])
+}
+
+enum TimetableStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Timetable {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classId           String
+  class             Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  status            TimetableStatus @default(DRAFT)
+  entries           TimetableEntry[]
+  publishedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([classId, status])
+  @@index([schoolId])
+}
+
+model TimetableEntry {
+  id                String   @id @default(cuid())
+  timetableId       String
+  timetable         Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  day               Int      // 1 = Monday ... 6 = Saturday
+  period            Int      // 1-based period of the day
+  subjectId         String
+  subject           Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId         String?
+  teacher           StaffMember? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  roomId            String?
+  room              Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@unique([timetableId, day, period])
+  @@index([teacherId, day, period])
+  @@index([roomId, day, period])
+}
+
+// ==================== Documents ====================
+
+model DocumentTemplate {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  type              String   // CERTIFICAT_SCOLARITE, ATTESTATION, RECU, CONVOCATION, COURRIER, ...
+  name              String
+  context           String   // STUDENT | STAFF | SCHOOL : which data dictionary applies
+  currentVersion    Int      @default(1)
+  versions          DocumentTemplateVersion[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+model DocumentTemplateVersion {
+  id                String   @id @default(cuid())
+  templateId        String
+  template          DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version           Int
+  content           String   // HTML with {{variables}}
+  createdById       String?
+  createdAt         DateTime @default(now())
+  documents         GeneratedDocument[]
+
+  @@unique([templateId, version])
+}
+
+model GeneratedDocument {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  templateVersionId String
+  templateVersion   DocumentTemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)
+  subjectId         String?  // student / staff id the document is about
+  number            String   // DOC-YEAR-NNNNN, per school
+  verificationCode  String   @unique // public authenticity check
+  html              String   // frozen rendered content
+  contentHash       String
+  createdById       String?
+  createdAt         DateTime @default(now())
+
+  @@unique([schoolId, number])
+  @@index([schoolId, subjectId])
+}
+
+// ==================== AI ====================
+
+enum PendingActionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+/// A sensitive action proposed by the AI agent that waits for the user's explicit confirmation.
+model AiPendingAction {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  userId            String
+  tool              String
+  args              Json
+  summary           String
+  status            PendingActionStatus @default(PENDING)
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  resolvedAt        DateTime?
+
+  @@index([schoolId, userId, status])
+}
+
+/// Dashboard built from a validated declarative spec (never code).
+model SavedView {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  userId            String
+  name              String
+  spec              Json
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([schoolId, userId])
 }

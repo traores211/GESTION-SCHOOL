@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { SequenceService } from '../common/sequence.service';
 import { CreateAdmissionDto } from './dto/create-admission.dto';
 
 export const ADMISSION_WORKFLOW = [
@@ -18,7 +19,10 @@ export const ADMISSION_WORKFLOW = [
 
 @Injectable()
 export class AdmissionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sequences: SequenceService,
+  ) {}
 
   private async resolveCurrentYear(schoolId: string) {
     const year = await this.prisma.academicYear.findFirst({ where: { schoolId, isCurrent: true } });
@@ -69,14 +73,13 @@ export class AdmissionsService {
     let studentId = admission.studentId;
 
     if (status === 'INSCRIPTION' && !studentId && user.schoolId) {
-      const year = new Date().getFullYear();
-      const count = await this.prisma.student.count({ where: { schoolId: user.schoolId } });
+      const matricule = await this.sequences.matricule(user.schoolId);
       const student = await this.prisma.student.create({
         data: {
           schoolId: user.schoolId,
           firstName: admission.firstName,
           lastName: admission.lastName,
-          matricule: `${year}-${String(count + 1).padStart(4, '0')}`,
+          matricule,
           dateOfBirth: admission.dateOfBirth ?? new Date(),
           gender: admission.gender,
           phone: admission.phone,

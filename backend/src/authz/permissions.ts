@@ -34,11 +34,22 @@ export const PERMISSIONS = [
   'announcements:read',
   'announcements:write',
   'parent-portal:read',
+  'school:settings',
+  'audit:read',
+  'timetable:read',
+  'timetable:write',
+  'documents:read',
+  'documents:write',
+  'ai:chat',
+  'views:write',
+  'platform:manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-const ALL: readonly Permission[] = PERMISSIONS.filter((p) => p !== 'parent-portal:read');
+const ALL: readonly Permission[] = PERMISSIONS.filter(
+  (p) => p !== 'parent-portal:read' && p !== 'platform:manage',
+);
 
 /**
  * Derived from what each role actually uses today (menu entries in frontend Shell.tsx and the
@@ -67,6 +78,11 @@ export const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
     'billing:write',
     'transport:read',
     'transport:write',
+    'timetable:read',
+    'documents:read',
+    'documents:write',
+    'ai:chat',
+    'views:write',
   ],
   COMPTABLE: [
     'dashboard:read',
@@ -78,6 +94,10 @@ export const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
     'billing:write',
     'payroll:read',
     'payroll:write',
+    'documents:read',
+    'documents:write',
+    'ai:chat',
+    'views:write',
   ],
   ENSEIGNANT: [
     'dashboard:read',
@@ -89,9 +109,13 @@ export const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
     'attendance:write',
     'grades:read',
     'grades:write',
+    'timetable:read',
+    'ai:chat',
   ],
   PARENT: ['parent-portal:read'],
   ELEVE: [],
+  // SaaS operator: platform console only, never a school's data.
+  PLATFORM_ADMIN: ['platform:manage'],
 };
 
 export function permissionsForRole(role: string | null | undefined): readonly Permission[] {
