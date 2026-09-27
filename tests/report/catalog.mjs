@@ -104,6 +104,7 @@ export const CATALOG = {
   'UI-20': ['Interface / portail parent', 'Parent', 'Portail + axe', '0 violation grave', 'P0'],
   'UI-21': ['Accessibilité', 'Directeur', 'Tab au chargement', 'Lien d’évitement focalisé', 'P1'],
   'UI-22': ['Accessibilité', '—', 'axe sur pages publiques', '0 violation grave', 'P1'],
+  'UI-23': ['Sécurité web', '—', 'En-têtes des pages', 'CSP, X-Frame-Options, nosniff, Permissions-Policy, pas de X-Powered-By', 'P0'],
   'MO-01': ['Mobile', 'Tablette/téléphone', 'Connexion', 'Pas de défilement horizontal', 'P0'],
   'MO-02': ['Mobile', 'Téléphone', 'Barre inférieure + « Plus »', 'Navigation fonctionnelle', 'P0'],
   'MO-03': ['Mobile / présences', 'Enseignant', 'Appel', 'Utilisable sans défilement horizontal', 'P0'],

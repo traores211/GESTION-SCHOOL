@@ -70,3 +70,7 @@ sbom*.json
 .opencode/node_modules/
 .opencode/bun.lock
 .opencode/package-lock.json
+
+# Playwright / acceptance artifacts (evidence is archived in docs/testing/preuves)
+test-results/
+playwright-report/

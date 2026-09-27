@@ -120,8 +120,14 @@ export class BillingService {
         ...(studentId ? { studentId } : {}),
         ...(status ? { status: status as any } : {}),
       },
-      include: { items: true, payments: true, student: true },
+      // Only what the billing screen displays, capped (payload measured in recette PF-01).
+      include: {
+        items: { select: { id: true, label: true, amount: true } },
+        payments: { select: { id: true, amount: true, method: true, status: true, paidAt: true, reference: true } },
+        student: { select: { id: true, firstName: true, lastName: true, matricule: true } },
+      },
       orderBy: { createdAt: 'desc' },
+      take: 500,
     });
   }
 

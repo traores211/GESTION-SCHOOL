@@ -52,13 +52,10 @@ export default function PlatformPage() {
 
   const load = () => {
     setError(null);
-    Promise.all([api.get<School[]>("/platform/schools"), api.get<Stats>("/platform/stats"), api.get<typeof catalogue>("/platform/catalogue")])
-      .then(([s, st, c]) => {
-        setSchools(s);
-        setStats(st);
-        setCatalogue(c);
-      })
-      .catch((err) => setError(errorMessage(err)));
+    // Independent requests: the school list must not wait for the (slower) statistics.
+    api.get<School[]>("/platform/schools").then(setSchools).catch((err) => setError(errorMessage(err)));
+    api.get<Stats>("/platform/stats").then(setStats).catch(() => {});
+    api.get<typeof catalogue>("/platform/catalogue").then(setCatalogue).catch(() => {});
   };
   useEffect(load, []);
 

@@ -1,0 +1,543 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\playwright.config.ts",
+    "rootDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../test-results/recette.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "../playwright-report",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "api",
+        "name": "api",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(smoke|api|ai|perf)\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop",
+        "name": "desktop",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/ui\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "tablet",
+        "name": "tablet",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/responsive\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile",
+        "name": "mobile",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(responsive|mobile)\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.52.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "ai.spec.ts",
+      "file": "ai.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[IA-01] Statut : outils proposés selon le rôle (enseignant sans paie ni finance)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1313,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:33.734Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-4198c504a235924f8405",
+          "file": "ai.spec.ts",
+          "line": 24,
+          "column": 5
+        },
+        {
+          "title": "[IA-02] Plan sans IA : module invisible (404) ; parent : aucun accès (403)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1489,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:41.630Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-2f24d47d8d9bbe38d9d2",
+          "file": "ai.spec.ts",
+          "line": 35,
+          "column": 5
+        },
+        {
+          "title": "[IA-03] Question en langage naturel : impayés",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:43.141Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-39ae2dd2a569908d73c7",
+          "file": "ai.spec.ts",
+          "line": 40,
+          "column": 5
+        },
+        {
+          "title": "[IA-04] Enseignant demandant les salaires : refus, aucune donnée de paie",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:43.177Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-4afd32a5c032933f7c68",
+          "file": "ai.spec.ts",
+          "line": 47,
+          "column": 5
+        },
+        {
+          "title": "[IA-05] Action sensible : création de classe mise en attente puis confirmée",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 3,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:43.220Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-1e48787cd72257cbc114",
+          "file": "ai.spec.ts",
+          "line": 54,
+          "column": 5
+        },
+        {
+          "title": "[IA-06] Injection de consigne : l’assistant ne sort pas de ses droits",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 9,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:43.265Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-a2644b8dd2dd37df0ab9",
+          "file": "ai.spec.ts",
+          "line": 68,
+          "column": 5
+        },
+        {
+          "title": "[IA-07] Tableau de bord généré, validé, enregistré puis relu avec les droits courants",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:43.339Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-abb1e9f98fec3d0275fe",
+          "file": "ai.spec.ts",
+          "line": 77,
+          "column": 5
+        },
+        {
+          "title": "[IA-08] Vue dynamique invalide ou non autorisée refusée côté serveur",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 663,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:43.370Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-0da0d39caae69368e55f",
+          "file": "ai.spec.ts",
+          "line": 88,
+          "column": 5
+        },
+        {
+          "title": "[IA-09] Emploi du temps demandé à l’assistant : brouillon proposé à confirmer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 12,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:44.158Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-5bfe4f07bba2dd7fe6cb",
+          "file": "ai.spec.ts",
+          "line": 97,
+          "column": 5
+        },
+        {
+          "title": "[IA-10] Toutes les actions de l’assistant sont journalisées",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 19,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:44.260Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Assistant non configuré : le fournisseur IA a refusé l’appel (HTTP 503, clé API invalide ou quota) — bloqué par dépendance externe"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "f4c16ad2df3b1859900b-3ffe797d4f2e79bc2785",
+          "file": "ai.spec.ts",
+          "line": 105,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-27T02:05:29.179Z",
+    "duration": 15635.682,
+    "expected": 3,
+    "skipped": 7,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

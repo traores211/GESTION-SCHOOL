@@ -1,0 +1,378 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\playwright.config.ts",
+    "rootDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../test-results/recette.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "../playwright-report",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "api",
+        "name": "api",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(smoke|api|ai|perf)\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop",
+        "name": "desktop",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/ui\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "tablet",
+        "name": "tablet",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/responsive\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile",
+        "name": "mobile",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(responsive|mobile)\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.52.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "perf.spec.ts",
+      "file": "perf.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[PF-01] Latence API p95 < 300 ms sur les lectures clés (30 requêtes chacune)",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 26817,
+                  "error": {
+                    "message": "Error: dashboard/overview p95=382ms\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m300\u001b[39m\nReceived:   \u001b[31m382\u001b[39m",
+                    "stack": "Error: dashboard/overview p95=382ms\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m300\u001b[39m\nReceived:   \u001b[31m382\u001b[39m\n    at C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts:31:87",
+                    "location": {
+                      "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts",
+                      "column": 87,
+                      "line": 31
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 29 |\u001b[39m   \u001b[36mawait\u001b[39m testInfo\u001b[33m.\u001b[39mattach(\u001b[32m'p95-ms.json'\u001b[39m\u001b[33m,\u001b[39m { body\u001b[33m:\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(results\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m)\u001b[33m,\u001b[39m contentType\u001b[33m:\u001b[39m \u001b[32m'application/json'\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 30 |\u001b[39m   \u001b[36mawait\u001b[39m testInfo\u001b[33m.\u001b[39mattach(\u001b[32m'median-ms.json'\u001b[39m\u001b[33m,\u001b[39m { body\u001b[33m:\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(medians\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m)\u001b[33m,\u001b[39m contentType\u001b[33m:\u001b[39m \u001b[32m'application/json'\u001b[39m })\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 31 |\u001b[39m   \u001b[36mfor\u001b[39m (\u001b[36mconst\u001b[39m [path\u001b[33m,\u001b[39m ms] \u001b[36mof\u001b[39m \u001b[33mObject\u001b[39m\u001b[33m.\u001b[39mentries(results)) expect(ms\u001b[33m,\u001b[39m \u001b[32m`${path} p95=${ms}ms`\u001b[39m)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m300\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 32 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 33 |\u001b[39m\n \u001b[90m 34 |\u001b[39m test(\u001b[32m'[PF-02] Volume : 300 élèves supplémentaires, liste paginée et recherche restent rapides'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({}\u001b[33m,\u001b[39m testInfo) \u001b[33m=>\u001b[39m {\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts",
+                        "column": 87,
+                        "line": 31
+                      },
+                      "message": "Error: dashboard/overview p95=382ms\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m300\u001b[39m\nReceived:   \u001b[31m382\u001b[39m\n\n\u001b[0m \u001b[90m 29 |\u001b[39m   \u001b[36mawait\u001b[39m testInfo\u001b[33m.\u001b[39mattach(\u001b[32m'p95-ms.json'\u001b[39m\u001b[33m,\u001b[39m { body\u001b[33m:\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(results\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m)\u001b[33m,\u001b[39m contentType\u001b[33m:\u001b[39m \u001b[32m'application/json'\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 30 |\u001b[39m   \u001b[36mawait\u001b[39m testInfo\u001b[33m.\u001b[39mattach(\u001b[32m'median-ms.json'\u001b[39m\u001b[33m,\u001b[39m { body\u001b[33m:\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(medians\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m)\u001b[33m,\u001b[39m contentType\u001b[33m:\u001b[39m \u001b[32m'application/json'\u001b[39m })\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 31 |\u001b[39m   \u001b[36mfor\u001b[39m (\u001b[36mconst\u001b[39m [path\u001b[33m,\u001b[39m ms] \u001b[36mof\u001b[39m \u001b[33mObject\u001b[39m\u001b[33m.\u001b[39mentries(results)) expect(ms\u001b[33m,\u001b[39m \u001b[32m`${path} p95=${ms}ms`\u001b[39m)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m300\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 32 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 33 |\u001b[39m\n \u001b[90m 34 |\u001b[39m test(\u001b[32m'[PF-02] Volume : 300 élèves supplémentaires, liste paginée et recherche restent rapides'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({}\u001b[33m,\u001b[39m testInfo) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts:31:87\u001b[22m"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:05:53.214Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "p95-ms.json",
+                      "contentType": "application/json",
+                      "body": "ewogICJkYXNoYm9hcmQvb3ZlcnZpZXciOiAzODIsCiAgInN0dWRlbnRzIjogNDAwLAogICJjbGFzc2VzIjogODMyLAogICJiaWxsaW5nL3N0YXRzIjogOTE3LAogICJiaWxsaW5nL2ludm9pY2VzIjogMTM3LAogICJ0aW1ldGFibGUvbWluZSI6IDM5OSwKICAidXNlcnMvbWUiOiAxMTMKfQ=="
+                    },
+                    {
+                      "name": "median-ms.json",
+                      "contentType": "application/json",
+                      "body": "ewogICJkYXNoYm9hcmQvb3ZlcnZpZXciOiA2MywKICAic3R1ZGVudHMiOiAxMTMsCiAgImNsYXNzZXMiOiA4MSwKICAiYmlsbGluZy9zdGF0cyI6IDEwNiwKICAiYmlsbGluZy9pbnZvaWNlcyI6IDY3LAogICJ0aW1ldGFibGUvbWluZSI6IDMxLAogICJ1c2Vycy9tZSI6IDMzCn0="
+                    },
+                    {
+                      "name": "_error-context-0",
+                      "contentType": "text/markdown",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\perf--PF-01-Latence-API-p9-b084a-s-clés-30-requêtes-chacune--api\\error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\perf--PF-01-Latence-API-p9-b084a-s-clés-30-requêtes-chacune--api\\trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts",
+                    "column": 87,
+                    "line": 31
+                  }
+                },
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 32618,
+                  "error": {
+                    "message": "Error: classes p95=871ms\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m300\u001b[39m\nReceived:   \u001b[31m871\u001b[39m",
+                    "stack": "Error: classes p95=871ms\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m300\u001b[39m\nReceived:   \u001b[31m871\u001b[39m\n    at C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts:31:87",
+                    "location": {
+                      "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts",
+                      "column": 87,
+                      "line": 31
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 29 |\u001b[39m   \u001b[36mawait\u001b[39m testInfo\u001b[33m.\u001b[39mattach(\u001b[32m'p95-ms.json'\u001b[39m\u001b[33m,\u001b[39m { body\u001b[33m:\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(results\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m)\u001b[33m,\u001b[39m contentType\u001b[33m:\u001b[39m \u001b[32m'application/json'\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 30 |\u001b[39m   \u001b[36mawait\u001b[39m testInfo\u001b[33m.\u001b[39mattach(\u001b[32m'median-ms.json'\u001b[39m\u001b[33m,\u001b[39m { body\u001b[33m:\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(medians\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m)\u001b[33m,\u001b[39m contentType\u001b[33m:\u001b[39m \u001b[32m'application/json'\u001b[39m })\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 31 |\u001b[39m   \u001b[36mfor\u001b[39m (\u001b[36mconst\u001b[39m [path\u001b[33m,\u001b[39m ms] \u001b[36mof\u001b[39m \u001b[33mObject\u001b[39m\u001b[33m.\u001b[39mentries(results)) expect(ms\u001b[33m,\u001b[39m \u001b[32m`${path} p95=${ms}ms`\u001b[39m)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m300\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 32 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 33 |\u001b[39m\n \u001b[90m 34 |\u001b[39m test(\u001b[32m'[PF-02] Volume : 300 élèves supplémentaires, liste paginée et recherche restent rapides'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({}\u001b[33m,\u001b[39m testInfo) \u001b[33m=>\u001b[39m {\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts",
+                        "column": 87,
+                        "line": 31
+                      },
+                      "message": "Error: classes p95=871ms\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m300\u001b[39m\nReceived:   \u001b[31m871\u001b[39m\n\n\u001b[0m \u001b[90m 29 |\u001b[39m   \u001b[36mawait\u001b[39m testInfo\u001b[33m.\u001b[39mattach(\u001b[32m'p95-ms.json'\u001b[39m\u001b[33m,\u001b[39m { body\u001b[33m:\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(results\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m)\u001b[33m,\u001b[39m contentType\u001b[33m:\u001b[39m \u001b[32m'application/json'\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 30 |\u001b[39m   \u001b[36mawait\u001b[39m testInfo\u001b[33m.\u001b[39mattach(\u001b[32m'median-ms.json'\u001b[39m\u001b[33m,\u001b[39m { body\u001b[33m:\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(medians\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m)\u001b[33m,\u001b[39m contentType\u001b[33m:\u001b[39m \u001b[32m'application/json'\u001b[39m })\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 31 |\u001b[39m   \u001b[36mfor\u001b[39m (\u001b[36mconst\u001b[39m [path\u001b[33m,\u001b[39m ms] \u001b[36mof\u001b[39m \u001b[33mObject\u001b[39m\u001b[33m.\u001b[39mentries(results)) expect(ms\u001b[33m,\u001b[39m \u001b[32m`${path} p95=${ms}ms`\u001b[39m)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m300\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 32 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 33 |\u001b[39m\n \u001b[90m 34 |\u001b[39m test(\u001b[32m'[PF-02] Volume : 300 élèves supplémentaires, liste paginée et recherche restent rapides'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({}\u001b[33m,\u001b[39m testInfo) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts:31:87\u001b[22m"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-09-27T02:06:25.026Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "p95-ms.json",
+                      "contentType": "application/json",
+                      "body": "ewogICJkYXNoYm9hcmQvb3ZlcnZpZXciOiA3MSwKICAic3R1ZGVudHMiOiAxNjYsCiAgImNsYXNzZXMiOiA4NzEsCiAgImJpbGxpbmcvc3RhdHMiOiA3OTksCiAgImJpbGxpbmcvaW52b2ljZXMiOiAyOTcsCiAgInRpbWV0YWJsZS9taW5lIjogMzUsCiAgInVzZXJzL21lIjogMjAKfQ=="
+                    },
+                    {
+                      "name": "median-ms.json",
+                      "contentType": "application/json",
+                      "body": "ewogICJkYXNoYm9hcmQvb3ZlcnZpZXciOiAzMywKICAic3R1ZGVudHMiOiA1MiwKICAiY2xhc3NlcyI6IDM2LAogICJiaWxsaW5nL3N0YXRzIjogODIsCiAgImJpbGxpbmcvaW52b2ljZXMiOiA0MSwKICAidGltZXRhYmxlL21pbmUiOiAxOSwKICAidXNlcnMvbWUiOiAxNQp9"
+                    },
+                    {
+                      "name": "_error-context-0",
+                      "contentType": "text/markdown",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\perf--PF-01-Latence-API-p9-b084a-s-clés-30-requêtes-chacune--api-retry1\\error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\perf--PF-01-Latence-API-p9-b084a-s-clés-30-requêtes-chacune--api-retry1\\trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\perf.spec.ts",
+                    "column": 87,
+                    "line": 31
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "73ed389be8d3d6a89cdb-7f23a770b56126ba6fc2",
+          "file": "perf.spec.ts",
+          "line": 14,
+          "column": 5
+        },
+        {
+          "title": "[PF-02] Volume : 300 élèves supplémentaires, liste paginée et recherche restent rapides",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 38621,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:07:00.563Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "volume-ms.json",
+                      "contentType": "application/json",
+                      "body": "ewogICJsaXN0TXMiOiAyMjguNjUyMjAwMDAwMDA0MSwKICAic2VhcmNoTXMiOiAxNDguNDk5NDAwMDAwMDAwNiwKICAiZGFzaE1zIjogMzkyLjU3OTcwMDAwMDAwMjA1Cn0="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "73ed389be8d3d6a89cdb-f2a9ced192cb6cf0b86e",
+          "file": "perf.spec.ts",
+          "line": 34,
+          "column": 5
+        },
+        {
+          "title": "[PF-03] Génération d’emploi du temps pour toutes les classes < 3 s",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 675,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:07:39.228Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "73ed389be8d3d6a89cdb-ca577841bf54f75ba982",
+          "file": "perf.spec.ts",
+          "line": 58,
+          "column": 5
+        },
+        {
+          "title": "[PF-04] Génération d’un document officiel < 3 s",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "api",
+              "projectName": "api",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 829,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:07:39.945Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "73ed389be8d3d6a89cdb-608e9382bbe11d8b9710",
+          "file": "perf.spec.ts",
+          "line": 68,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-27T02:05:50.616Z",
+    "duration": 110520.205,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

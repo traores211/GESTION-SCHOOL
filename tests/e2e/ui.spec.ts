@@ -3,7 +3,6 @@ import { expect, test } from '@playwright/test';
 import { uiLogin } from './helpers';
 
 /** Desktop browser journeys (non-regression of existing screens + new SaaS screens). */
-test.describe.configure({ mode: 'serial' });
 
 async function axeSerious(page: import('@playwright/test').Page) {
   const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
@@ -24,7 +23,8 @@ test('[UI-02] Mauvais identifiants : message d’erreur annoncé', async ({ page
   await page.getByLabel('Adresse email').fill('directeur@school.local');
   await page.getByLabel('Mot de passe').fill('mauvais');
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(page.getByRole('alert')).toContainText('incorrect');
+  // Next.js adds its own (empty) role=alert route announcer: target ours by its text.
+  await expect(page.getByRole('alert').filter({ hasText: 'incorrect' })).toBeVisible();
 });
 
 test('[UI-03] Tableau de bord directeur : KPI et finances', async ({ page }) => {
@@ -54,11 +54,13 @@ test('[UI-05] Élèves : liste, création via la modale accessible (Échap ferme
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await page.getByRole('button', { name: /Nouvel élève/ }).click();
-  await page.getByLabel('Prénom').fill('Sika');
-  await page.getByLabel('Nom').fill('Navigateur');
+  await page.getByLabel('Prénom', { exact: true }).fill('Sika');
+  const lastName = `Navigateur${Date.now().toString(36)}`; // unique: the scenario is replayable
+  await page.getByLabel('Nom', { exact: true }).fill(lastName);
   await page.getByLabel('Date de naissance').fill('2013-04-04');
   await page.getByRole('dialog').getByRole('button', { name: /Enregistrer|Créer|Inscrire/ }).click();
-  await expect(page.getByText('Navigateur')).toBeVisible();
+  await expect(page.getByRole('link', { name: `${lastName} Sika` })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Pagination' })).toContainText('1 élève');
   expect(await axeSerious(page)).toEqual([]);
 });
 
@@ -111,6 +113,8 @@ test('[UI-11] Emplois du temps : grille publiée, exports proposés', async ({ p
 test('[UI-12] Documents : aperçu d’un certificat dans un cadre isolé', async ({ page }) => {
   await uiLogin(page, 'director');
   await page.goto('/documents');
+  const certificate = page.getByLabel('Modèle').locator('option', { hasText: 'Certificat de scolarité' });
+  await page.getByLabel('Modèle').selectOption(await certificate.getAttribute('value'));
   await page.getByLabel('Élève').selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Aperçu' }).click();
   const frame = page.frameLocator('iframe[title="Aperçu du document"]');
@@ -137,7 +141,7 @@ test('[UI-14] Journal d’audit consultable par la direction', async ({ page }) 
 test('[UI-15] Console plateforme : écoles, plans et modules', async ({ page }) => {
   await uiLogin(page, 'platform');
   await expect(page.getByRole('heading', { name: 'Écoles et plans' })).toBeVisible();
-  await expect(page.getByText('Lycée Horizon')).toBeVisible();
+  await expect(page.getByText('Lycée Horizon', { exact: true })).toBeVisible();
   const nav = page.getByRole('navigation', { name: 'Navigation principale' });
   await expect(nav.getByRole('link', { name: 'Élèves' })).toHaveCount(0);
 });
@@ -152,23 +156,36 @@ test('[UI-16] Vitrine publique rendue côté serveur (SEO / OpenGraph)', async (
 });
 
 test('[UI-17] Vitrine sur sous-domaine de l’école', async ({ page }) => {
+  // First access to a *.localhost host on Windows/Docker Desktop takes ~15 s (IPv6 then IPv4
+  // fallback, measured); the showcase is server-rendered, so the DOM content is what matters.
+  test.setTimeout(90_000);
   const port = new URL(process.env.RECETTE_WEB ?? 'http://localhost:13000').port;
-  await page.goto(`http://demo-001.localhost:${port}/`);
-  await expect(page.getByRole('heading', { level: 1, name: 'Groupe Scolaire La Réussite' })).toBeVisible();
+  await page.goto(`http://demo-001.localhost:${port}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await expect(page.getByRole('heading', { level: 1, name: 'Groupe Scolaire La Réussite' })).toBeVisible({ timeout: 30_000 });
 });
 
 test('[UI-18] Préinscription publique depuis la vitrine', async ({ page }) => {
   await page.goto('/ecole/DEMO-001/inscription');
   await page.getByLabel("Prénom de l'enfant").fill('Yao');
-  await page.getByLabel("Nom de l'enfant").fill('Navigateur');
+  await page.getByLabel("Nom de l'enfant", { exact: true }).fill('Navigateur');
   await page.getByLabel('Email du parent/tuteur').fill('yao.navigateur@parent.local');
   await page.getByRole('button', { name: /Envoyer/ }).click();
-  await expect(page.getByRole('status')).toContainText('Candidature envoyée');
+  await expect(page.getByRole('status').filter({ hasText: 'Candidature envoyée' })).toBeVisible();
+});
+
+test('[UI-23] En-têtes de sécurité sur les pages web (CSP, anti-clickjacking, nosniff)', async ({ request }) => {
+  const res = await request.get('/ecole/DEMO-001');
+  const h = res.headers();
+  expect(h['content-security-policy']).toContain("frame-ancestors 'none'");
+  expect(h['x-frame-options']).toBe('DENY');
+  expect(h['x-content-type-options']).toBe('nosniff');
+  expect(h['permissions-policy']).toBeTruthy();
+  expect(h['x-powered-by']).toBeUndefined();
 });
 
 test('[UI-19] Vérification publique d’un document inconnu', async ({ page }) => {
   await page.goto('/verifier/code-inexistant');
-  await expect(page.getByRole('alert')).toContainText('Aucun document');
+  await expect(page.getByRole('alert').filter({ hasText: 'Aucun document' })).toBeVisible();
 });
 
 test('[UI-20] Portail parent : enfants, notes, factures', async ({ page }) => {

@@ -1,0 +1,1021 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\playwright.config.ts",
+    "rootDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../test-results/recette.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "../playwright-report",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "api",
+        "name": "api",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(smoke|api|ai|perf)\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop",
+        "name": "desktop",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/ui\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "tablet",
+        "name": "tablet",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/responsive\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile",
+        "name": "mobile",
+        "testDir": "C:/Users/XFMW0715/Desktop/GESTION SCHOOL/.claude/worktrees/saas-platform-audit/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(responsive|mobile)\\.spec\\.ts/"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.52.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "ui.spec.ts",
+      "file": "ui.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "[UI-01] Connexion par le formulaire, déconnexion, page protégée redirigée",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14851,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:49:16.806Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-528fcd181cf73b018d4d",
+          "file": "ui.spec.ts",
+          "line": 12,
+          "column": 5
+        },
+        {
+          "title": "[UI-02] Mauvais identifiants : message d’erreur annoncé",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2256,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:49:34.624Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-53c3e9be65592d9e9fed",
+          "file": "ui.spec.ts",
+          "line": 21,
+          "column": 5
+        },
+        {
+          "title": "[UI-03] Tableau de bord directeur : KPI et finances",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 23046,
+                  "error": {
+                    "message": "Error: \u001b[31mTimed out 20000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Effectif')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - expect.toBeVisible with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Effectif')\u001b[22m\n",
+                    "stack": "Error: \u001b[31mTimed out 20000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Effectif')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - expect.toBeVisible with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Effectif')\u001b[22m\n\n    at C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\ui.spec.ts:32:44",
+                    "location": {
+                      "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\ui.spec.ts",
+                      "column": 44,
+                      "line": 32
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 30 |\u001b[39m test(\u001b[32m'[UI-03] Tableau de bord directeur : KPI et finances'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n \u001b[90m 31 |\u001b[39m   \u001b[36mawait\u001b[39m uiLogin(page\u001b[33m,\u001b[39m \u001b[32m'director'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 32 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'Effectif'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 33 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'Total facturé'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 34 |\u001b[39m   expect(\u001b[36mawait\u001b[39m axeSerious(page))\u001b[33m.\u001b[39mtoEqual([])\u001b[33m;\u001b[39m\n \u001b[90m 35 |\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\ui.spec.ts",
+                        "column": 44,
+                        "line": 32
+                      },
+                      "message": "Error: \u001b[31mTimed out 20000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: getByText('Effectif')\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - expect.toBeVisible with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByText('Effectif')\u001b[22m\n\n\n\u001b[0m \u001b[90m 30 |\u001b[39m test(\u001b[32m'[UI-03] Tableau de bord directeur : KPI et finances'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n \u001b[90m 31 |\u001b[39m   \u001b[36mawait\u001b[39m uiLogin(page\u001b[33m,\u001b[39m \u001b[32m'director'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 32 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'Effectif'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 33 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'Total facturé'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 34 |\u001b[39m   expect(\u001b[36mawait\u001b[39m axeSerious(page))\u001b[33m.\u001b[39mtoEqual([])\u001b[33m;\u001b[39m\n \u001b[90m 35 |\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\ui.spec.ts:32:44\u001b[22m"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:49:36.887Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\ui--UI-03-Tableau-de-bord-directeur-KPI-et-finances-desktop\\test-failed-1.png"
+                    },
+                    {
+                      "name": "_error-context-0",
+                      "contentType": "text/markdown",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\ui--UI-03-Tableau-de-bord-directeur-KPI-et-finances-desktop\\error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\ui--UI-03-Tableau-de-bord-directeur-KPI-et-finances-desktop\\trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\ui.spec.ts",
+                    "column": 44,
+                    "line": 32
+                  }
+                },
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6915,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-09-27T02:50:02.912Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "flaky"
+            }
+          ],
+          "id": "d425444c687fa36b5882-77d8428a39cc0e8fdcc8",
+          "file": "ui.spec.ts",
+          "line": 30,
+          "column": 5
+        },
+        {
+          "title": "[UI-04] Tableau de bord enseignant : pas de bloc finances, menu restreint",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3622,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:50:10.102Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-e952ba99616cd8b72f7d",
+          "file": "ui.spec.ts",
+          "line": 37,
+          "column": 5
+        },
+        {
+          "title": "[UI-05] Élèves : liste, création via la modale accessible (Échap ferme)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 16277,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:50:13.730Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-4604cc5d0f0c43b30011",
+          "file": "ui.spec.ts",
+          "line": 47,
+          "column": 5
+        },
+        {
+          "title": "[UI-06] Enseignant : le bouton de création d’élève n’est pas proposé",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6236,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:50:30.015Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-317b71601a8944ed4b14",
+          "file": "ui.spec.ts",
+          "line": 67,
+          "column": 5
+        },
+        {
+          "title": "[UI-07] Appel (présences) : enregistrement par l’enseignant",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6580,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:50:36.271Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-1a069c9e0bbafff02489",
+          "file": "ui.spec.ts",
+          "line": 74,
+          "column": 5
+        },
+        {
+          "title": "[UI-08] Notes : saisie et bulletin PDF accessibles à l’enseignant",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5589,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:50:42.858Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-244ab45996d56ee60ccd",
+          "file": "ui.spec.ts",
+          "line": 82,
+          "column": 5
+        },
+        {
+          "title": "[UI-09] Facturation : relance des impayés depuis l’écran",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5754,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:50:48.457Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-894d8d70e2b60adbc9bd",
+          "file": "ui.spec.ts",
+          "line": 89,
+          "column": 5
+        },
+        {
+          "title": "[UI-10] Paie : écran accessible au comptable",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6692,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:50:54.218Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-f9960093a56930649a64",
+          "file": "ui.spec.ts",
+          "line": 96,
+          "column": 5
+        },
+        {
+          "title": "[UI-11] Emplois du temps : grille publiée, exports proposés",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 60597,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                    },
+                    {
+                      "location": {
+                        "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\ui.spec.ts",
+                        "column": 25,
+                        "line": 108
+                      },
+                      "message": "Error: page.waitForEvent: Test timeout of 60000ms exceeded.\n=========================== logs ===========================\nwaiting for event \"download\"\n============================================================\n\n\u001b[0m \u001b[90m 106 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'table'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Emploi du temps'\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 107 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'button'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Calendrier (.ics)'\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 108 |\u001b[39m   \u001b[36mconst\u001b[39m download \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mwaitForEvent(\u001b[32m'download'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 109 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'button'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Excel (CSV)'\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 110 |\u001b[39m   expect((\u001b[36mawait\u001b[39m download)\u001b[33m.\u001b[39msuggestedFilename())\u001b[33m.\u001b[39mtoMatch(\u001b[35m/\\.csv$/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 111 |\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\ui.spec.ts:108:25\u001b[22m"
+                    },
+                    {
+                      "location": {
+                        "file": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\ui.spec.ts",
+                        "column": 59,
+                        "line": 109
+                      },
+                      "message": "Error: locator.click: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Excel (CSV)' })\u001b[22m\n\n\n\u001b[0m \u001b[90m 107 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'button'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Calendrier (.ics)'\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 108 |\u001b[39m   \u001b[36mconst\u001b[39m download \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mwaitForEvent(\u001b[32m'download'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 109 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'button'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Excel (CSV)'\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                           \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 110 |\u001b[39m   expect((\u001b[36mawait\u001b[39m download)\u001b[33m.\u001b[39msuggestedFilename())\u001b[33m.\u001b[39mtoMatch(\u001b[35m/\\.csv$/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 111 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 112 |\u001b[39m\u001b[0m\n\u001b[2m    at C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\tests\\e2e\\ui.spec.ts:109:59\u001b[22m"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:51:00.914Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\ui--UI-11-Emplois-du-temps-grille-publiée-exports-proposés-desktop\\test-failed-1.png"
+                    },
+                    {
+                      "name": "_error-context-1",
+                      "contentType": "text/markdown",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\ui--UI-11-Emplois-du-temps-grille-publiée-exports-proposés-desktop\\error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "C:\\Users\\XFMW0715\\Desktop\\GESTION SCHOOL\\.claude\\worktrees\\saas-platform-audit\\test-results\\artifacts\\ui--UI-11-Emplois-du-temps-grille-publiée-exports-proposés-desktop\\trace.zip"
+                    }
+                  ]
+                },
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 37297,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-09-27T02:52:09.504Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "flaky"
+            }
+          ],
+          "id": "d425444c687fa36b5882-84fd4f988946e29a5344",
+          "file": "ui.spec.ts",
+          "line": 103,
+          "column": 5
+        },
+        {
+          "title": "[UI-12] Documents : aperçu d’un certificat dans un cadre isolé",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14389,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:52:47.832Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-5a7779e87aa6ad936350",
+          "file": "ui.spec.ts",
+          "line": 113,
+          "column": 5
+        },
+        {
+          "title": "[UI-13] Vitrine et identité : contraste vérifié en direct",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10754,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:53:02.230Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-b37e9504e3056ff00446",
+          "file": "ui.spec.ts",
+          "line": 125,
+          "column": 5
+        },
+        {
+          "title": "[UI-14] Journal d’audit consultable par la direction",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7428,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:53:13.004Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-8767fa543980a024df1f",
+          "file": "ui.spec.ts",
+          "line": 134,
+          "column": 5
+        },
+        {
+          "title": "[UI-15] Console plateforme : écoles, plans et modules",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3785,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:53:20.439Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-cd333fb48420e459364b",
+          "file": "ui.spec.ts",
+          "line": 141,
+          "column": 5
+        },
+        {
+          "title": "[UI-16] Vitrine publique rendue côté serveur (SEO / OpenGraph)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8856,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:53:24.231Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-94ed40a2027b1c7f1be4",
+          "file": "ui.spec.ts",
+          "line": 149,
+          "column": 5
+        },
+        {
+          "title": "[UI-17] Vitrine sur sous-domaine de l’école",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14755,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:53:33.091Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-ad2ad929231fcf227833",
+          "file": "ui.spec.ts",
+          "line": 158,
+          "column": 5
+        },
+        {
+          "title": "[UI-18] Préinscription publique depuis la vitrine",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2205,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:53:47.853Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-d6c3b2290188eee5b05c",
+          "file": "ui.spec.ts",
+          "line": 167,
+          "column": 5
+        },
+        {
+          "title": "[UI-23] En-têtes de sécurité sur les pages web (CSP, anti-clickjacking, nosniff)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 463,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:53:50.066Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-444b9df343261bb6400f",
+          "file": "ui.spec.ts",
+          "line": 176,
+          "column": 5
+        },
+        {
+          "title": "[UI-19] Vérification publique d’un document inconnu",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6301,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:53:50.534Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-079458d3c31c95226292",
+          "file": "ui.spec.ts",
+          "line": 186,
+          "column": 5
+        },
+        {
+          "title": "[UI-20] Portail parent : enfants, notes, factures",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4378,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:53:56.841Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-9639f95e77588ac9424a",
+          "file": "ui.spec.ts",
+          "line": 191,
+          "column": 5
+        },
+        {
+          "title": "[UI-21] Navigation clavier : lien d’évitement puis contenu",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2903,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:54:01.227Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-9996964a21be01faab9e",
+          "file": "ui.spec.ts",
+          "line": 198,
+          "column": 5
+        },
+        {
+          "title": "[UI-22] Accessibilité automatisée (axe) : pages publiques et connexion",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6974,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-27T02:54:04.140Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d425444c687fa36b5882-93c7f655d5902b4c1a97",
+          "file": "ui.spec.ts",
+          "line": 204,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-27T02:49:14.483Z",
+    "duration": 297746.01399999997,
+    "expected": 21,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 2
+  }
+}

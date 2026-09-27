@@ -169,7 +169,13 @@ export default function PayrollPage() {
                   {p.status === "VALIDATED" && (
                     <button className="btn btn-secondary btn-sm" onClick={() => pay(p.id)}>Payer</button>
                   )}
-                  <button className="btn btn-outline btn-sm" onClick={() => downloadPdf(p.id)}></button>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => downloadPdf(p.id)}
+                    aria-label={`Télécharger le bulletin de paie PDF de ${p.staffMember.user.firstName} ${p.staffMember.user.lastName}`}
+                  >
+                    PDF
+                  </button>
                 </td>
               </tr>
             ))}

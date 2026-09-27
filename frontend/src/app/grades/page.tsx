@@ -186,7 +186,7 @@ export default function GradesPage() {
                   />
                 </td>
                 <td>
-                  <button className="btn btn-outline btn-sm" onClick={() => downloadBulletin(e.student.id)} disabled={!termId}>
+                  <button className="btn btn-outline btn-sm" onClick={() => downloadBulletin(e.student.id)} disabled={!termId} aria-label={`Bulletin PDF de ${e.student.firstName} ${e.student.lastName}`}>
                     PDF
                   </button>
                 </td>

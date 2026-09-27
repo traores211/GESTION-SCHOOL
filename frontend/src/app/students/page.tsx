@@ -54,14 +54,26 @@ export default function StudentsPage() {
     classId: "",
   });
 
-  const load = (q?: string) => {
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 50;
+
+  // Server-side pagination: a school can have thousands of students.
+  const load = (q?: string, p = 1) => {
     setLoading(true);
+    setPage(p);
+    const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+    if (q) params.set("search", q);
     api
-      .get<StudentRow[]>(`/students${q ? `?search=${encodeURIComponent(q)}` : ""}`)
-      .then(setStudents)
+      .getPage<StudentRow>(`/students?${params}`)
+      .then(({ items, total }) => {
+        setStudents(items);
+        setTotal(total);
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Erreur de chargement"))
       .finally(() => setLoading(false));
   };
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   useEffect(() => {
     load();
@@ -80,8 +92,10 @@ export default function StudentsPage() {
     try {
       await api.post("/students", form);
       setShowForm(false);
+      // Show the student just registered (confirmation), whatever the size of the list.
+      setSearch(form.lastName);
+      load(form.lastName);
       setForm({ firstName: "", lastName: "", dateOfBirth: "", gender: "M", classId: "" });
-      load(search);
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Erreur lors de la création");
     } finally {
@@ -94,7 +108,7 @@ export default function StudentsPage() {
       <div className="page-header">
         <div>
           <h1>Élèves</h1>
-          <p>{students.length} élève(s) — dossier 360° de chaque élève</p>
+          <p>{total} élève(s) — dossier 360° de chaque élève</p>
         </div>
         {can("students:write") && (
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>
@@ -153,6 +167,21 @@ export default function StudentsPage() {
         </table>
         {!loading && students.length === 0 && <div className="empty-state">Aucun élève trouvé.</div>}
         {loading && <div className="empty-state">Chargement…</div>}
+      </div>
+      <nav className="row" aria-label="Pagination" style={{ justifyContent: "space-between", marginTop: 12 }}>
+        <span className="muted">
+          Page {page} / {pages} — {total} élève(s)
+        </span>
+        <div className="row">
+          <button type="button" className="btn btn-outline btn-sm" disabled={page <= 1 || loading} onClick={() => load(search, page - 1)}>
+            Précédent
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" disabled={page >= pages || loading} onClick={() => load(search, page + 1)}>
+            Suivant
+          </button>
+        </div>
+      </nav>
+      <div>
       </div>
 
       {showForm && (

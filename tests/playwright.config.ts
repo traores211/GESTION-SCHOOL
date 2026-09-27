@@ -9,10 +9,12 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
-  expect: { timeout: 10_000 },
+  // 20 s: the Docker Desktop (Windows) acceptance host shows multi-second stalls (see PF-01).
+  expect: { timeout: 20_000 },
   fullyParallel: false,
   workers: 1, // shared acceptance data: deterministic order
-  retries: 0,
+  // One replay, reported separately as "PASS au rejeu" (flaky) in the acceptance book — never hidden.
+  retries: 1,
   reporter: [
     ['list'],
     ['json', { outputFile: '../test-results/recette.json' }],

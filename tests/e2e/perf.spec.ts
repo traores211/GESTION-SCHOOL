@@ -5,7 +5,6 @@ import { as } from './helpers';
  * Performance acceptance (measured, not assumed). Targets from docs/architecture §9:
  * API read p95 < 300 ms on the acceptance environment. Results are attached to the report.
  */
-test.describe.configure({ mode: 'serial' });
 
 function p95(values: number[]) {
   const s = [...values].sort((a, b) => a - b);
@@ -15,6 +14,7 @@ function p95(values: number[]) {
 test('[PF-01] Latence API p95 < 300 ms sur les lectures clés (30 requêtes chacune)', async ({}, testInfo) => {
   const director = await as('director');
   const results: Record<string, number> = {};
+  const medians: Record<string, number> = {};
   for (const path of ['dashboard/overview', 'students', 'classes', 'billing/stats', 'billing/invoices', 'timetable/mine', 'users/me']) {
     const times: number[] = [];
     for (let i = 0; i < 30; i++) {
@@ -24,8 +24,10 @@ test('[PF-01] Latence API p95 < 300 ms sur les lectures clés (30 requêtes chac
       expect(res.status()).toBe(200);
     }
     results[path] = Math.round(p95(times));
+    medians[path] = Math.round([...times].sort((a, b) => a - b)[Math.floor(times.length / 2)]);
   }
   await testInfo.attach('p95-ms.json', { body: JSON.stringify(results, null, 2), contentType: 'application/json' });
+  await testInfo.attach('median-ms.json', { body: JSON.stringify(medians, null, 2), contentType: 'application/json' });
   for (const [path, ms] of Object.entries(results)) expect(ms, `${path} p95=${ms}ms`).toBeLessThan(300);
 });
 
