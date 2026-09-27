@@ -1,4 +1,5 @@
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import Anthropic from '@anthropic-ai/sdk';
 import { AiService } from './ai.service';
 import { LlmClient } from './llm-client';
 import { validateViewSpec } from './views';
@@ -135,6 +136,17 @@ describe('AI agent harness', () => {
   it('reports a refusal without leaking anything', async () => {
     const { service } = setup(scripted({ stop_reason: 'refusal', content: [] }));
     await expect(service.chat(director, '...')).resolves.toMatchObject({ reply: 'Je ne peux pas répondre à cette demande.' });
+  });
+
+  it('turns a provider failure (e.g. invalid API key) into a 503, not a 500', async () => {
+    const failing = {
+      model: 'fake',
+      create: async () => {
+        throw new Anthropic.AuthenticationError(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid' } }, 'invalid', new Headers());
+      },
+    };
+    const { service } = setup(failing as any);
+    await expect(service.chat(director, 'bonjour')).rejects.toMatchObject({ status: 503 });
   });
 
   it('is disabled (404) on a plan without the AI feature', async () => {

@@ -538,7 +538,8 @@ async function main() {
   });
 
   // Weekly hours per subject (timetable generator input) and rooms.
-  const WEEKLY: Record<string, number> = { MATH: 5, FR: 5, ANG: 3, SVT: 2, HG: 3, EPS: 2 };
+  // k.kouassi teaches MATH+SVT+HG+EPS in 3 classes: 10 h x 3 = 30 h <= 32 free slots per week.
+  const WEEKLY: Record<string, number> = { MATH: 4, FR: 5, ANG: 3, SVT: 2, HG: 2, EPS: 2 };
   for (const [code, hours] of Object.entries(WEEKLY)) {
     await prisma.classSubject.updateMany({ where: { subject: { schoolId: school.id, code } }, data: { weeklyHours: hours } });
   }

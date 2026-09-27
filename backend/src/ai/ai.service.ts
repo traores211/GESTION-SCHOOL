@@ -127,11 +127,24 @@ export class AiService {
     const result: ChatResult = { reply: '', toolCalls: [], pendingActions: [], views: [] };
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
-      const response = await this.llm.create({
-        system: this.systemPrompt(school.name, user, tools),
-        messages,
-        tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.input_schema as Anthropic.Beta.BetaTool.InputSchema })),
-      });
+      let response: Anthropic.Beta.BetaMessage;
+      try {
+        response = await this.llm.create({
+          system: this.systemPrompt(school.name, user, tools),
+          messages,
+          tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.input_schema as Anthropic.Beta.BetaTool.InputSchema })),
+        });
+      } catch (err) {
+        // Provider failure (invalid key, quota, outage): a clear 503 for the user, details in the logs.
+        if (err instanceof Anthropic.APIError) {
+          this.logger.error(`LLM provider error ${err.status ?? 'network'}: ${err.message.slice(0, 200)}`);
+          throw new HttpException(
+            "L'assistant IA est momentanément indisponible (service externe). Réessayez plus tard ou contactez l'administrateur de la plateforme.",
+            HttpStatus.SERVICE_UNAVAILABLE,
+          );
+        }
+        throw err;
+      }
 
       if (response.stop_reason === 'refusal') {
         result.reply = "Je ne peux pas répondre à cette demande.";

@@ -51,7 +51,13 @@ export class StudentsService {
       this.prisma.student.findMany({
         where,
         include: {
-          enrollments: { where: { withdrawalDate: null }, include: { class: true }, orderBy: { enrollmentDate: 'desc' }, take: 1 },
+          // Only what the lists display (payload measured in recette PF-01).
+          enrollments: {
+            where: { withdrawalDate: null },
+            select: { id: true, classId: true, class: { select: { id: true, name: true, code: true, level: true } } },
+            orderBy: { enrollmentDate: 'desc' },
+            take: 1,
+          },
         },
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
         skip: (Math.max(page, 1) - 1) * take,

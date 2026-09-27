@@ -18,10 +18,14 @@ export class FeatureGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const feature = this.reflector.getAllAndOverride<Feature>(FEATURE_KEY, [context.getHandler(), context.getClass()]);
     if (!feature) return true;
-    const schoolId = context.switchToHttp().getRequest().user?.schoolId;
-    const school = schoolId
-      ? await this.prisma.school.findUnique({ where: { id: schoolId }, select: { plan: true, featureOverrides: true } })
-      : null;
+    const user = context.switchToHttp().getRequest().user;
+    // Loaded by JwtStrategy on the same request; fall back to a query if absent.
+    const school =
+      user?.school !== undefined
+        ? user.school
+        : user?.schoolId
+          ? await this.prisma.school.findUnique({ where: { id: user.schoolId }, select: { plan: true, featureOverrides: true } })
+          : null;
     if (!isFeatureEnabled(school, feature)) throw new NotFoundException();
     return true;
   }

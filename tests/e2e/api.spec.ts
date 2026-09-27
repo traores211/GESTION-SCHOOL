@@ -385,7 +385,7 @@ test.describe('Emplois du temps', () => {
   test('[TT-04] Exports Excel (CSV) et calendrier (.ics)', async () => {
     const csv = await director.get(`timetable/classes/${classes[0].id}/export.csv`);
     expect(csv.status()).toBe(200);
-    expect(await csv.text()).toContain('Jour;');
+    expect(await csv.text()).toContain('"Jour";"Heure"');
     const ics = await director.get(`timetable/classes/${classes[0].id}/export.ics`);
     expect(ics.headers()['content-type']).toContain('text/calendar');
     const body = await ics.text();
@@ -441,7 +441,8 @@ test.describe('Finance', () => {
   });
 
   test('[FI-06] Paie : génération, modification, validation, paiement, PDF', async () => {
-    const period = '2026-09';
+    // A period of its own for each run: a paid payslip is (rightly) locked, so replays must not reuse one.
+    const period = `20${30 + Math.floor(Math.random() * 60)}-${String(1 + Math.floor(Math.random() * 12)).padStart(2, '0')}`;
     const gen = await accountant.post('payroll/generate', { data: { period } });
     expect(gen.status()).toBe(201);
     const slip = (await gen.json())[0];
@@ -552,12 +553,15 @@ test.describe('Documents', () => {
   });
 
   test('[DO-05] Versionnement : une nouvelle version n’altère pas les documents déjà émis', async () => {
-    const before = await (await director.get('documents')).json();
-    const v = await (await director.put(`documents/templates/${certificate.id}`, { data: { content: '<h1>Certificat v2</h1><p>{{student.lastName}}</p>' } })).json();
+    // Dedicated template: the shared certificate must stay intact for replays.
+    const t = await (await director.post('documents/templates', { data: { name: unique('Modele versionne'), type: 'COURRIER', context: 'STUDENT', content: '<p>v1 {{student.matricule}}</p>' } })).json();
+    const doc = await (await director.post('documents/generate', { data: { templateId: t.id, subjectId: studentA.id } })).json();
+    const v = await (await director.put(`documents/templates/${t.id}`, { data: { content: '<p>v2 {{student.lastName}}</p>' } })).json();
     expect(v.version).toBe(2);
-    const after = await (await director.get('documents')).json();
-    const same = after.find((d: { id: string }) => d.id === before[0].id);
-    expect(same.templateVersion.version).toBe(before[0].templateVersion.version);
+    const html = await (await director.get(`documents/${doc.id}/html`)).text();
+    expect(html).toContain(`v1 ${studentA.matricule}`); // the issued document is frozen
+    const history = await (await director.get('documents')).json();
+    expect(history.find((d: { id: string }) => d.id === doc.id).templateVersion.version).toBe(1);
   });
 });
 
@@ -608,14 +612,17 @@ test.describe('Sécurité', () => {
     const logs = await (await director.get('school/audit-logs')).json();
     const actions = new Set(logs.map((l: { action: string }) => l.action));
     for (const a of ['PAYMENT', 'PAY', 'CREATE', 'GENERATE']) expect(actions.has(a), a).toBe(true);
-    expect(JSON.stringify(logs)).not.toMatch(/password|\$2[aby]\$/i);
+    // Action names may mention passwords (PASSWORD_RESET); stored values must never contain one.
+    const values = logs.map((l: { oldValues: string | null; newValues: string | null }) => `${l.oldValues ?? ''}${l.newValues ?? ''}`).join('');
+    expect(values).not.toMatch(/password|\$2[aby]\$/i);
     expect((await teacher.get('school/audit-logs')).status()).toBe(403);
   });
 
   test('[SEC-08] Limitation de débit sur les routes d’authentification (429)', async () => {
     const anon = await anonymous();
     let last = 0;
-    for (let i = 0; i < 12; i++) last = (await anon.post('auth/forgot-password', { data: { email: 'flood@test.local' } })).status();
+    const limit = Number(process.env.RECETTE_AUTH_RATE_LIMIT ?? 60);
+    for (let i = 0; i < limit + 2; i++) last = (await anon.post('auth/forgot-password', { data: { email: 'flood@test.local' } })).status();
     expect(last).toBe(429);
   });
 });

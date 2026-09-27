@@ -53,6 +53,7 @@ services:
       AI_EFFORT: low
       # Acceptance tests hit the API hard from one IP: keep limits but raise the global one.
       API_RATE_LIMIT: ${API_RATE_LIMIT:-2000}
+      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-60}
     ports:
       - "127.0.0.1:14000:4000"
     depends_on:

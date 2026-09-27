@@ -30,11 +30,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // and a role change takes effect without waiting for the token to expire.
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { status: true, role: true, schoolId: true, school: { select: { isActive: true } } },
+      select: { status: true, role: true, schoolId: true, school: { select: { isActive: true, plan: true, featureOverrides: true } } },
     });
     if (!user || user.status !== 'ACTIVE' || (user.school && !user.school.isActive)) {
       throw new UnauthorizedException();
     }
-    return { userId: payload.sub, email: payload.email, role: user.role, schoolId: user.schoolId };
+    // The school's plan travels with the request so FeatureGuard needs no extra query.
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      role: user.role,
+      schoolId: user.schoolId,
+      school: user.school ? { plan: user.school.plan, featureOverrides: user.school.featureOverrides } : null,
+    };
   }
 }
