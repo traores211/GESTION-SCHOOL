@@ -49,12 +49,12 @@ Menu « Annonces », puis « Nouvelle annonce ». Saisir « Titre » et « Conte
 
 ### 2.3 Traiter les messages et préinscriptions reçus
 - Messages : « Vitrine et identité », onglet « Messages ». Répondre par email, puis cliquer « Marquer comme traité ».
-- Préinscriptions : menu « Admissions ». Chaque demande en ligne y arrive avec le statut « Candidature ». Faire avancer le dossier avec les boutons d'étape. Le passage à « Inscription » crée automatiquement la fiche élève avec son matricule.
+- Préinscriptions : menu « Admissions ». Chaque demande en ligne y arrive avec le statut « Candidature » ; « + Nouvelle candidature » permet d'en saisir une au guichet. Faire avancer le dossier avec les boutons « → étape suivante » (ou le rejeter). Le passage à « Inscription » crée automatiquement la fiche élève avec son matricule.
 
 ### 2.4 Gérer le personnel et les comptes
-1. Menu « Personnel », puis le bouton de création.
+1. Menu « Personnel », puis « + Nouveau membre ».
 2. Renseigner « Prénom », « Nom », « Email », « Rôle » (Directeur, Secrétaire, Comptable, Enseignant), « Poste », « Date d'embauche ».
-3. Valider. Un **mot de passe provisoire est affiché une seule fois** : le transmettre à la personne de façon confidentielle. Elle pourra le changer via « Mot de passe oublié ».
+3. Cliquer « Créer le compte ». Un **mot de passe provisoire est affiché une seule fois** : le transmettre à la personne de façon confidentielle. Elle pourra le changer via « Mot de passe oublié ».
 
 Le salaire n'est visible que par la direction et la comptabilité. La création, la modification de salaire et la suppression sont inscrites au journal d'audit.
 
@@ -103,11 +103,12 @@ Menu « Journal d'audit ». Filtrer par ressource (Paie, Factures, Notes, Compte
 ## 3. Secrétariat
 
 ### 3.1 Inscrire un élève
-Menu « Élèves », puis « Nouvel élève ». Renseigner prénom, nom, date de naissance, sexe et classe, puis « Créer l'élève ». Le matricule est attribué automatiquement (AAAA-NNNN).
+Menu « Élèves », puis « + Nouvel élève ». Renseigner prénom, nom, date de naissance, sexe et classe, puis « Créer l'élève ». Le matricule est attribué automatiquement (AAAA-NNNN) et la liste affiche aussitôt l'élève créé.
+**Retrouver un élève** : saisir un nom ou un matricule, puis « Rechercher ». La liste est paginée (50 par page, boutons « Précédent » et « Suivant », total affiché).
 **Changer de classe** : ouvrir la classe d'origine et retirer l'élève, puis l'inscrire depuis la nouvelle classe.
 
 ### 3.2 Enregistrer un parent
-Menu « Parents », puis le bouton de création. Remplir l'identité et le lien de parenté, et cocher les « Enfants rattachés ». Pour que le parent accède au portail, un compte « Parent » doit lui être créé.
+Menu « Parents », puis « + Nouveau parent ». Remplir l'identité et le lien de parenté, et cocher les « Enfants rattachés ». Pour que le parent accède au portail, un compte « Parent » doit lui être créé.
 
 ### 3.3 Traiter une candidature
 Voir 2.3.
@@ -115,10 +116,10 @@ Voir 2.3.
 ## 4. Comptabilité
 
 ### 4.1 Émettre une facture
-Menu « Facturation », puis « Nouvelle facture ». Choisir l'« Élève », puis saisir le « Libellé », l'« Échéance » et les lignes (libellé, « Montant (FCFA) »). Cliquer « Créer la facture ». La référence (INV-AAAA-NNNNN) est attribuée automatiquement.
+Menu « Facturation », puis « Nouvelle facture ». Choisir l'« Élève », puis saisir le « Libellé », le « Montant (FCFA) » et l'« Échéance ». Cliquer « Créer la facture ». La référence (INV-AAAA-NNNNN) est attribuée automatiquement.
 
 ### 4.2 Encaisser un paiement
-Sur la ligne de la facture, lancer l'encaissement. Saisir le « Montant (FCFA) », le « Moyen de paiement » (espèces, Orange Money, MTN, Moov, Wave, virement, chèque, carte) et la « Référence (optionnel) », puis « Confirmer le paiement ».
+Sur la ligne de la facture, cliquer « Encaisser » (le montant est prérempli avec le reste à payer). Ajuster le « Montant (FCFA) » si besoin, le « Moyen de paiement » (espèces, Orange Money, MTN, Moov, Wave, virement, chèque, carte) et la « Référence (optionnel) », puis « Confirmer le paiement ».
 - Un paiement partiel passe la facture en « Partiellement payée ».
 - Un montant supérieur au reste à payer est **refusé** : le message indique le reste exact.
 - Les parents reliés à un compte reçoivent une notification « Paiement reçu ».
@@ -128,10 +129,10 @@ Menu « Facturation », puis « Relancer les impayés échus ». Toutes les fact
 
 ### 4.4 Préparer la paie du mois
 1. Menu « Paie ». Vérifier que chaque salarié a un « Salaire de base ».
-2. Choisir la « Période » et lancer la génération des bulletins.
+2. Choisir la « Période » puis « Générer les bulletins ».
 3. « Ajuster » : saisir primes et retenues, puis « Enregistrer ».
 4. « Valider », puis « Payer » une fois le virement effectué. Un bulletin payé ne peut plus être modifié.
-5. Télécharger le bulletin de paie PDF de chaque salarié.
+5. Bouton « PDF » : télécharger le bulletin de paie de chaque salarié.
 
 ## 5. Enseignants
 
@@ -144,7 +145,7 @@ Menu « Facturation », puis « Relancer les impayés échus ». Toutes les fact
 ### 5.2 Saisir des notes et éditer un bulletin
 1. Menu « Notes et bulletins ». Choisir « Classe », « Matière », « Période » et « Type d'évaluation ».
 2. Saisir les notes sur 20, puis « Enregistrer les notes ».
-3. Colonne « Bulletin » : télécharger le bulletin PDF de l'élève (moyennes pondérées, rang).
+3. Colonne « Bulletin », bouton « PDF » : télécharger le bulletin de l'élève (moyennes pondérées, rang). La « Période » doit être choisie.
 
 ### 5.3 Consulter son emploi du temps
 Menu « Emplois du temps » : la semaine type publiée, toutes classes confondues.
