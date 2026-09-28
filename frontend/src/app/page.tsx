@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../lib/api";
+import { SchoolkidsHero } from "../components/illustrations/Schoolkids";
 import "./ecole/[code]/showcase.css";
 
 const PORTALS = [
@@ -67,7 +68,7 @@ export default function Home() {
 
       <main>
         <section className="sc-hero">
-          <div className="sc-container">
+          <div className="sc-container sc-hero-grid">
             <div className="sc-hero-inner">
               <div className="sc-eyebrow">Plateforme de gestion scolaire</div>
               <h1>Toute la vie de l&apos;établissement, au même endroit</h1>
@@ -83,6 +84,9 @@ export default function Home() {
                   Voir une vitrine d&apos;école
                 </Link>
               </div>
+            </div>
+            <div className="sc-hero-art">
+              <SchoolkidsHero />
             </div>
           </div>
         </section>
