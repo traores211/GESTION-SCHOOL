@@ -5,23 +5,24 @@ WORKDIR /app
 # Install dumb-init, curl, and openssl (required by Prisma's query/schema engines)
 RUN apk add --no-cache dumb-init curl openssl
 
-# Copy package files
+# Copy package files and the Prisma schema (needed to generate the client)
 COPY package*.json ./
+COPY prisma ./prisma
 
-# Install dependencies
-RUN npm install
+# Install dependencies and generate the Prisma client
+RUN npm install && npx prisma generate
 
 # Copy source code
 COPY . .
+RUN sed -i 's/\r$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 
 # Expose port
 EXPOSE 4000
 
-# Health check (allow initial startup)
-HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:4000/api/health || exit 0
+# Health check (Nest in watch mode needs time for its first compilation)
+HEALTHCHECK --interval=15s --timeout=5s --start-period=300s --retries=3 \
+  CMD curl -f http://localhost:4000/api/health || exit 1
 
-# Run application
+# Run application (development: schema sync + seed on empty DB + watch mode)
 ENTRYPOINT ["dumb-init", "--"]
-# Start with npm run dev for development, will switch to npm start in production
-CMD ["npm", "run", "dev"]
+CMD ["./docker-entrypoint.sh"]

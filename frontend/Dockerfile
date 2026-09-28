@@ -17,10 +17,11 @@ COPY . .
 # Expose port
 EXPOSE 3000
 
-# Health check (allow initial startup)
-HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:3000 || exit 0
+# Health check (next dev compiles the first page on demand)
+HEALTHCHECK --interval=15s --timeout=5s --start-period=120s --retries=3 \
+  CMD curl -f http://localhost:3000 || exit 1
 
-# Run application in development mode
+# Run application in development mode. node_modules is a named volume that outlives image
+# rebuilds, so resync it with package.json before starting.
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "npm install --no-audit --no-fund --loglevel=error && npm run dev"]

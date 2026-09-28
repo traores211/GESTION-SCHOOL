@@ -22,7 +22,7 @@ cd "C:\Users\XFMW0715\Desktop\GESTION SCHOOL"
 ```
 
 **Access:**
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:1300
 - Backend API: http://localhost:4000/api
 - API Docs: http://localhost:4000/api/docs
 
@@ -43,7 +43,7 @@ chmod +x setup.sh
 ```
 
 **Access:**
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:1300
 - Backend API: http://localhost:4000/api
 - API Docs: http://localhost:4000/api/docs
 
@@ -51,7 +51,7 @@ chmod +x setup.sh
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Frontend | http://localhost:3000 | Web application |
+| Frontend | http://localhost:1300 | Web application |
 | Backend API | http://localhost:4000/api | REST API |
 | Swagger Docs | http://localhost:4000/api/docs | API documentation |
 | MailHog | http://localhost:8025 | Email testing |
@@ -161,7 +161,7 @@ docker-compose ps
 curl http://localhost:4000/health
 
 # 3. Test frontend
-curl http://localhost:3000
+curl http://localhost:1300
 
 # 4. View API docs
 # Open http://localhost:4000/api/docs in browser
