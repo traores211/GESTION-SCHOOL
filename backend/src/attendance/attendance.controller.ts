@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -25,6 +25,9 @@ export class AttendanceController {
 
   @Get()
   findByClassAndDate(@CurrentUser() user: AuthUser, @Query('classId') classId: string, @Query('date') date: string) {
+    if (!classId || !date || Number.isNaN(Date.parse(date))) {
+      throw new BadRequestException('Les paramètres classId et date (AAAA-MM-JJ) sont requis');
+    }
     return this.attendanceService.findByClassAndDate(user, classId, date);
   }
 
