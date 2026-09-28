@@ -90,11 +90,14 @@ services:
       TSC_WATCHFILE: DynamicPriorityPolling
       TSC_WATCHDIRECTORY: DynamicPriorityPolling
       SEED_ON_EMPTY_DB: ${SEED_ON_EMPTY_DB:-true}
+      UPLOAD_DIR: /app/uploads
     ports:
       - "4000:4000"
     volumes:
       - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma   # schema + seed editable without rebuilding the image
       - backend_node_modules:/app/node_modules
+      - uploads_data:/app/uploads   # showcase images uploaded from the back-office
     depends_on:
       postgres:
         condition: service_healthy
@@ -161,6 +164,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
   ldap_data:
   ldap_config:
   backend_node_modules:

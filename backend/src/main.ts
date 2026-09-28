@@ -1,13 +1,25 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { UPLOAD_DIR } from './showcase/showcase.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Global API prefix (matches NEXT_PUBLIC_API_URL and Swagger routes)
   app.setGlobalPrefix('api');
+
+  // Showcase images uploaded from the back-office (validated raster images, random names)
+  app.useStaticAssets(UPLOAD_DIR, {
+    prefix: '/api/uploads/',
+    maxAge: '7d',
+    setHeaders: (res) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
+  });
 
   // Enable CORS
   app.enableCors({

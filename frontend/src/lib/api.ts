@@ -13,7 +13,7 @@ export class ApiError extends Error {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
-    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
@@ -48,6 +48,13 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  upload: <T>(path: string, file: File, field = "file") => {
+    const body = new FormData();
+    body.append(field, file);
+    return request<T>(path, { method: "POST", body });
+  },
   fileUrl: (path: string) => `${API_URL}${path}`,
   apiUrl: API_URL,
+  /** Resolves an image reference: absolute URLs as-is, uploaded files (/uploads/...) via the API. */
+  mediaUrl: (url: string | null | undefined) => (!url ? null : /^https?:\/\//.test(url) ? url : `${API_URL}${url}`),
 };
