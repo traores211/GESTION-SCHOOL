@@ -8,11 +8,17 @@ export class PublicService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getShowcase(code: string) {
+    const ordered = { orderBy: [{ order: 'asc' as const }, { createdAt: 'asc' as const }] };
     const school = await this.prisma.school.findUnique({
       where: { code },
       include: {
-        classes: { select: { level: true }, distinct: ['level'] },
+        classes: { where: { academicYear: { isCurrent: true } }, select: { level: true } },
+        academicYears: { where: { isCurrent: true }, select: { name: true } },
         announcements: { where: { isPublished: true }, orderBy: { publishedAt: 'desc' }, take: 10 },
+        highlights: ordered,
+        photos: ordered,
+        partners: ordered,
+        testimonials: { where: { isPublished: true }, ...ordered },
         _count: { select: { students: true } },
       },
     });
@@ -28,12 +34,36 @@ export class PublicService {
       email: school.email,
       phone: school.phone,
       website: school.website,
-      levels: school.classes.map((c) => c.level),
+      logoUrl: school.logoUrl,
+      coverImageUrl: school.coverImageUrl,
+      foundedYear: school.foundedYear,
+      mapUrl: school.mapUrl,
+      whatsappNumber: school.whatsappNumber,
+      social: {
+        facebook: school.facebookUrl,
+        instagram: school.instagramUrl,
+        linkedin: school.linkedinUrl,
+        youtube: school.youtubeUrl,
+      },
+      academicYear: school.academicYears[0]?.name ?? null,
+      levels: [...new Set(school.classes.map((c) => c.level))],
+      classesCount: school.classes.length,
       studentsCount: school._count.students,
+      highlights: school.highlights.map(({ id, value, label }) => ({ id, value, label })),
+      photos: school.photos.map(({ id, url, caption }) => ({ id, url, caption })),
+      partners: school.partners.map(({ id, name, logoUrl, website }) => ({ id, name, logoUrl, website })),
+      testimonials: school.testimonials.map(({ id, authorName, authorRole, content, photoUrl }) => ({
+        id,
+        authorName,
+        authorRole,
+        content,
+        photoUrl,
+      })),
       announcements: school.announcements.map((a) => ({
         id: a.id,
         title: a.title,
         content: a.content,
+        imageUrl: a.imageUrl,
         publishedAt: a.publishedAt,
       })),
     };

@@ -34,6 +34,7 @@ export default function Shell({ title, children }: { title: string; children: Re
   const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [checked, setChecked] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
@@ -43,6 +44,10 @@ export default function Shell({ title, children }: { title: string; children: Re
     setUser(getStoredUser());
     setChecked(true);
   }, [router]);
+
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
 
   if (!checked) return null;
 
@@ -54,8 +59,9 @@ export default function Shell({ title, children }: { title: string; children: Re
   };
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className={`app-shell${navOpen ? " nav-open" : ""}`}>
+      <div className="sidebar-backdrop" onClick={() => setNavOpen(false)} />
+      <aside className="sidebar" id="app-sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-brand-badge">🎓</div>
           <div>
@@ -87,8 +93,20 @@ export default function Shell({ title, children }: { title: string; children: Re
       <div className="main-area">
         <div className="flag-stripe" />
         <header className="topbar">
-          <div className="topbar-title">{title}</div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div className="topbar-left">
+            <button
+              type="button"
+              className="menu-toggle"
+              aria-label="Ouvrir le menu"
+              aria-controls="app-sidebar"
+              aria-expanded={navOpen}
+              onClick={() => setNavOpen((o) => !o)}
+            >
+              ☰
+            </button>
+            <div className="topbar-title">{title}</div>
+          </div>
+          <div className="topbar-actions">
             <NotificationBell />
             <button className="btn btn-outline btn-sm" onClick={logout}>
               Déconnexion

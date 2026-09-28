@@ -69,9 +69,22 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
+### Clean reinstall (Docker)
+
+```bash
+docker compose down -v --remove-orphans --rmi local   # -v also deletes the database volume
+docker compose build --no-cache
+docker compose up -d
+```
+
+On start the backend syncs `node_modules`, applies the Prisma schema (`db push`, never with
+`--accept-data-loss`) and seeds the demo data only when the database is empty
+(`SEED_ON_EMPTY_DB=false` to disable). First boot takes a few minutes. Postgres, Redis and
+LDAP are not published on the host; use `docker compose exec postgres psql -U schooladmin school_erp`.
+
 ## 🔗 Access URLs
 
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:1300
 - Backend API: http://localhost:4000/api
 - Swagger: http://localhost:4000/api/docs
 - MailHog: http://localhost:8025

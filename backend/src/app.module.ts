@@ -23,6 +23,7 @@ import { TransportModule } from './transport/transport.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
 import { PublicModule } from './public/public.module';
+import { ShowcaseModule } from './showcase/showcase.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { PublicModule } from './public/public.module';
     PayrollModule,
     AnnouncementsModule,
     PublicModule,
+    ShowcaseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
