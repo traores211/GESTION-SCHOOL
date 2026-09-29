@@ -3,24 +3,24 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../lib/api";
-import { SchoolkidsHero } from "../components/illustrations/Schoolkids";
+import { HeroCollage, PersonaCard, Photo, Reveal, type PhotoKey } from "../components/photos/SchoolPhotos";
 import "./ecole/[code]/showcase.css";
 
-const PORTALS = [
+const PORTALS: { photo: PhotoKey; title: string; text: string; cta: string }[] = [
   {
-    icon: "🏫",
+    photo: "salleDeClasse",
     title: "Direction & administration",
     text: "Tableau de bord, élèves, admissions, facturation, paie et vitrine de l'établissement.",
     cta: "Accéder à l'espace",
   },
   {
-    icon: "🧑‍🏫",
+    photo: "enseignantTableau",
     title: "Enseignants",
     text: "Appel en classe, saisie des notes et préparation des bulletins.",
     cta: "Accéder à l'espace",
   },
   {
-    icon: "👨‍👩‍👧",
+    photo: "camarades",
     title: "Parents",
     text: "Absences, notes, bulletins et paiements de la scolarité de vos enfants.",
     cta: "Accéder au portail",
@@ -86,7 +86,7 @@ export default function Home() {
               </div>
             </div>
             <div className="sc-hero-art">
-              <SchoolkidsHero />
+              <HeroCollage caption="Des élèves souriants et une enseignante en classe" />
             </div>
           </div>
         </section>
@@ -99,24 +99,43 @@ export default function Home() {
               <h2>Un espace pour chaque profil</h2>
               <p>Chacun se connecte avec son compte et ne voit que ce qui le concerne.</p>
             </div>
-            <div className="sc-cycles">
-              {PORTALS.map((p) => (
-                <article className="sc-cycle" key={p.title}>
-                  <div style={{ fontSize: 32 }} aria-hidden="true">
-                    {p.icon}
-                  </div>
-                  <h3 style={{ marginTop: 10 }}>{p.title}</h3>
-                  <p style={{ minHeight: 44 }}>{p.text}</p>
-                  <Link href="/login" className="btn btn-outline btn-sm" style={{ marginTop: 16 }}>
-                    {p.cta} →
-                  </Link>
-                </article>
+            <div className="ph-personas">
+              {PORTALS.map((p, i) => (
+                <PersonaCard
+                  key={p.title}
+                  index={i}
+                  photo={p.photo}
+                  title={p.title}
+                  text={p.text}
+                  action={
+                    <Link href="/login" className="btn btn-outline btn-sm">
+                      {p.cta} →
+                    </Link>
+                  }
+                />
               ))}
             </div>
           </div>
         </section>
 
         <section className="sc-section sc-section-alt">
+          <div className="sc-container">
+            <Reveal className="sc-section-head">
+              <div className="sc-kicker">Au quotidien</div>
+              <h2>Pensé pour la vie de l&apos;école</h2>
+              <p>Des classes pleines, des cahiers bien tenus et des familles informées à chaque étape.</p>
+            </Reveal>
+            <div className="ph-mosaic">
+              {(["fenetre", "ecriture", "eleveSac", "enseignanteLecture", "elevesUniformes"] as PhotoKey[]).map((name, i) => (
+                <Reveal key={name} delay={i * 0.08} y={20}>
+                  <Photo name={name} sizes={i === 0 ? "(max-width: 960px) 100vw, 480px" : "(max-width: 960px) 50vw, 340px"} />
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="sc-section">
           <div className="sc-container">
             <div className="sc-section-head">
               <div className="sc-kicker">Fonctionnalités</div>

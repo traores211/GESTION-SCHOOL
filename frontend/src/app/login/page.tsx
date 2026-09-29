@@ -6,6 +6,7 @@ import { CalendarDays, Eye, EyeOff, GraduationCap, LoaderCircle, LogIn, ShieldCh
 import { api, errorMessage } from "../../lib/api";
 import { setSession } from "../../lib/auth";
 import { FormError } from "../../components/ui";
+import { Photo } from "../../components/photos/SchoolPhotos";
 import "./login.css";
 
 interface LoginResponse {
@@ -115,6 +116,9 @@ export default function LoginPage() {
   return (
     <main className="login">
       <section className="login-aside" aria-hidden="true">
+        <div className="login-photo">
+          <Photo name="enseignanteLecture" alt="" kenBurns priority sizes="55vw" />
+        </div>
         <div className="login-aside-inner">
           <div className="login-logo">
             <GraduationCap size={26} />

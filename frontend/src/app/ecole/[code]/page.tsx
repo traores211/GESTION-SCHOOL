@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "../../../lib/api";
 import { ADMISSION_STEPS, Showcase, groupLevelsByCycle } from "../../../lib/showcase";
-import { ClassroomScene, KidsOnTheWay, SchoolkidsHero } from "../../../components/illustrations/Schoolkids";
+import { CtaPortrait, HeroCollage, Photo } from "../../../components/photos/SchoolPhotos";
 import "./showcase.css";
 
 const NAV = [
@@ -202,7 +202,7 @@ export default function SchoolShowcasePage() {
         {/* ---------- Hero ---------- */}
         <section className="sc-hero">
           {cover && <div className="sc-hero-bg" style={{ backgroundImage: `url("${cover}")` }} aria-hidden="true" />}
-          {/* Sans photo de couverture, une illustration d'écoliers habille le bandeau. */}
+          {/* Sans photo de couverture, un collage de photos d'élèves habille le bandeau. */}
           <div className={`sc-container${cover ? "" : " sc-hero-grid"}`}>
             <div className="sc-hero-inner">
               <div className="sc-eyebrow">
@@ -222,7 +222,7 @@ export default function SchoolShowcasePage() {
             </div>
             {!cover && (
               <div className="sc-hero-art">
-                <SchoolkidsHero title={`Illustration : des écoliers souriants devant ${data.name}`} />
+                <HeroCollage caption={`Des élèves et une enseignante en classe à ${data.name}`} />
               </div>
             )}
           </div>
@@ -282,7 +282,7 @@ export default function SchoolShowcasePage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={aboutImage} alt={data.photos[0]?.caption || `Vue de l'établissement ${data.name}`} />
               ) : (
-                <ClassroomScene title={`Illustration : des écoliers en classe à ${data.name}`} />
+                <Photo name="salleDeClasse" kenBurns alt={`Des élèves en classe à ${data.name}`} />
               )}
             </div>
           </div>
@@ -448,7 +448,7 @@ export default function SchoolShowcasePage() {
               ))}
             </ol>
             <div className="sc-cta-band">
-              <KidsOnTheWay className="sc-cta-art" />
+              <CtaPortrait />
               <div className="sc-cta-text">
                 <h3>Candidatures {data.academicYear ? data.academicYear : "ouvertes"}</h3>
                 <p>Le formulaire prend quelques minutes, sans création de compte.</p>
