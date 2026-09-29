@@ -1,7 +1,8 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from './roles.decorator';
 
+/** Must run after JwtAuthGuard: `@UseGuards(JwtAuthGuard, RolesGuard)`. Method-level @Roles override class-level ones. */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -15,6 +16,9 @@ export class RolesGuard implements CanActivate {
       return true;
     }
     const { user } = context.switchToHttp().getRequest();
-    return requiredRoles.includes(user?.role);
+    if (!requiredRoles.includes(user?.role)) {
+      throw new ForbiddenException("Votre rôle ne permet pas d'effectuer cette action");
+    }
+    return true;
   }
 }

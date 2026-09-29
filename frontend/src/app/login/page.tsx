@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { api, ApiError } from "../../lib/api";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CalendarDays, Eye, EyeOff, GraduationCap, LoaderCircle, LogIn, ShieldCheck, Users } from "lucide-react";
+import { api, errorMessage } from "../../lib/api";
 import { setSession } from "../../lib/auth";
+import { FormError } from "../../components/ui";
+import "./login.css";
 
 interface LoginResponse {
   accessToken: string;
@@ -17,12 +20,21 @@ const DEMO_ACCOUNTS = [
   { role: "Parent", email: "parent@school.local", password: "parent123" },
 ];
 
-export default function LoginPage() {
+const HIGHLIGHTS = [
+  { icon: CalendarDays, text: "Emplois du temps visuels, import de vos fichiers existants" },
+  { icon: Users, text: "Élèves, présence, notes et bulletins au même endroit" },
+  { icon: ShieldCheck, text: "Chaque profil ne voit que ce qui le concerne" },
+];
+
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const [email, setEmail] = useState("admin@school.local");
   const [password, setPassword] = useState("admin123");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const expired = params.get("expired") === "1";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,108 +43,108 @@ export default function LoginPage() {
     try {
       const data = await api.post<LoginResponse>("/auth/login", { email, password });
       setSession(data.accessToken, data.user);
-      router.push(data.user.role === "PARENT" ? "/portal" : "/dashboard");
+      const next = params.get("next");
+      const safeNext = next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : null;
+      router.push(data.user.role === "PARENT" ? "/portal" : safeNext || "/dashboard");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Une erreur est survenue");
-    } finally {
+      setError(errorMessage(err));
       setLoading(false);
     }
   };
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background:
-          "linear-gradient(135deg, var(--ci-green-dark) 0%, var(--ci-green) 45%, #ffffff 45%, #ffffff 55%, var(--ci-orange) 55%, var(--ci-orange-dark) 100%)",
-        padding: 20,
-      }}
-    >
-      <div
-        className="card"
-        style={{ width: "100%", maxWidth: 420, boxShadow: "var(--shadow-md)" }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 14,
-              background: "var(--ci-orange)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
-              margin: "0 auto 12px",
-            }}
-          >
-            🎓
-          </div>
-          <h1 style={{ fontSize: 20 }}>School ERP</h1>
-          <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-            Gestion scolaire — Côte d&apos;Ivoire
-          </p>
+    <form onSubmit={handleSubmit} noValidate={false}>
+      {expired && !error && (
+        <div className="alert alert-info" style={{ marginBottom: 16 }}>
+          Votre session a expiré. Reconnectez-vous pour continuer.
         </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="field">
-            <label htmlFor="email">Adresse email</label>
-            <input
-              id="email"
-              type="email"
-              className="input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="password">Mot de passe</label>
-            <input
-              id="password"
-              type="password"
-              className="input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          {error && (
-            <p className="text-danger" style={{ fontSize: 13, marginBottom: 12 }}>
-              {error}
-            </p>
-          )}
-          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? "Connexion..." : "Se connecter"}
+      )}
+      <FormError message={error} />
+      <div className="field">
+        <label htmlFor="email">Adresse email</label>
+        <input id="email" type="email" autoComplete="username" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      </div>
+      <div className="field">
+        <label htmlFor="password">Mot de passe</label>
+        <div className="input-icon">
+          <input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            className="input"
+            style={{ paddingLeft: 12, paddingRight: 40 }}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button type="button" className="input-clear" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
+            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
-        </form>
-
-        <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
-          <p style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>
-            Comptes de démonstration
-          </p>
-          <div style={{ display: "grid", gap: 6 }}>
-            {DEMO_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.email}
-                type="button"
-                className="btn btn-outline btn-sm"
-                style={{ justifyContent: "space-between" }}
-                onClick={() => {
-                  setEmail(acc.email);
-                  setPassword(acc.password);
-                }}
-              >
-                <span>{acc.role}</span>
-                <span className="muted">{acc.email}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
+      <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading} style={{ marginTop: 6 }}>
+        {loading ? <LoaderCircle size={18} className="spin" /> : <LogIn size={18} />}
+        {loading ? "Connexion…" : "Se connecter"}
+      </button>
+
+      <div className="login-demo">
+        <p>Comptes de démonstration</p>
+        <div className="login-demo-grid">
+          {DEMO_ACCOUNTS.map((acc) => (
+            <button
+              key={acc.email}
+              type="button"
+              className={`login-demo-btn${email === acc.email ? " is-active" : ""}`}
+              onClick={() => {
+                setEmail(acc.email);
+                setPassword(acc.password);
+                setError(null);
+              }}
+            >
+              <strong>{acc.role}</strong>
+              <span>{acc.email}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <main className="login">
+      <section className="login-aside" aria-hidden="true">
+        <div className="login-aside-inner">
+          <div className="login-logo">
+            <GraduationCap size={26} />
+          </div>
+          <h2>Toute la vie de l&apos;établissement, au même endroit.</h2>
+          <ul>
+            {HIGHLIGHTS.map(({ icon: Icon, text }) => (
+              <li key={text}>
+                <Icon size={18} />
+                {text}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flag-stripe" style={{ position: "absolute", bottom: 0, left: 0 }} />
+      </section>
+      <section className="login-panel">
+        <div className="login-card">
+          <div className="login-head">
+            <div className="login-logo small">
+              <GraduationCap size={20} />
+            </div>
+            <h1>Connexion</h1>
+            <p className="muted">School ERP — Gestion scolaire</p>
+          </div>
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
+        </div>
+      </section>
     </main>
   );
 }

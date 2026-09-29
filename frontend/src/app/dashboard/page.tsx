@@ -22,7 +22,15 @@ import {
   formatPercent,
 } from "../../lib/dashboard";
 import { ChartCard, Delta, KpiCard, KpiSkeleton, Section, StateMessage } from "../../components/dashboard/ui";
-import { ColumnChart, RankBars, TrendLine } from "../../components/dashboard/charts";
+import dynamic from "next/dynamic";
+
+// Recharts is the heaviest dependency of the app: charts load after the KPIs are on screen.
+const chartLoading = () => <div className="skeleton" style={{ height: 240 }} />;
+const ColumnChart = dynamic(() => import("../../components/dashboard/charts").then((m) => m.ColumnChart), { ssr: false, loading: chartLoading });
+const RankBars = dynamic(() => import("../../components/dashboard/charts").then((m) => m.RankBars), { ssr: false, loading: chartLoading });
+const TrendLine = dynamic(() => import("../../components/dashboard/charts").then((m) => m.TrendLine), { ssr: false, loading: chartLoading });
+import TodayPanel from "../../components/dashboard/TodayPanel";
+import { AlarmClock, ClipboardCheck, FileSignature, GraduationCap, RefreshCw, TrendingUp, Wallet } from "lucide-react";
 
 const DEFAULT_QUERY: DashboardQuery = { period: "30d", academicYearId: "", classId: "", termId: "" };
 
@@ -109,10 +117,12 @@ export default function DashboardPage() {
             </span>
           )}
           <button className="btn btn-outline btn-sm" onClick={load} disabled={loading}>
-            {loading ? "Actualisation…" : "↻ Actualiser"}
+            <RefreshCw size={14} className={loading ? "spin" : undefined} /> {loading ? "Actualisation…" : "Actualiser"}
           </button>
         </div>
       </div>
+
+      <TodayPanel />
 
       {/* ---------- Filters ---------- */}
       <div className="filter-bar" role="group" aria-label="Filtres du tableau de bord">
@@ -261,13 +271,13 @@ function Kpis({ data }: { data: Analytics }) {
     <div className="kpi-grid kpi-grid-6">
       <KpiCard
         label="Élèves inscrits"
-        icon="🎓"
+        icon={<GraduationCap size={16} />}
         value={formatNumber(kpis.enrolledStudents)}
         sub={`${data.classFill.length} classe(s) · ${data.filters.academicYear.name}`}
       />
       <KpiCard
         label="Taux de présence"
-        icon="✅"
+        icon={<ClipboardCheck size={16} />}
         accent={attendanceLow ? "warning" : "green"}
         value={formatPercent(kpis.attendanceRate.value)}
         delta={kpis.attendanceRate.value !== null ? <Delta value={kpis.attendanceRate.delta} unit="pts" label={comparison} /> : undefined}
@@ -281,7 +291,7 @@ function Kpis({ data }: { data: Analytics }) {
       />
       <KpiCard
         label="Encaissé sur la période"
-        icon="💰"
+        icon={<Wallet size={16} />}
         value={formatCompact(kpis.collected.value)}
         unit="FCFA"
         delta={<Delta value={kpis.collected.variation} unit="%" label={comparison} />}
@@ -289,7 +299,7 @@ function Kpis({ data }: { data: Analytics }) {
       />
       <KpiCard
         label="Taux de recouvrement"
-        icon="📈"
+        icon={<TrendingUp size={16} />}
         accent={recoveryLow ? "warning" : "green"}
         value={formatPercent(kpis.recoveryRate)}
         meter={kpis.recoveryRate}
@@ -297,7 +307,7 @@ function Kpis({ data }: { data: Analytics }) {
       />
       <KpiCard
         label="Impayés échus"
-        icon="⏰"
+        icon={<AlarmClock size={16} />}
         accent={kpis.overdue.count > 0 ? "danger" : "green"}
         value={formatCompact(kpis.overdue.amount)}
         unit="FCFA"
@@ -309,7 +319,7 @@ function Kpis({ data }: { data: Analytics }) {
       />
       <KpiCard
         label="Admissions en cours"
-        icon="📝"
+        icon={<FileSignature size={16} />}
         accent="orange"
         value={formatNumber(kpis.pendingAdmissions)}
         sub={`sur ${data.admissionsFunnel.reduce((s, a) => s + a.count, 0)} candidature(s) de l'année`}

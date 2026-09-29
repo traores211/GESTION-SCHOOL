@@ -1,107 +1,102 @@
-# School ERP - MVP Phase 1
+# School ERP
 
-Système de gestion complet pour établissements scolaires en Côte d'Ivoire.
+Gestion scolaire pour établissements de Côte d'Ivoire : élèves, admissions, classes, **emplois du temps**,
+présence, notes et bulletins, facturation (Mobile Money), transport, paie, vitrine publique et portail parents.
 
-## 🚀 Stack Technique
+## Stack
 
-- **Backend**: NestJS 10+, TypeScript, Prisma ORM
-- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
-- **Database**: PostgreSQL 16
-- **Cache**: Redis 7
-- **Auth**: LDAP (OpenLDAP osixia), JWT
-- **Email**: MailHog (dev)
-- **Containerisation**: Docker Compose
+- **Backend** : NestJS 10, TypeScript (strict), Prisma 5, PostgreSQL 16
+- **Frontend** : Next.js 15 (App Router), React 18, TypeScript, design system CSS maison (`src/app/globals.css`), icônes Lucide
+- **Import de documents** : ExcelJS (xlsx), pdf.js (PDF), Mammoth (docx), Tesseract.js (OCR des images), IA optionnelle (Claude)
+- **Infra** : Docker Compose (Node 22), Redis, OpenLDAP, MailHog
 
-## 📁 Structure
-
-```
-backend/                    # NestJS application
-  src/
-    auth/                   # Authentication (LDAP + JWT)
-    users/                  # Users management + RBAC
-    schools/                # School configuration
-    students/               # Student management
-    parents/                # Parent/Guardian management
-    staff/                  # Teachers & Staff
-    admissions/             # Admission workflow
-    classes/                # Class & enrollment management
-    common/
-    config/
-    database/
-  prisma/
-    schema.prisma           # Database schema
-    seed.ts                 # Test data
-  package.json
-  .env.example
-
-frontend/                   # Next.js application
-  src/
-    app/                    # App router
-    components/
-    lib/
-    types/
-  public/
-  package.json
-
-docker-compose.yml          # Services orchestration
-setup.sh                    # Linux/macOS setup
-setup.bat                   # Windows setup
-README.md
-```
-
-## ⚡ Quick Start
+## Démarrage
 
 ```bash
-# Clone & setup
-git clone <repo>
-cd <project>
-
-# Linux/macOS
-./setup.sh
-
-# Windows
-setup.bat
-
-# Start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
+cp .env.example .env        # puis adapter les secrets
+docker compose up -d --build
+docker compose logs -f backend
 ```
 
-### Clean reinstall (Docker)
+Au démarrage, le backend synchronise ses dépendances, applique le schéma Prisma (`db push`, jamais avec
+`--accept-data-loss`) et charge les données de démonstration si la base est vide (`SEED_ON_EMPTY_DB=false` pour désactiver),
+y compris un emploi du temps sans conflit. Le premier démarrage prend quelques minutes.
+
+| Service | URL |
+|---|---|
+| Application | http://localhost:1300 |
+| API | http://localhost:4000/api |
+| Documentation API (Swagger) | http://localhost:4000/api/docs |
+| Santé (API + base) | http://localhost:4000/api/health |
+| MailHog | http://localhost:8025 |
+
+Postgres, Redis et LDAP ne sont pas exposés sur l'hôte : `docker compose exec postgres psql -U schooladmin school_erp`.
+
+### Réinstallation complète
 
 ```bash
-docker compose down -v --remove-orphans --rmi local   # -v also deletes the database volume
+docker compose down -v --remove-orphans --rmi local   # -v supprime AUSSI la base de données
 docker compose build --no-cache
 docker compose up -d
 ```
 
-On start the backend syncs `node_modules`, applies the Prisma schema (`db push`, never with
-`--accept-data-loss`) and seeds the demo data only when the database is empty
-(`SEED_ON_EMPTY_DB=false` to disable). First boot takes a few minutes. Postgres, Redis and
-LDAP are not published on the host; use `docker compose exec postgres psql -U schooladmin school_erp`.
+## Comptes de démonstration
 
-## 🔗 Access URLs
+| Rôle | Email | Mot de passe |
+|---|---|---|
+| Super administrateur | admin@school.local | admin123 |
+| Enseignant | k.kouassi@school.local | teach123 |
+| Secrétariat | secretaire@school.local | secret123 |
+| Comptabilité | comptable@school.local | compta123 |
+| Parent | parent@school.local | parent123 |
 
-- Frontend: http://localhost:1300
-- Backend API: http://localhost:4000/api
-- Swagger: http://localhost:4000/api/docs
-- MailHog: http://localhost:8025
-- Prisma Studio: `docker-compose exec backend npx prisma studio`
+## Rôles et permissions
 
-## 📚 Documentation
+Les droits sont appliqués **par l'API** (`backend/src/common/roles.ts` + `RolesGuard`) ; le menu ne fait que les refléter.
 
-See `/docs` folder for detailed documentation.
+| Groupe | Rôles | Exemples |
+|---|---|---|
+| Direction | SUPER_ADMIN, ADMIN_ORGANISATION, DIRECTOR | classes, matières, personnel, vitrine |
+| Secrétariat | + SECRETARY | élèves, parents, admissions, transport, emplois du temps |
+| Enseignement | + ENSEIGNANT | présence, notes (lecture élèves/classes, EDT en lecture) |
+| Finance | Direction + COMPTABLE | paie ; facturation (+ secrétariat) |
+| Parent | PARENT | portail « Mes enfants » uniquement |
 
-## 🔐 Test Accounts (Phase 1)
+## Emplois du temps
 
-| Role | Email | Password |
-|------|-------|----------|
-| SUPER_ADMIN | admin@school.local | admin123 |
-| DIRECTOR | director@school.local | dir123 |
-| SECRETARY | secretary@school.local | sec123 |
-| TEACHER | teacher@school.local | teach123 |
-| STUDENT | student@school.local | stud123 |
-| PARENT | parent@school.local | parent123 |
+- **Éditeur visuel** (`/timetable`) : vues classe / enseignant / salle, semaine ou jour, glisser-déposer, redimensionnement,
+  création par clic, déplacement au clavier (Alt + flèches), duplication, périodes (trimestres).
+- **Détection des conflits** (enseignant, salle, classe, chevauchements, créneau invalide ; avertissements pour pauses,
+  jours fermés et hors horaires) calculée côté serveur, affichée en direct pendant l'édition. Un conflit n'est enregistré
+  que sur confirmation explicite et reste signalé.
+- **Ressources** (`/timetable/manage`) : salles, couleurs des matières, jours/horaires/pauses, historique des imports (annulables).
 
+### Import de fichiers (`/timetable/import`)
+
+```
+Fichier → détection du type (signature binaire) → parseur (xlsx / csv / pdf / docx / image OCR)
+        → extraction (grille jours × horaires, liste, texte libre, ou IA) → normalisation (jours, heures, noms)
+        → rapprochement avec les classes/matières/enseignants/salles → vérification et corrections par l'utilisateur
+        → validation + génération (placement automatique des volumes horaires) + détection des conflits
+        → aperçu → import → éditeur
+```
+
+Rien n'est enregistré avant la validation finale ; les rapprochements incertains doivent être confirmés ; les enseignants ne
+sont jamais créés automatiquement. Code : `backend/src/timetable/import/` (un parseur par format, extracteurs séparés,
+`ai/` pour le fournisseur IA).
+
+**IA (optionnelle)** : définir `ANTHROPIC_API_KEY` (et éventuellement `TIMETABLE_AI_MODEL`) active l'option « Analyser avec
+l'IA » pour les documents complexes, photos et PDF scannés. Chaque ligne interprétée par l'IA est marquée « à vérifier ».
+
+## Tests
+
+```bash
+# Backend (unitaires : conflits, générateur, parseurs, normalisation, sécurité)
+docker compose exec backend npx jest
+
+# Frontend (logique de la grille, tri/recherche)
+docker compose exec frontend npx vitest run
+
+# Bout en bout contre la stack lancée (auth, permissions, CRUD, import xlsx/csv/docx/pdf ; ajouter un .png/.jpg au dossier pour tester l'OCR)
+docker compose exec backend sh -c "npx ts-node test/make-fixtures.ts /tmp/fx && node test/e2e-import.js /tmp/fx"
+```

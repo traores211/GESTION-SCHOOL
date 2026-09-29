@@ -9,9 +9,15 @@ export class StudentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async generateMatricule(schoolId: string): Promise<string> {
+    // Matricules are globally unique; count+1 collides after a deletion, so probe upwards.
     const year = new Date().getFullYear();
-    const count = await this.prisma.student.count({ where: { schoolId } });
-    return `${year}-${String(count + 1).padStart(4, '0')}`;
+    let next = (await this.prisma.student.count({ where: { schoolId } })) + 1;
+    for (;;) {
+      const candidate = `${year}-${String(next).padStart(4, '0')}`;
+      const taken = await this.prisma.student.findUnique({ where: { matricule: candidate }, select: { id: true } });
+      if (!taken) return candidate;
+      next += 1;
+    }
   }
 
   async create(user: AuthUser, dto: CreateStudentDto) {

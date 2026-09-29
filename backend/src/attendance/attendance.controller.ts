@@ -2,6 +2,9 @@ import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, 
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../common/roles.decorator';
+import { RolesGuard } from '../common/roles.guard';
+import { TEACHING } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { AttendanceService } from './attendance.service';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
@@ -13,7 +16,8 @@ class JustifyDto {
 
 @Controller('attendance')
 @ApiTags('Attendance')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...TEACHING)
 @ApiBearerAuth()
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}

@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CreditCard, LoaderCircle, Plus, Receipt, Wallet } from "lucide-react";
 import Shell from "../../components/Shell";
-import { api, ApiError } from "../../lib/api";
+import { EmptyState, FormError, Modal, PageHeader, Pagination, SearchInput, SortHeader, TableSkeleton, useFeedback } from "../../components/ui";
+import { KpiCard } from "../../components/dashboard/ui";
+import { api, errorMessage } from "../../lib/api";
+import { useTable } from "../../lib/useTable";
+import { INVOICE_STATUS as STATUS } from "../../lib/labels";
 
 interface StudentOption {
   id: string;
@@ -33,38 +38,65 @@ const PAYMENT_METHODS = [
   { value: "CARD", label: "Carte bancaire" },
 ];
 
+
 function formatFCFA(amount: number) {
   return new Intl.NumberFormat("fr-FR").format(Math.round(amount)) + " FCFA";
 }
 
+const paidOf = (inv: InvoiceRow) => inv.payments.reduce((s, p) => s + p.amount, 0);
+const isLate = (inv: InvoiceRow) => inv.status !== "PAID" && inv.status !== "CANCELLED" && new Date(inv.dueDate) < new Date(new Date().toDateString());
+
 export default function BillingPage() {
-  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const feedback = useFeedback();
+  const [invoices, setInvoices] = useState<InvoiceRow[] | null>(null);
   const [students, setStudents] = useState<StudentOption[]>([]);
+  const [statusFilter, setStatusFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [payingInvoice, setPayingInvoice] = useState<InvoiceRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-
-  const [invoiceForm, setInvoiceForm] = useState({
-    studentId: "",
-    label: "Scolarité",
-    dueDate: new Date().toISOString().slice(0, 10),
-    amount: 150000,
-  });
+  const [invoiceForm, setInvoiceForm] = useState({ studentId: "", label: "Scolarité", dueDate: new Date().toISOString().slice(0, 10), amount: 150000 });
   const [paymentForm, setPaymentForm] = useState({ amount: 0, method: "CASH", reference: "" });
 
-  const load = () => {
-    api.get<InvoiceRow[]>("/billing/invoices").then(setInvoices).catch((err) => setError(err instanceof ApiError ? err.message : "Erreur"));
-  };
+  const load = useCallback(() => {
+    api
+      .get<InvoiceRow[]>("/billing/invoices")
+      .then((list) => {
+        setInvoices(list);
+        setError(null);
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, []);
 
   useEffect(() => {
     load();
     api.get<StudentOption[]>("/students").then(setStudents).catch(() => {});
-  }, []);
+  }, [load]);
+
+  const totals = useMemo(() => {
+    const list = invoices ?? [];
+    const billed = list.reduce((s, i) => s + i.totalAmount, 0);
+    const paid = list.reduce((s, i) => s + paidOf(i), 0);
+    return { billed, paid, due: billed - paid, late: list.filter(isLate).length, rate: billed ? (paid / billed) * 100 : 0 };
+  }, [invoices]);
+
+  const table = useTable<InvoiceRow, "reference" | "student" | "amount" | "due" | "status">({
+    rows: (invoices ?? []).filter((i) => !statusFilter || (statusFilter === "LATE" ? isLate(i) : i.status === statusFilter)),
+    accessors: {
+      reference: (i) => i.reference,
+      student: (i) => `${i.student.lastName} ${i.student.firstName}`,
+      amount: (i) => i.totalAmount - paidOf(i),
+      due: (i) => i.dueDate,
+      status: (i) => STATUS[i.status]?.label ?? i.status,
+    },
+    searchText: (i) => `${i.reference} ${i.label} ${i.student.firstName} ${i.student.lastName} ${i.student.matricule}`,
+    initialSort: { key: "due", dir: "asc" },
+  });
 
   const createInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (invoiceForm.amount <= 0) return setFormError("Le montant doit être supérieur à 0");
     setSaving(true);
     setFormError(null);
     try {
@@ -75,25 +107,31 @@ export default function BillingPage() {
         items: [{ label: invoiceForm.label, amount: invoiceForm.amount }],
       });
       setShowInvoiceForm(false);
+      feedback.success("Facture créée", `${invoiceForm.label} · ${formatFCFA(invoiceForm.amount)}`);
       load();
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Erreur lors de la création");
+      setFormError(errorMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
+  const remaining = payingInvoice ? payingInvoice.totalAmount - paidOf(payingInvoice) : 0;
+
   const recordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingInvoice) return;
+    if (paymentForm.amount <= 0) return setFormError("Le montant doit être supérieur à 0");
+    if (paymentForm.amount > remaining) return setFormError(`Le montant dépasse le reste à payer (${formatFCFA(remaining)})`);
     setSaving(true);
     setFormError(null);
     try {
       await api.post(`/billing/invoices/${payingInvoice.id}/payments`, paymentForm);
+      feedback.success("Paiement enregistré", `${formatFCFA(paymentForm.amount)} · ${PAYMENT_METHODS.find((m) => m.value === paymentForm.method)?.label}`);
       setPayingInvoice(null);
       load();
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Erreur lors du paiement");
+      setFormError(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -101,144 +139,221 @@ export default function BillingPage() {
 
   return (
     <Shell title="Facturation">
-      <div className="page-header">
-        <div>
-          <h1>Facturation & Paiements</h1>
-          <p>{invoices.length} facture(s) — Mobile Money, espèces, virement, chèque</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => setShowInvoiceForm(true)}>
-          + Nouvelle facture
-        </button>
-      </div>
+      <PageHeader
+        title="Facturation & paiements"
+        description="Espèces, Mobile Money (Orange, MTN, Moov, Wave), virement, chèque ou carte."
+        actions={
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setFormError(null);
+              setShowInvoiceForm(true);
+            }}
+          >
+            <Plus size={16} /> Nouvelle facture
+          </button>
+        }
+      />
 
-      {error && <p className="text-danger">{error}</p>}
+      {invoices && (
+        <div className="kpi-grid">
+          <KpiCard label="Facturé" icon={<Receipt size={16} />} value={formatFCFA(totals.billed)} sub={`${invoices.length} facture(s)`} />
+          <KpiCard label="Encaissé" icon={<Wallet size={16} />} value={formatFCFA(totals.paid)} meter={totals.rate} sub={`${Math.round(totals.rate)} % du facturé`} />
+          <KpiCard label="Reste à encaisser" icon={<CreditCard size={16} />} accent="orange" value={formatFCFA(totals.due)} />
+          <KpiCard label="En retard" icon={<Receipt size={16} />} accent={totals.late ? "danger" : "green"} value={totals.late} sub="échéance dépassée" />
+        </div>
+      )}
+
+      <div className="table-toolbar">
+        <div className="table-toolbar-left">
+          <SearchInput value={table.query} onChange={table.setQuery} placeholder="Référence, élève, libellé…" label="Rechercher une facture" />
+          <select className="input" style={{ width: "auto" }} aria-label="Filtrer par statut" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">Tous les statuts</option>
+            <option value="LATE">En retard (échéance dépassée)</option>
+            {["PENDING", "PARTIALLY_PAID", "PAID"].map((s) => (
+              <option key={s} value={s}>
+                {STATUS[s].label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Référence</th>
-              <th>Élève</th>
-              <th>Libellé</th>
-              <th>Montant</th>
-              <th>Payé</th>
-              <th>Échéance</th>
-              <th>Statut</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoices.map((inv) => {
-              const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
-              return (
-                <tr key={inv.id}>
-                  <td>{inv.reference}</td>
-                  <td>{inv.student.lastName} {inv.student.firstName}</td>
-                  <td>{inv.label}</td>
-                  <td>{formatFCFA(inv.totalAmount)}</td>
-                  <td>{formatFCFA(paid)}</td>
-                  <td>{new Date(inv.dueDate).toLocaleDateString("fr-FR")}</td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        inv.status === "PAID" ? "badge-green" : inv.status === "PARTIALLY_PAID" ? "badge-warning" : "badge-danger"
-                      }`}
-                    >
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td>
-                    {inv.status !== "PAID" && (
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setPayingInvoice(inv);
-                          setPaymentForm({ amount: inv.totalAmount - paid, method: "CASH", reference: "" });
-                        }}
-                      >
-                        💳 Encaisser
-                      </button>
-                    )}
-                  </td>
+        {error ? (
+          <EmptyState tone="error" title="Impossible de charger les factures" action={<button className="btn btn-outline" onClick={load}>Réessayer</button>}>
+            {error}
+          </EmptyState>
+        ) : !invoices ? (
+          <TableSkeleton columns={7} />
+        ) : table.total === 0 ? (
+          <EmptyState icon={<Receipt size={22} />} title={table.query || statusFilter ? "Aucune facture ne correspond" : "Aucune facture"} />
+        ) : (
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <SortHeader label="Référence" column="reference" sort={table.sort} onSort={table.toggleSort} />
+                  <SortHeader label="Élève" column="student" sort={table.sort} onSort={table.toggleSort} />
+                  <th>Libellé</th>
+                  <SortHeader label="Reste dû" column="amount" sort={table.sort} onSort={table.toggleSort} className="num" />
+                  <SortHeader label="Échéance" column="due" sort={table.sort} onSort={table.toggleSort} />
+                  <SortHeader label="Statut" column="status" sort={table.sort} onSort={table.toggleSort} />
+                  <th className="actions">
+                    <span className="visually-hidden">Actions</span>
+                  </th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {invoices.length === 0 && <div className="empty-state">Aucune facture.</div>}
+              </thead>
+              <tbody>
+                {table.pageRows.map((inv) => {
+                  const paid = paidOf(inv);
+                  const late = isLate(inv);
+                  return (
+                    <tr key={inv.id}>
+                      <td className="tabular">{inv.reference}</td>
+                      <td className="cell-main">
+                        {inv.student.lastName} {inv.student.firstName}
+                      </td>
+                      <td>{inv.label}</td>
+                      <td className="num">
+                        <div className="cell-main">{formatFCFA(inv.totalAmount - paid)}</div>
+                        <div className="cell-sub">sur {formatFCFA(inv.totalAmount)}</div>
+                      </td>
+                      <td className="nowrap" style={{ color: late ? "var(--danger)" : undefined, fontWeight: late ? 600 : undefined }}>
+                        {new Date(inv.dueDate).toLocaleDateString("fr-FR")}
+                      </td>
+                      <td>
+                        <span className={`badge ${late ? "badge-danger" : STATUS[inv.status]?.badge ?? "badge-neutral"}`}>{late ? "En retard" : STATUS[inv.status]?.label ?? inv.status}</span>
+                      </td>
+                      <td className="actions">
+                        {inv.status !== "PAID" && inv.status !== "CANCELLED" && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => {
+                              setFormError(null);
+                              setPayingInvoice(inv);
+                              setPaymentForm({ amount: inv.totalAmount - paid, method: "CASH", reference: "" });
+                            }}
+                          >
+                            <CreditCard size={14} /> Encaisser
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <Pagination page={table.page} pageCount={table.pageCount} total={table.total} pageSize={table.pageSize} onPage={table.setPage} unit="facture" />
+          </>
+        )}
       </div>
 
-      {showInvoiceForm && (
-        <div className="modal-overlay" onClick={() => setShowInvoiceForm(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>Nouvelle facture</h2>
-            <form onSubmit={createInvoice}>
-              <div className="field">
-                <label>Élève</label>
-                <select className="input" required value={invoiceForm.studentId} onChange={(e) => setInvoiceForm({ ...invoiceForm, studentId: e.target.value })}>
-                  <option value="">— Sélectionner —</option>
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>{s.lastName} {s.firstName} ({s.matricule})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-grid">
-                <div className="field">
-                  <label>Libellé</label>
-                  <input className="input" required value={invoiceForm.label} onChange={(e) => setInvoiceForm({ ...invoiceForm, label: e.target.value })} />
-                </div>
-                <div className="field">
-                  <label>Montant (FCFA)</label>
-                  <input type="number" className="input" required value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: Number(e.target.value) })} />
-                </div>
-                <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Échéance</label>
-                  <input type="date" className="input" required value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} />
-                </div>
-              </div>
-              {formError && <p className="text-danger" style={{ marginBottom: 12 }}>{formError}</p>}
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
-                <button type="button" className="btn btn-outline" onClick={() => setShowInvoiceForm(false)}>Annuler</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer la facture"}</button>
-              </div>
-            </form>
+      <Modal
+        open={showInvoiceForm}
+        onClose={() => setShowInvoiceForm(false)}
+        busy={saving}
+        title="Nouvelle facture"
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setShowInvoiceForm(false)} disabled={saving}>
+              Annuler
+            </button>
+            <button type="submit" form="invoice-form" className="btn btn-primary" disabled={saving}>
+              {saving ? <LoaderCircle size={16} className="spin" /> : <Plus size={16} />} Créer la facture
+            </button>
+          </>
+        }
+      >
+        <form id="invoice-form" onSubmit={createInvoice}>
+          <FormError message={formError} />
+          <div className="field">
+            <label htmlFor="inv-student" className="required">
+              Élève
+            </label>
+            <select id="inv-student" className="input" required value={invoiceForm.studentId} onChange={(e) => setInvoiceForm({ ...invoiceForm, studentId: e.target.value })}>
+              <option value="">— Sélectionner —</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.lastName} {s.firstName} ({s.matricule})
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="inv-label" className="required">
+                Libellé
+              </label>
+              <input id="inv-label" className="input" required list="invoice-labels" value={invoiceForm.label} onChange={(e) => setInvoiceForm({ ...invoiceForm, label: e.target.value })} />
+              <datalist id="invoice-labels">
+                <option value="Scolarité" />
+                <option value="Frais d'inscription" />
+                <option value="Cantine" />
+                <option value="Transport" />
+                <option value="Tenue scolaire" />
+              </datalist>
+            </div>
+            <div className="field">
+              <label htmlFor="inv-amount" className="required">
+                Montant (FCFA)
+              </label>
+              <input id="inv-amount" type="number" min={1} step={500} className="input" required value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: Number(e.target.value) })} />
+            </div>
+            <div className="field full">
+              <label htmlFor="inv-due" className="required">
+                Échéance
+              </label>
+              <input id="inv-due" type="date" className="input" required value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} />
+            </div>
+          </div>
+        </form>
+      </Modal>
 
-      {payingInvoice && (
-        <div className="modal-overlay" onClick={() => setPayingInvoice(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 17, marginBottom: 4 }}>Encaisser un paiement</h2>
-            <p className="muted" style={{ marginBottom: 16, fontSize: 13 }}>
-              {payingInvoice.reference} — {payingInvoice.student.lastName} {payingInvoice.student.firstName}
-            </p>
-            <form onSubmit={recordPayment}>
-              <div className="form-grid">
-                <div className="field">
-                  <label>Montant (FCFA)</label>
-                  <input type="number" className="input" required value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: Number(e.target.value) })} />
-                </div>
-                <div className="field">
-                  <label>Moyen de paiement</label>
-                  <select className="input" value={paymentForm.method} onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}>
-                    {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
-                </div>
-                <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Référence (optionnel)</label>
-                  <input className="input" value={paymentForm.reference} onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })} />
-                </div>
-              </div>
-              {formError && <p className="text-danger" style={{ marginBottom: 12 }}>{formError}</p>}
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
-                <button type="button" className="btn btn-outline" onClick={() => setPayingInvoice(null)}>Annuler</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Traitement…" : "Confirmer le paiement"}</button>
-              </div>
-            </form>
+      <Modal
+        open={!!payingInvoice}
+        onClose={() => setPayingInvoice(null)}
+        busy={saving}
+        title="Encaisser un paiement"
+        description={payingInvoice ? `${payingInvoice.reference} · ${payingInvoice.student.lastName} ${payingInvoice.student.firstName} · reste ${formatFCFA(remaining)}` : undefined}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setPayingInvoice(null)} disabled={saving}>
+              Annuler
+            </button>
+            <button type="submit" form="payment-form" className="btn btn-primary" disabled={saving}>
+              {saving ? <LoaderCircle size={16} className="spin" /> : <CreditCard size={16} />} Confirmer le paiement
+            </button>
+          </>
+        }
+      >
+        <form id="payment-form" onSubmit={recordPayment}>
+          <FormError message={formError} />
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="pay-amount" className="required">
+                Montant (FCFA)
+              </label>
+              <input id="pay-amount" type="number" min={1} max={remaining} className="input" required value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: Number(e.target.value) })} />
+              {paymentForm.amount > 0 && paymentForm.amount < remaining && <span className="field-hint">Paiement partiel : il restera {formatFCFA(remaining - paymentForm.amount)}.</span>}
+            </div>
+            <div className="field">
+              <label htmlFor="pay-method">Moyen de paiement</label>
+              <select id="pay-method" className="input" value={paymentForm.method} onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}>
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field full">
+              <label htmlFor="pay-ref">Référence de transaction</label>
+              <input id="pay-ref" className="input" placeholder={paymentForm.method.startsWith("MOBILE") || paymentForm.method === "WAVE" ? "Ex. ID de transaction Mobile Money" : "Optionnel"} value={paymentForm.reference} onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })} />
+            </div>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
     </Shell>
   );
 }

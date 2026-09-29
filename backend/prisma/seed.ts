@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { seedTimetable } from './seed-timetable';
 
 const prisma = new PrismaClient();
 
@@ -474,6 +475,8 @@ async function main() {
       create: { routeId: finalRoute.id, studentId: s.id },
     });
   }
+
+  await seedTimetable(prisma);
 
   console.log('\nSeed complete.');
   console.log(`  ${students.length} élèves répartis sur ${Object.keys(classes).length} classes`);

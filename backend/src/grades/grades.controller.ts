@@ -1,17 +1,22 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../common/roles.decorator';
+import { RolesGuard } from '../common/roles.guard';
+import { MANAGEMENT, TEACHING } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { GradesService } from './grades.service';
 import { EnterGradesDto } from './dto/enter-grades.dto';
 
 @Controller('grades')
 @ApiTags('Grades')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...TEACHING)
 @ApiBearerAuth()
 export class GradesController {
   constructor(private readonly gradesService: GradesService) {}
 
+  @Roles(...MANAGEMENT, 'ENSEIGNANT')
   @Post()
   enter(@CurrentUser() user: AuthUser, @Body() dto: EnterGradesDto) {
     return this.gradesService.enter(user, dto);

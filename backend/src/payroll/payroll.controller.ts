@@ -3,6 +3,9 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import PDFDocument from 'pdfkit';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../common/roles.decorator';
+import { RolesGuard } from '../common/roles.guard';
+import { FINANCE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { PayrollService } from './payroll.service';
 import { GeneratePayslipsDto } from './dto/generate-payslips.dto';
@@ -14,7 +17,8 @@ function formatFCFA(amount: number) {
 
 @Controller('payroll')
 @ApiTags('Payroll')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...FINANCE)
 @ApiBearerAuth()
 export class PayrollController {
   constructor(private readonly payrollService: PayrollService) {}

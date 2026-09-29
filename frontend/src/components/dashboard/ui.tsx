@@ -43,7 +43,7 @@ export function KpiCard({
   meter,
 }: {
   label: string;
-  icon: string;
+  icon: ReactNode;
   value: ReactNode;
   unit?: string;
   accent?: Accent;
@@ -95,7 +95,7 @@ export function StateMessage({
   variant = "empty",
   action,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   children?: ReactNode;
   variant?: "empty" | "error";

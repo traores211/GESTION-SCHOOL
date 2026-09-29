@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Shell from "../../../components/Shell";
+import { EmptyState, PageHeader, TableSkeleton } from "../../../components/ui";
 import { api, ApiError } from "../../../lib/api";
+import { ATTENDANCE_STATUS, INVOICE_STATUS, STUDENT_STATUS, statusBadge } from "../../../lib/labels";
 
 interface StudentDetail {
   id: string;
@@ -59,40 +61,45 @@ export default function StudentDetailPage() {
 
   return (
     <Shell title="Fiche élève">
-      {error && <p className="text-danger">{error}</p>}
-      {!student && !error && <p className="muted">Chargement…</p>}
+      {error && (
+        <div className="card">
+          <EmptyState tone="error" title="Dossier introuvable">
+            {error}
+          </EmptyState>
+        </div>
+      )}
+      {!student && !error && (
+        <div className="card">
+          <TableSkeleton rows={5} columns={2} />
+        </div>
+      )}
 
       {student && (
         <>
-          <div className="page-header">
-            <div>
-              <h1>
-                {student.firstName} {student.lastName}
-              </h1>
-              <p>
-                Matricule {student.matricule} — {student.enrollments[0]?.class?.name || "Non affecté"}
-              </p>
-            </div>
-            <span className="badge badge-green">{student.status}</span>
-          </div>
+          <PageHeader
+            breadcrumbs={[{ label: "Élèves", href: "/students" }, { label: `${student.firstName} ${student.lastName}` }]}
+            title={`${student.firstName} ${student.lastName}`}
+            description={`Matricule ${student.matricule} — ${student.enrollments[0]?.class?.name || "Non affecté"}`}
+            actions={<span className={`badge ${statusBadge(STUDENT_STATUS, student.status).badge}`}>{statusBadge(STUDENT_STATUS, student.status).label}</span>}
+          />
 
-          <div className="tabs">
-            <div className={`tab${tab === "info" ? " active" : ""}`} onClick={() => setTab("info")}>
+          <div className="tabs" role="tablist">
+            <button type="button" role="tab" className="tab" aria-selected={tab === "info"} onClick={() => setTab("info")}>
               Informations
-            </div>
-            <div className={`tab${tab === "attendance" ? " active" : ""}`} onClick={() => setTab("attendance")}>
+            </button>
+            <button type="button" role="tab" className="tab" aria-selected={tab === "attendance"} onClick={() => setTab("attendance")}>
               Présence
-            </div>
-            <div className={`tab${tab === "grades" ? " active" : ""}`} onClick={() => setTab("grades")}>
+            </button>
+            <button type="button" role="tab" className="tab" aria-selected={tab === "grades"} onClick={() => setTab("grades")}>
               Notes
-            </div>
-            <div className={`tab${tab === "billing" ? " active" : ""}`} onClick={() => setTab("billing")}>
+            </button>
+            <button type="button" role="tab" className="tab" aria-selected={tab === "billing"} onClick={() => setTab("billing")}>
               Scolarité
-            </div>
+            </button>
           </div>
 
           {tab === "info" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
               <div className="card">
                 <h2 style={{ fontSize: 15, marginBottom: 12 }}>👤 Identité</h2>
                 <p>
@@ -151,7 +158,9 @@ export default function StudentDetailPage() {
                     {student.attendance.map((a) => (
                       <tr key={a.id}>
                         <td>{new Date(a.date).toLocaleDateString("fr-FR")}</td>
-                        <td>{a.status}</td>
+                        <td>
+                          <span className={`badge ${statusBadge(ATTENDANCE_STATUS, a.status).badge}`}>{statusBadge(ATTENDANCE_STATUS, a.status).label}</span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -216,17 +225,7 @@ export default function StudentDetailPage() {
                         <td>{formatFCFA(inv.totalAmount)}</td>
                         <td>{formatFCFA(paid)}</td>
                         <td>
-                          <span
-                            className={`badge ${
-                              inv.status === "PAID"
-                                ? "badge-green"
-                                : inv.status === "PARTIALLY_PAID"
-                                ? "badge-warning"
-                                : "badge-danger"
-                            }`}
-                          >
-                            {inv.status}
-                          </span>
+                          <span className={`badge ${statusBadge(INVOICE_STATUS, inv.status).badge}`}>{statusBadge(INVOICE_STATUS, inv.status).label}</span>
                         </td>
                       </tr>
                     );
