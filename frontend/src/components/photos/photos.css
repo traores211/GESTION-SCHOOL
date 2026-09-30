@@ -1,33 +1,64 @@
-/* Real school photos + their motion. Built on the tokens of globals.css. */
+/*
+ * Real school photos + their motion. Built on the tokens of globals.css and the
+ * visual charter: the Ivorian flag, orange (hoist) / white / green.
+ */
 
-.ph { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--brand-soft); }
+.ph { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--ci-green-light); }
 .ph img { object-fit: cover; }
 .ph-kenburns img { animation: ph-kenburns 18s ease-in-out infinite alternate; }
 
+/* Tricolour ring (orange / white / green) that slowly turns around a round photo */
+.ph-ring { position: relative; border-radius: 50%; padding: 5px; }
+.ph-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--ci-orange) 0 120deg, var(--ci-white) 120deg 240deg, var(--ci-green) 240deg 360deg);
+  animation: ph-spin 14s linear infinite;
+}
+.ph-ring > .ph { border-radius: 50%; }
+
 /* ---------- Hero collage ---------- */
 .ph-collage { position: relative; width: 100%; max-width: 520px; aspect-ratio: 1 / 1.02; margin-left: auto; }
-.ph-collage-main { position: absolute; inset: 6% 8% 10% 12%; border-radius: 28px; overflow: hidden; border: 6px solid rgba(255, 255, 255, 0.95); box-shadow: 0 30px 60px rgba(0, 30, 15, 0.45); }
+
+/* The flag, offset behind the main photo: orange shows on the left, the three bands at the bottom */
+.ph-flag {
+  position: absolute;
+  inset: 14% 14% 2% 4%;
+  border-radius: 30px;
+  background: linear-gradient(90deg, var(--ci-orange) 0 33.3%, var(--ci-white) 33.3% 66.6%, var(--ci-green) 66.6% 100%);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 24px 50px rgba(0, 30, 15, 0.35);
+  transform: rotate(-6deg);
+  animation: ph-sway 9s ease-in-out infinite;
+}
+.ph-sun { position: absolute; top: 1%; left: 4%; width: 15%; aspect-ratio: 1; border-radius: 50%; background: var(--ci-orange); box-shadow: 0 10px 24px rgba(247, 127, 0, 0.45); animation: ph-float 7s ease-in-out infinite; }
+
+.ph-collage-main { position: absolute; inset: 6% 8% 10% 12%; border-radius: 28px; overflow: hidden; border: 6px solid var(--ci-white); box-shadow: 0 30px 60px rgba(0, 30, 15, 0.45); }
 .ph-collage-side { position: absolute; z-index: 2; }
 .ph-collage-side.top { top: -2%; right: -2%; width: 40%; aspect-ratio: 1; }
 .ph-collage-side.bottom { bottom: 0; left: -4%; width: 44%; aspect-ratio: 4 / 3; }
-.ph-collage-side .ph-float { width: 100%; height: 100%; border-radius: 20px; overflow: hidden; border: 5px solid #fff; box-shadow: 0 18px 40px rgba(0, 30, 15, 0.4); }
-.ph-collage-side.top .ph-float { border-radius: 50%; border-color: var(--accent); }
+.ph-collage-side .ph-float { width: 100%; height: 100%; }
+.ph-collage-side.top .ph-ring { width: 100%; height: 100%; box-shadow: 0 18px 40px rgba(0, 30, 15, 0.4); }
+.ph-collage-side.bottom .ph-float { border-radius: 20px; overflow: hidden; border: 5px solid var(--ci-white); border-bottom-color: var(--ci-orange); box-shadow: 0 18px 40px rgba(0, 30, 15, 0.4); }
 .ph-float { animation: ph-float 6s ease-in-out infinite; }
 .ph-float-late { animation-delay: -3s; }
 
-.ph-chip { position: absolute; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: #fff; color: var(--text); font-size: 13px; font-weight: var(--fw-semibold); box-shadow: 0 14px 30px rgba(0, 30, 15, 0.3); white-space: nowrap; }
-.ph-chip-a { left: -2%; top: 16%; }
-.ph-chip-b { right: 0; bottom: 12%; flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.2; }
-.ph-chip-b strong { font-size: 22px; font-weight: 800; color: var(--brand-strong); }
+.ph-chip { position: absolute; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: var(--ci-white); color: var(--text); font-size: 13px; font-weight: var(--fw-semibold); box-shadow: 0 14px 30px rgba(0, 30, 15, 0.3); white-space: nowrap; }
+.ph-chip-a { left: -2%; top: 16%; border-left: 4px solid var(--ci-orange); }
+.ph-chip-b { right: 0; bottom: 12%; flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.2; overflow: hidden; padding-bottom: 13px; }
+.ph-chip-b::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: linear-gradient(90deg, var(--ci-orange) 0 33.3%, #e9ece9 33.3% 66.6%, var(--ci-green) 66.6% 100%); }
+.ph-chip-b strong { font-size: 22px; font-weight: 800; color: var(--ci-green-dark); }
 .ph-chip-b span { font-size: 11.5px; color: var(--text-muted); font-weight: var(--fw-semibold); }
-.ph-chip-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ci-green); box-shadow: 0 0 0 0 rgba(0, 158, 96, 0.6); animation: ph-pulse 2s ease-out infinite; }
+.ph-chip-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ci-green); animation: ph-pulse 2s ease-out infinite; }
 
 /* ---------- Persona cards ---------- */
 .ph-personas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-5); }
 .ph-personas > * { display: flex; }
-.ph-persona { width: 100%; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); transition: transform 0.25s var(--ease-out, ease), box-shadow 0.25s; }
-.ph-persona:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.ph-persona { width: 100%; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); transition: transform 0.25s var(--ease-out, ease), box-shadow 0.25s, border-color 0.25s; }
+.ph-persona:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--ci-orange); }
 .ph-persona-media { position: relative; aspect-ratio: 16 / 10; overflow: hidden; }
+.ph-persona-media::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: linear-gradient(90deg, var(--ci-orange) 0 33.3%, var(--ci-white) 33.3% 66.6%, var(--ci-green) 66.6% 100%); }
 .ph-persona-media img { transition: transform 0.6s var(--ease-out, ease); }
 .ph-persona:hover .ph-persona-media img { transform: scale(1.06); }
 .ph-persona-body { padding: var(--space-5); display: flex; flex-direction: column; flex: 1; }
@@ -37,17 +68,23 @@
 
 /* ---------- Photo band (mosaïque) ---------- */
 .ph-mosaic { display: grid; grid-template-columns: 1.3fr 1fr 1fr; grid-template-rows: 200px 200px; gap: var(--space-3); }
-.ph-mosaic > * { border-radius: var(--radius-lg); overflow: hidden; }
+.ph-mosaic > * { position: relative; border-radius: var(--radius-lg); overflow: hidden; }
 .ph-mosaic > :first-child { grid-row: span 2; }
+.ph-mosaic > *::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--ci-orange); }
+.ph-mosaic > :nth-child(odd)::after { background: var(--ci-green); }
+.ph-mosaic > :first-child::after { height: 6px; background: linear-gradient(90deg, var(--ci-orange) 0 33.3%, var(--ci-white) 33.3% 66.6%, var(--ci-green) 66.6% 100%); }
 .ph-mosaic img { transition: transform 0.6s var(--ease-out, ease); }
 .ph-mosaic > *:hover img { transform: scale(1.05); }
 
 /* ---------- CTA portrait ---------- */
-.ph-cta { width: 132px; height: 132px; flex-shrink: 0; border-radius: 50%; overflow: hidden; border: 4px solid #fff; box-shadow: 0 12px 28px rgba(0, 30, 15, 0.35); }
+.ph-cta { width: 136px; height: 136px; flex-shrink: 0; filter: drop-shadow(0 12px 24px rgba(0, 30, 15, 0.35)); }
+.ph-cta .ph-ring { width: 100%; height: 100%; }
 
 @keyframes ph-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes ph-kenburns { from { transform: scale(1); } to { transform: scale(1.08) translate(-1.5%, -1%); } }
-@keyframes ph-pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 158, 96, 0.55); } 100% { box-shadow: 0 0 0 10px rgba(0, 158, 96, 0); } }
+@keyframes ph-pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 149, 74, 0.55); } 100% { box-shadow: 0 0 0 10px rgba(0, 149, 74, 0); } }
+@keyframes ph-spin { to { transform: rotate(360deg); } }
+@keyframes ph-sway { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(-3.5deg) translateY(-6px); } }
 
 @media (max-width: 960px) {
   .ph-collage { margin: 0 auto; max-width: 420px; }
@@ -59,10 +96,11 @@
 @media (max-width: 600px) {
   .ph-chip { font-size: 12px; padding: 8px 11px; }
   .ph-chip-a { left: 0; top: 4%; }
+  .ph-chip-b { padding-bottom: 11px; }
   .ph-cta { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ph-kenburns img, .ph-float, .ph-chip-dot { animation: none; }
+  .ph-kenburns img, .ph-float, .ph-chip-dot, .ph-ring::before, .ph-flag, .ph-sun { animation: none; }
   .ph-persona, .ph-persona-media img, .ph-mosaic img { transition: none; }
 }

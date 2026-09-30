@@ -8,6 +8,7 @@ import "./photos.css";
 /*
  * Vraies photos d'élèves et d'enseignants (page d'accueil, vitrine des écoles, connexion).
  * Les fichiers sont dans public/images/ecole (WebP, crédits dans CREDITS.md).
+ * Charte : orange / blanc / vert du drapeau ivoirien (drapeau derrière le collage, anneaux tricolores).
  * Animations : entrée échelonnée, léger parallaxe au scroll, pastilles flottantes.
  * Tout est coupé quand l'utilisateur demande « réduire les animations ».
  */
@@ -98,12 +99,14 @@ export function HeroCollage({ caption }: { caption?: string }) {
 
   return (
     <div className="ph-collage" ref={ref} role="img" aria-label={caption ?? "Des élèves et une enseignante en classe"}>
+      <motion.div className="ph-flag" aria-hidden="true" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.9, ease: EASE }} />
+      <span className="ph-sun" aria-hidden="true" />
       <motion.div className="ph-collage-main" variants={pop} custom={0} initial={initial} animate="show" style={{ y: ySlow }}>
         <Photo name="elevePupitre" alt="" priority kenBurns sizes="(max-width: 960px) 90vw, 440px" />
       </motion.div>
 
       <motion.div className="ph-collage-side top" variants={pop} custom={1} initial={initial} animate="show" style={{ y: yFast }}>
-        <div className="ph-float">
+        <div className="ph-float ph-ring">
           <Photo name="elevesUniformes" alt="" sizes="220px" />
         </div>
       </motion.div>
@@ -170,7 +173,9 @@ export function CtaPortrait({ className }: { className?: string }) {
       transition={{ duration: 0.8, ease: EASE }}
       aria-hidden="true"
     >
-      <Photo name="camarades" alt="" sizes="150px" />
+      <div className="ph-ring">
+        <Photo name="camarades" alt="" sizes="150px" />
+      </div>
     </motion.div>
   );
 }
