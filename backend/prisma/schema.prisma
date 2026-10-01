@@ -60,6 +60,12 @@ model School {
   linkedinUrl           String?
   youtubeUrl            String?
   whatsappNumber        String?
+  // Timetable grid: open days (1 = Monday … 7 = Sunday), day bounds, breaks ("12:00-14:00,…"), snapping step
+  timetableDays         String   @default("1,2,3,4,5,6")
+  timetableStart        String   @default("07:00")
+  timetableEnd          String   @default("18:00")
+  timetableBreaks       String   @default("12:00-14:00")
+  timetableSlotMinutes  Int      @default(30)
   highlights            SchoolHighlight[]
   photos                SchoolPhoto[]
   partners              SchoolPartner[]
@@ -77,6 +83,9 @@ model School {
   payslips              Payslip[]
   announcements         Announcement[]
   auditLogs             AuditLog[]
+  rooms                 Room[]
+  timetableSessions     TimetableSession[]
+  timetableImports      TimetableImport[]
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -97,6 +106,7 @@ model AcademicYear {
   admissions        Admission[]
   terms             Term[]
   invoices          Invoice[]
+  timetableSessions TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -242,6 +252,7 @@ model StaffMember {
   classes           Class[] @relation("TeacherClasses")
   classSubjects     ClassSubject[]
   payslips          Payslip[]
+  timetableSessions TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -319,6 +330,7 @@ model Class {
   attendance        Attendance[]
   classSubjects     ClassSubject[]
   grades            Grade[]
+  timetableSessions TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -405,8 +417,10 @@ model Subject {
   name              String
   code              String
   coefficient       Int      @default(1)
+  color             String?  // Timetable colour (hex); a stable colour is derived from the name when empty
   classSubjects     ClassSubject[]
   grades            Grade[]
+  timetableSessions TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -441,6 +455,7 @@ model Term {
   startDate         DateTime
   endDate           DateTime
   grades            Grade[]
+  timetableSessions TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -750,4 +765,73 @@ model Testimonial {
 
   @@index([schoolId])
   @@index([isPublished])
+}
+
+// ==================== Timetable ====================
+
+model Room {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name              String   // "Salle 12", "Labo SVT"
+  type              String?  // "Salle de classe", "Laboratoire", "Salle informatique", "Terrain"…
+  capacity          Int?
+  building          String?
+  sessions          TimetableSession[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+/// One weekly recurring lesson. Times are zero-padded "HH:MM" strings (lexicographic order = time order).
+model TimetableSession {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYearId    String
+  academicYear      AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  termId            String?  // null = the whole academic year
+  term              Term?    @relation(fields: [termId], references: [id], onDelete: SetNull)
+  classId           String
+  class             Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId         String?
+  subject           Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  teacherId         String?
+  teacher           StaffMember? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  roomId            String?
+  room              Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  dayOfWeek         Int      // 1 = Monday … 7 = Sunday
+  startTime         String
+  endTime           String
+  label             String?  // Free label when there is no subject ("Étude", "Sport"…)
+  notes             String?
+  importId          String?
+  import            TimetableImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([schoolId, academicYearId])
+  @@index([classId])
+  @@index([teacherId])
+  @@index([roomId])
+  @@index([importId])
+}
+
+/// Trace of a validated file import, so it can be reviewed or undone as a whole.
+model TimetableImport {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  fileName          String
+  fileType          String
+  method            String   // "list", "grid", "text", "ai", "requirements"
+  createdById       String?
+  sessionCount      Int      @default(0)
+  conflictCount     Int      @default(0)
+  sessions          TimetableSession[]
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId])
 }

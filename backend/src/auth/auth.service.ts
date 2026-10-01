@@ -2,28 +2,31 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { LoginRateLimiter } from './login-rate-limiter';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly rateLimiter: LoginRateLimiter,
   ) {}
 
   async login(email: string, password: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user || !user.password) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    email = email.trim().toLowerCase();
+    this.rateLimiter.assertAllowed(email);
 
-    const passwordValid = await bcrypt.compare(password, user.password);
-    if (!passwordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+    const user = await this.prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
+    const passwordValid = !!user?.password && (await bcrypt.compare(password, user.password));
+    if (!user || !passwordValid) {
+      this.rateLimiter.recordFailure(email);
+      throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
     if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Account is not active');
+      throw new UnauthorizedException("Ce compte est désactivé. Contactez l'administration de l'établissement.");
     }
+    this.rateLimiter.reset(email);
 
     await this.prisma.user.update({
       where: { id: user.id },

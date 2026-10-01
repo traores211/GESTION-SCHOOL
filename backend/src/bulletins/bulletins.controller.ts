@@ -3,12 +3,16 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import PDFDocument from 'pdfkit';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../common/roles.decorator';
+import { RolesGuard } from '../common/roles.guard';
+import { TEACHING } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { GradesService } from '../grades/grades.service';
 
 @Controller('bulletins')
 @ApiTags('Bulletins')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...TEACHING)
 @ApiBearerAuth()
 export class BulletinsController {
   constructor(private readonly gradesService: GradesService) {}

@@ -3,6 +3,7 @@
 import { ReactNode, useState } from "react";
 import { api, ApiError } from "../../lib/api";
 import ImageField from "./ImageField";
+import { FormError, Modal, useFeedback } from "../ui";
 
 export type FieldType = "text" | "textarea" | "image" | "url" | "checkbox";
 
@@ -43,6 +44,7 @@ export default function CollectionEditor<T extends Item>({
 }) {
   const [editing, setEditing] = useState<Partial<T> | null>(null);
   const [saving, setSaving] = useState(false);
+  const feedback = useFeedback();
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -77,10 +79,19 @@ export default function CollectionEditor<T extends Item>({
   };
 
   const remove = async (item: T) => {
+    const ok = await feedback.confirm({
+      title: "Supprimer cet élément ?",
+      message: "Il sera retiré de la vitrine publique. Cette action est irréversible.",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     setBusyId(item.id);
     try {
       await api.delete(`/showcase/${collection}/${item.id}`);
+      feedback.success("Élément supprimé");
       onChanged();
+    } catch (err) {
+      feedback.error("Suppression impossible", err instanceof ApiError ? err.message : undefined);
     } finally {
       setBusyId(null);
     }
@@ -97,6 +108,8 @@ export default function CollectionEditor<T extends Item>({
         api.patch(`/showcase/${collection}/${other.id}`, { order: index }),
       ]);
       onChanged();
+    } catch (err) {
+      feedback.error("Réorganisation impossible", err instanceof ApiError ? err.message : undefined);
     } finally {
       setBusyId(null);
     }
@@ -171,13 +184,25 @@ export default function CollectionEditor<T extends Item>({
         </div>
       )}
 
-      {editing && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>
-              {editing.id ? "Modifier" : "Ajouter"} {itemLabel}
-            </h2>
-            <form onSubmit={save}>
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        busy={saving}
+        title={editing ? <>{editing.id ? "Modifier" : "Ajouter"} {itemLabel}</> : ""}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setEditing(null)} disabled={saving}>
+              Annuler
+            </button>
+            <button type="submit" form="collection-form" className="btn btn-primary" disabled={saving}>
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+          </>
+        }
+      >
+        {editing && (
+          <form id="collection-form" onSubmit={save}>
+            <FormError message={error} />
               {fields.map((f) => {
                 const value = (editing as Record<string, any>)[f.key];
                 const id = `f-${collection}-${f.key}`;
@@ -227,19 +252,9 @@ export default function CollectionEditor<T extends Item>({
                   </div>
                 );
               })}
-              {error && <p className="text-danger" style={{ fontSize: 13, marginBottom: 10 }}>{error}</p>}
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
-                <button type="button" className="btn btn-outline" onClick={() => setEditing(null)}>
-                  Annuler
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? "Enregistrement…" : "Enregistrer"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }

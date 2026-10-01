@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../common/roles.decorator';
+import { RolesGuard } from '../common/roles.guard';
+import { FINANCE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { BillingService } from './billing.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -8,7 +11,8 @@ import { RecordPaymentDto } from './dto/record-payment.dto';
 
 @Controller('billing')
 @ApiTags('Billing')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...FINANCE, 'SECRETARY')
 @ApiBearerAuth()
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}

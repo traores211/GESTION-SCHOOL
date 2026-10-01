@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -24,6 +24,8 @@ import { PayrollModule } from './payroll/payroll.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
 import { PublicModule } from './public/public.module';
 import { ShowcaseModule } from './showcase/showcase.module';
+import { TimetableModule } from './timetable/timetable.module';
+import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 
 @Module({
   imports: [
@@ -53,8 +55,13 @@ import { ShowcaseModule } from './showcase/showcase.module';
     AnnouncementsModule,
     PublicModule,
     ShowcaseModule,
+    TimetableModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+  }
+}

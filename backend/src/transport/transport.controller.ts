@@ -1,6 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../common/roles.decorator';
+import { RolesGuard } from '../common/roles.guard';
+import { OFFICE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { TransportService } from './transport.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
@@ -8,7 +11,8 @@ import { CreateRouteDto } from './dto/create-route.dto';
 
 @Controller('transport')
 @ApiTags('Transport')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...OFFICE)
 @ApiBearerAuth()
 export class TransportController {
   constructor(private readonly transportService: TransportService) {}
