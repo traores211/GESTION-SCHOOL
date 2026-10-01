@@ -5,6 +5,7 @@ import { AuthUser } from '../common/current-user.decorator';
 import { AttendanceService } from '../attendance/attendance.service';
 import { BillingService } from '../billing/billing.service';
 import { DashboardPeriod, DashboardQueryDto } from './dto/dashboard-query.dto';
+import { computeInsights, levelRank } from './dashboard-insights';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PERIOD_DAYS: Record<Exclude<DashboardPeriod, 'year'>, number> = { '7d': 7, '30d': 30, '90d': 90 };
@@ -348,6 +349,8 @@ export class DashboardService {
       .reduce((sum, a) => sum + a.count, 0);
 
     // ---------- Class fill ----------
+    // Classes in teaching order (CP1 … Terminale), not alphabetical ("1ère" would come before "6ème").
+    classes.sort((a, b) => levelRank(a.level) - levelRank(b.level) || a.name.localeCompare(b.name));
     const classFill = classes.map((c) => ({
       classId: c.id,
       name: c.name,
@@ -360,6 +363,19 @@ export class DashboardService {
 
     // ---------- Grades ----------
     const grades = await this.gradesByClass(schoolId, year.id, query.termId, query.classId, classNames);
+
+    // ---------- Detailed sections ----------
+    const insights = await computeInsights(this.prisma, {
+      schoolId,
+      academicYearId: year.id,
+      yearStart: year.startDate,
+      from,
+      to,
+      classId: query.classId,
+      termId: grades.term?.id ?? null,
+      role: user.role,
+      classLevels: new Map(classes.map((c) => [c.id, c.level])),
+    });
 
     // ---------- Alerts ----------
     const alerts: { level: 'danger' | 'warning'; message: string }[] = [];
@@ -441,6 +457,7 @@ export class DashboardService {
       classFill,
       gradesByClass: grades.byClass,
       alerts,
+      ...insights,
     };
   }
 

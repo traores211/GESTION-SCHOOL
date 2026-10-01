@@ -82,12 +82,65 @@ export interface Analytics {
     lowest: number | null;
   }[];
   alerts: { level: "danger" | "warning"; message: string }[];
+  demographics: {
+    girls: number;
+    boys: number;
+    total: number;
+    enrollmentByLevel: { level: string; girls: number; boys: number; total: number }[];
+  };
+  absenceHeatmap: { weekdays: string[]; rows: { level: string; values: (number | null)[] }[] };
+  billingSchedule: { month: string; due: number; collected: number; dueCumul: number; collectedCumul: number }[];
+  gradeDistribution: {
+    bins: { from: number; to: number; count: number }[];
+    graded: number;
+    median: number | null;
+    q1: number | null;
+    q3: number | null;
+    passRate: number | null;
+    honours: number;
+  };
+  subjectAverages: { subject: string; average: number; belowTen: number; graded: number }[];
+  termProgress: { terms: { key: string; name: string }[]; rows: Record<string, string | number | null>[] };
+  atRisk: {
+    thresholds: { average: number; attendance: number };
+    points: AtRiskPupil[];
+    total: number;
+    count: number;
+    list: AtRiskPupil[];
+  };
+  payroll: { period: string; paid: number; pending: number; payslips: number; total: number }[];
+  schools: SchoolComparison[];
+}
+
+export interface AtRiskPupil {
+  studentId: string;
+  name: string;
+  matricule: string;
+  className: string;
+  average: number;
+  attendance: number;
+  absences: number;
+}
+
+export interface SchoolComparison {
+  schoolId: string;
+  name: string;
+  code: string;
+  city: string | null;
+  isCurrent: boolean;
+  students: number;
+  attendanceRate: number | null;
+  invoiced: number;
+  collected: number;
+  recoveryRate: number | null;
+  overdueInvoices: number;
+  averageGrade: number | null;
 }
 
 export type InvoiceStatus = "PAID" | "PARTIALLY_PAID" | "PENDING" | "OVERDUE" | "CANCELLED" | "DRAFT";
 
 export const INVOICE_STATUS: Record<InvoiceStatus, { label: string; icon: string; color: string }> = {
-  PAID: { label: "Soldées", icon: "✓", color: "var(--brand)" },
+  PAID: { label: "Soldées", icon: "✓", color: "var(--success)" },
   PARTIALLY_PAID: { label: "Partiellement payées", icon: "◐", color: "var(--warning-mark)" },
   PENDING: { label: "En attente (non échues)", icon: "○", color: "var(--neutral-bar)" },
   OVERDUE: { label: "Échues impayées", icon: "!", color: "var(--danger)" },

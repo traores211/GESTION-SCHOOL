@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { ArrowDownRight, ArrowUpRight, Inbox, Minus } from "lucide-react";
 
 type Accent = "green" | "orange" | "danger" | "warning";
 
@@ -20,12 +21,12 @@ export function Delta({ value, unit, label }: { value: number | null; unit: "%" 
     return <span className="delta delta-flat" title="Pas de base de comparaison sur la période précédente">— sans comparaison</span>;
   }
   const direction = value > 0 ? "up" : value < 0 ? "down" : "flat";
-  const arrow = direction === "up" ? "▲" : direction === "down" ? "▼" : "■";
+  const Arrow = direction === "up" ? ArrowUpRight : direction === "down" ? ArrowDownRight : Minus;
   const sign = value > 0 ? "+" : "";
   const formatted = `${sign}${value.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}${unit === "%" ? " %" : " pts"}`;
   return (
     <span className={`delta delta-${direction}`} title={label}>
-      <span aria-hidden="true">{arrow}</span>
+      <Arrow size={13} aria-hidden="true" />
       {formatted}
       <span className="visually-hidden"> {label}</span>
     </span>
@@ -43,7 +44,7 @@ export function KpiCard({
   meter,
 }: {
   label: string;
-  icon: string;
+  icon: ReactNode;
   value: ReactNode;
   unit?: string;
   accent?: Accent;
@@ -69,7 +70,7 @@ export function KpiCard({
         </div>
       )}
       {(delta || sub) && (
-        <div className="kpi-sub" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+        <div className="kpi-sub">
           {delta}
           {sub && <span>{sub}</span>}
         </div>
@@ -95,7 +96,7 @@ export function StateMessage({
   variant = "empty",
   action,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   children?: ReactNode;
   variant?: "empty" | "error";
@@ -108,7 +109,7 @@ export function StateMessage({
       </span>
       <div className="state-title">{title}</div>
       {children && <div>{children}</div>}
-      {action && <div style={{ marginTop: 8 }}>{action}</div>}
+      {action && <div className="state-action">{action}</div>}
     </div>
   );
 }
@@ -149,7 +150,7 @@ export function ChartCard({
         {loading ? (
           <div className="skeleton" style={{ height }} />
         ) : empty ? (
-          <StateMessage icon="∅" title="Aucune donnée">
+          <StateMessage icon={<Inbox size={20} />} title="Aucune donnée">
             {emptyText || "Aucune donnée pour les filtres sélectionnés."}
           </StateMessage>
         ) : (
@@ -170,5 +171,70 @@ export function Section({ title, subtitle, children }: { title: string; subtitle
       </div>
       <div className="dash-grid">{children}</div>
     </section>
+  );
+}
+
+/**
+ * Grid heatmap: one row per category, one column per bucket, cell darkness = value.
+ * Sequential single-hue ramp (stamp orange), value printed in each cell, scale legend below.
+ */
+export function Heatmap({
+  columns,
+  rows,
+  format,
+  caption,
+}: {
+  columns: string[];
+  rows: { label: string; values: (number | null)[] }[];
+  format: (v: number) => string;
+  caption: string;
+}) {
+  const all = rows.flatMap((r) => r.values).filter((v): v is number => v !== null);
+  const min = all.length ? Math.min(...all) : 0;
+  const max = all.length ? Math.max(...all) : 1;
+  const strength = (v: number) => (max === min ? 0.5 : (v - min) / (max - min));
+  return (
+    <div className="heatmap-wrap">
+      <table className="heatmap">
+        <caption className="visually-hidden">{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">
+              <span className="visually-hidden">Niveau</span>
+            </th>
+            {columns.map((c) => (
+              <th key={c} scope="col">
+                {c.slice(0, 3)}
+                <span className="visually-hidden">{c.slice(3)}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label}>
+              <th scope="row">{r.label}</th>
+              {r.values.map((v, i) => {
+                const s = v === null ? 0 : strength(v);
+                return (
+                  <td
+                    key={i}
+                    style={v === null ? undefined : { background: `color-mix(in srgb, var(--series-1) ${Math.round(8 + s * 64)}%, var(--surface))` }}
+                    title={v === null ? "Pas d'appel" : `${r.label}, ${columns[i]} : ${format(v)}`}
+                  >
+                    {v === null ? "—" : format(v)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="heatmap-scale" aria-hidden="true">
+        <span>{format(min)}</span>
+        <span className="heatmap-ramp" />
+        <span>{format(max)}</span>
+      </div>
+    </div>
   );
 }
