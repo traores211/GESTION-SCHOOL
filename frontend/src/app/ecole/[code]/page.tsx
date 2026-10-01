@@ -20,7 +20,7 @@ import {
   Phone,
   X,
 } from "lucide-react";
-import { ThemeToggle } from "../../../components/Brand";
+import { FlagBand, ThemeToggle } from "../../../components/Brand";
 import "./showcase.css";
 
 const NAV = [
@@ -151,6 +151,7 @@ export default function SchoolShowcasePage() {
 
   return (
     <div className="sc">
+      <FlagBand />
       {/* ---------- Top bar ---------- */}
       <div className="sc-topbar">
         <div className="sc-container">

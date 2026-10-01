@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, LoaderCircle, LogIn } from "lucide-react";
-import { BrandMark, ThemeToggle } from "../../components/Brand";
+import { BrandMark, FlagBand, ThemeToggle } from "../../components/Brand";
 import { api, errorMessage } from "../../lib/api";
 import { setSession } from "../../lib/auth";
 import { FormError } from "../../components/ui";
@@ -108,6 +108,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <main className="login">
+      <FlagBand />
       <section className="login-aside" aria-hidden="true">
         <div className="login-brand">
           <BrandMark size={30} />

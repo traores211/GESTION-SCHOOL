@@ -34,11 +34,11 @@ import {
 const TOKEN_FALLBACKS = {
   "--chart-1": "#f77f00",
   "--chart-1-soft": "#f7c58c",
-  "--chart-grid": "#e6ddcf",
+  "--chart-grid": "#ecebe6",
   "--chart-axis": "#c6b9a4",
   "--chart-label": "#6b645a",
   "--chart-reference": "#8f8476",
-  "--surface": "#fbf8f2",
+  "--surface": "#ffffff",
   "--neutral-bar": "#c9bdab",
   "--series-1": "#d46a00",
   "--series-2": "#2f62b5",

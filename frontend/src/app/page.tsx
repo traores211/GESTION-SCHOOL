@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Building2, HeartHandshake, NotebookPen, type LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
-import { BrandMark, ThemeToggle } from "../components/Brand";
+import { BrandMark, FlagBand, ThemeToggle } from "../components/Brand";
 import "./ecole/[code]/showcase.css";
 
 const PORTALS: { icon: LucideIcon; title: string; text: string; cta: string }[] = [
@@ -54,6 +54,7 @@ export default function Home() {
 
   return (
     <div className="sc">
+      <FlagBand />
       <header className="sc-header">
         <div className="sc-container">
           <Link href="/" className="sc-brand">

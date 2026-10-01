@@ -14,6 +14,17 @@ export function BrandMark({ size = 28 }: { size?: number }) {
   );
 }
 
+/** The Ivorian tricolour as a thin band across the top of a page (orange, white, green). */
+export function FlagBand({ pinned = false }: { pinned?: boolean }) {
+  return (
+    <div className={`flag-band${pinned ? " is-pinned" : ""}`} role="presentation">
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
 function currentTheme(): "light" | "dark" {
   const set = document.documentElement.dataset.theme;
   if (set === "light" || set === "dark") return set;

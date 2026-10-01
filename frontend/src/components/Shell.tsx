@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { AuthUser, ROLE_LABELS, clearSession, getStoredUser, getToken } from "../lib/auth";
 import NotificationBell from "./NotificationBell";
-import { BrandMark, ThemeToggle } from "./Brand";
+import { BrandMark, FlagBand, ThemeToggle } from "./Brand";
 import { Avatar } from "./ui";
 
 interface NavItem {
@@ -144,6 +144,8 @@ export default function Shell({ title, children }: { title: string; children: Re
   };
 
   return (
+    <div className="app-root">
+    <FlagBand pinned />
     <div className={`app-shell${navOpen ? " nav-open" : ""}`}>
       <a href="#main" className="skip-link">
         Aller au contenu
@@ -235,6 +237,7 @@ export default function Shell({ title, children }: { title: string; children: Re
           {children}
         </main>
       </div>
+    </div>
     </div>
   );
 }

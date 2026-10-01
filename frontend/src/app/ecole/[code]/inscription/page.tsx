@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import { api, ApiError } from "../../../../lib/api";
 import { FormError } from "../../../../components/ui";
-import { ThemeToggle } from "../../../../components/Brand";
+import { FlagBand, ThemeToggle } from "../../../../components/Brand";
 import "../showcase.css";
 
 export default function PublicAdmissionPage() {
@@ -32,6 +32,7 @@ export default function PublicAdmissionPage() {
 
   return (
     <main className="sc sc-apply">
+      <FlagBand />
       <div className="sc-apply-inner">
         <div className="sc-apply-top">
           <Link href={`/ecole/${params?.code}`} className="sc-apply-back">

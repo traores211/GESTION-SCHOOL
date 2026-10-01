@@ -1,6 +1,6 @@
 ---
 name: School ERP
-description: Le carnet à souches. Papier crème, encre presque noire et les encres du drapeau ivoirien pour la gestion scolaire.
+description: Le carnet à souches. Papier blanc, encre presque noire et les encres du drapeau ivoirien pour la gestion scolaire.
 colors:
   clay: "#f77f00"
   clay-ink: "#a85400"
@@ -18,13 +18,13 @@ colors:
   crimson-wash: "#f6dfda"
   slate: "#3d5a80"
   slate-wash: "#dfe6ef"
-  paper: "#f4efe6"
-  paper-raised: "#fbf8f2"
-  paper-sunken: "#ece5d8"
-  paper-deep: "#e4dccd"
-  surface-muted: "#f7f3ec"
-  rule: "#ddd3c3"
-  rule-strong: "#c6b9a4"
+  paper: "#ffffff"
+  paper-raised: "#ffffff"
+  paper-sunken: "#f6f5f2"
+  paper-deep: "#ecebe6"
+  surface-muted: "#fafaf8"
+  rule: "#e5e3dd"
+  rule-strong: "#cdcac2"
   ink: "#1f1d1a"
   ink-2: "#48433c"
   ink-3: "#6b645a"
@@ -182,14 +182,14 @@ components:
 
 **Creative North Star: "Le carnet à souches"**
 
-Chaque enregistrement de l'école se lit comme la souche d'un carnet de reçus. Son numéro (matricule, référence de facture, heure de cours) tient dans une marge en chiffres tabulaires ; une perforation en pointillés le sépare du contenu ; l'état final se pose comme un coup de tampon. Le papier est crème et chaud, l'encre presque noire, et les seules couleurs fortes sont les encres du drapeau ivoirien : l'orange pour les tampons et les marques, le vert pour ce qui est réglé.
+Chaque enregistrement de l'école se lit comme la souche d'un carnet de reçus. Son numéro (matricule, référence de facture, heure de cours) tient dans une marge en chiffres tabulaires ; une perforation en pointillés le sépare du contenu ; l'état final se pose comme un coup de tampon. Le papier est blanc, l'encre presque noire, et les seules couleurs fortes sont les encres du drapeau ivoirien : l'orange pour les tampons et les marques, le vert pour ce qui est réglé.
 
 Le système sert d'abord le personnel qui traite des dizaines d'opérations par jour. La densité est lisible plutôt que décorative : des registres réglés de filets d'un pixel, des chiffres alignés, une seule action en encre pleine par écran. Le calme vient de la retenue (un seul accent, aucune ombre sur les panneaux, aucun dégradé) et des titres en serif qui donnent à chaque page l'allure d'un document tenu avec soin.
 
-Le mode sombre n'est pas une inversion : c'est un papier carbone, brun-noir chaud, encre crème, avec des encres éclaircies pour garder le contraste. La grille SaaS de cartes blanches ombrées et de badges pastel est explicitement refusée, comme l'ancienne bande drapeau et les dégradés.
+Le mode sombre n'est pas une inversion : c'est un papier carbone, brun-noir chaud, encre crème, avec des encres éclaircies pour garder le contraste. La grille SaaS de cartes blanches ombrées et de badges pastel est explicitement refusée, comme les dégradés de l'ancienne interface. Seule trace directe du drapeau : une bande tricolore de 4px en haut de chaque page.
 
 **Key Characteristics:**
-- Papier crème chaud et encre presque noire ; orange et vert du drapeau comme seules encres de couleur.
+- Papier blanc et encre presque noire ; orange et vert du drapeau comme seules encres de couleur.
 - Panneaux séparés par des filets d'un pixel, jamais par des ombres.
 - Numéros en marge, en chiffres tabulaires, derrière une perforation en pointillés.
 - États finaux tamponnés : cartouche en capitales, double filet, inclinaison de −2°.
@@ -276,7 +276,7 @@ Le système est plat. Les panneaux posés sur la page n'ont aucune ombre : ils s
 ### Shadow Vocabulary
 - **Feuille soulevée** (`box-shadow: 0 8px 24px -10px rgba(48, 36, 20, 0.22), 0 2px 6px -2px rgba(48, 36, 20, 0.08)`): menus déroulants, info-bulles de graphique, navigation de la vitrine sur mobile.
 - **Feuille détachée** (`box-shadow: 0 24px 56px -16px rgba(48, 36, 20, 0.32)`): fenêtres, notifications, barre d'enregistrement, tiroir mobile.
-- **Anneau de focus** (`box-shadow: 0 0 0 2px #fbf8f2, 0 0 0 4px #f77f00`): tout élément focalisé au clavier ; rouge pour les actions destructives.
+- **Anneau de focus** (`box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #f77f00`): tout élément focalisé au clavier ; rouge pour les actions destructives.
 
 ### Named Rules
 **The Rules Not Shadows Rule.** Un panneau posé sur la page se sépare par un filet d'un pixel ou un changement de ton du papier, jamais par une ombre. L'ombre est réservée aux couches flottantes.
@@ -325,6 +325,9 @@ La ligne d'enregistrement du système. Une grille en trois parties : une marge d
 ### Tampon (signature)
 L'état final se pose comme un coup de tampon : cartouche en capitales (11px, 700, 0.1em), filet de 1,5px doublé d'un contour à 40 %, inclinaison de −2° (−4° sur la vitrine), et une seule animation à l'arrivée (420ms, l'encre se pose en se réduisant légèrement). Orange encre par défaut (VALIDÉ), vert réglé pour ce qui est réglé ou acquis (PAYÉ, CONFIRMÉ, CANDIDATURE REÇUE). En mouvement réduit, il apparaît en fondu.
 
+### Bande tricolore
+Trois tiers égaux orange #F77F00, blanc #FFFFFF, vert #009E60, de 4px de haut, sur toute la largeur et tout en haut de la page. Dans l'application, elle reste fixée au-dessus du menu et de la barre du haut. Le tiers blanc porte un filet d'un pixel pour rester visible sur le fond blanc (inutile en mode sombre). Composant `FlagBand`.
+
 ### Bande de chiffres
 Quatre chiffres clés dans une seule bande réglée : cellules séparées par des filets d'un pixel, libellé de 13px, icône pâle, chiffre de 28px tabulaire, unité (FCFA) en petit à côté, variation avec flèche et période de comparaison. La période couverte s'écrit sous la bande.
 
@@ -343,6 +346,6 @@ Quatre chiffres clés dans une seule bande réglée : cellules séparées par de
 - **Don't** poser du texte blanc sur l'orange #F77F00, ni écrire en orange ou en vert du drapeau purs.
 - **Don't** ombrer un panneau posé sur la page ; l'ombre est réservée aux menus, fenêtres et notifications.
 - **Don't** composer des grilles de cartes blanches ombrées avec des badges pastel.
-- **Don't** revenir à la bande drapeau ni aux dégradés de l'ancienne interface.
+- **Don't** revenir aux dégradés de l'ancienne interface, ni multiplier la bande tricolore : une seule par page, tout en haut, aux couleurs exactes du drapeau (#F77F00, #FFFFFF, #009E60).
 - **Don't** utiliser le serif pour un bouton, un champ, une cellule ou un chiffre clé.
 - **Don't** introduire une seconde couleur d'accent décorative.
