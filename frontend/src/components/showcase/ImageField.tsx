@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { ImageIcon } from "lucide-react";
 import { api, ApiError } from "../../lib/api";
 
 /** Image input: paste an https:// URL or upload a file (JPEG, PNG, WebP, GIF — 5 Mo max). */
@@ -49,7 +50,7 @@ export default function ImageField({
           style={{
             width: 72,
             height: 72,
-            borderRadius: 10,
+            borderRadius: "var(--radius)",
             border: "1px solid var(--border)",
             background: "var(--surface-muted)",
             overflow: "hidden",
@@ -58,14 +59,14 @@ export default function ImageField({
             alignItems: "center",
             justifyContent: "center",
             color: "var(--text-muted)",
-            fontSize: 22,
+            
           }}
         >
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (
-            <span aria-hidden="true">🖼️</span>
+            <ImageIcon size={22} aria-hidden="true" />
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 6 }}>

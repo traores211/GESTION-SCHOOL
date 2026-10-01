@@ -5,6 +5,22 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "../../../lib/api";
 import { ADMISSION_STEPS, Showcase, groupLevelsByCycle } from "../../../lib/showcase";
+import {
+  AlertOctagon,
+  ArrowRight,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  FileSignature,
+  Mail,
+  MapPin,
+  Menu,
+  MessageCircle,
+  Newspaper,
+  Phone,
+  X,
+} from "lucide-react";
+import { ThemeToggle } from "../../../components/Brand";
 import "./showcase.css";
 
 const NAV = [
@@ -71,13 +87,17 @@ export default function SchoolShowcasePage() {
   if (error) {
     return (
       <main className="sc sc-state">
-        <div className="card" style={{ maxWidth: 440, textAlign: "center" }}>
+        <div className="card sc-state-card">
           <div className="state state-error">
-            <span className="state-icon" aria-hidden="true">!</span>
+            <span className="state-icon" aria-hidden="true">
+              <AlertOctagon size={20} />
+            </span>
             <div className="state-title">{error}</div>
-            <button className="btn btn-primary btn-sm" onClick={load} style={{ marginTop: 8 }}>
-              Réessayer
-            </button>
+            <div className="state-action">
+              <button className="btn btn-primary btn-sm" onClick={load}>
+                Réessayer
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -135,8 +155,14 @@ export default function SchoolShowcasePage() {
       <div className="sc-topbar">
         <div className="sc-container">
           <div className="sc-topbar-group">
-            {data.phone && <a href={`tel:${data.phone.replace(/\s/g, "")}`}>📞 {data.phone}</a>}
-            <a href={`mailto:${data.email}`}>✉️ {data.email}</a>
+            {data.phone && (
+              <a href={`tel:${data.phone.replace(/\s/g, "")}`}>
+                <Phone size={14} aria-hidden="true" /> {data.phone}
+              </a>
+            )}
+            <a href={`mailto:${data.email}`}>
+              <Mail size={14} aria-hidden="true" /> {data.email}
+            </a>
           </div>
           <div className="sc-topbar-group secondary">
             {socials.map((s) => (
@@ -145,22 +171,25 @@ export default function SchoolShowcasePage() {
               </a>
             ))}
             <Link href="/login">Espace établissement</Link>
+            <ThemeToggle className="sc-theme" />
           </div>
         </div>
       </div>
 
       {/* ---------- Header ---------- */}
       <header className="sc-header">
-        <div className="sc-container" style={{ position: "relative" }}>
+        <div className="sc-container">
           <a href="#top" className="sc-brand" onClick={() => setMenuOpen(false)}>
             {logo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logo} alt={`Logo ${data.name}`} className="sc-brand-logo" />
             ) : (
-              <span className="sc-brand-badge" aria-hidden="true">🎓</span>
+              <span className="sc-brand-badge" aria-hidden="true">
+                {initials(data.name)}
+              </span>
             )}
-            <span style={{ minWidth: 0 }}>
-              <span className="sc-brand-name" style={{ display: "block" }}>{data.name}</span>
+            <span className="sc-brand-text">
+              <span className="sc-brand-name">{data.name}</span>
               {data.city && <span className="sc-brand-sub">{data.city}, Côte d&apos;Ivoire</span>}
             </span>
           </a>
@@ -172,7 +201,7 @@ export default function SchoolShowcasePage() {
             aria-controls="sc-nav"
             onClick={() => setMenuOpen((o) => !o)}
           >
-            {menuOpen ? "✕" : "☰"}
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <nav id="sc-nav" className={`sc-nav${menuOpen ? " open" : ""}`} aria-label="Navigation principale">
             {navItems.map((item) => (
@@ -199,49 +228,54 @@ export default function SchoolShowcasePage() {
 
       <main id="top">
         {/* ---------- Hero ---------- */}
-        <section className="sc-hero">
+        <section className={`sc-hero${cover ? " has-cover" : ""}`}>
           {cover && <div className="sc-hero-bg" style={{ backgroundImage: `url("${cover}")` }} aria-hidden="true" />}
-          <div className="sc-container">
+          <div className="sc-container sc-hero-grid">
             <div className="sc-hero-inner">
-              <div className="sc-eyebrow">
-                {data.academicYear ? `Année scolaire ${data.academicYear}` : "Bienvenue"}
-                {data.foundedYear ? ` · Depuis ${data.foundedYear}` : ""}
-              </div>
               <h1>{data.name}</h1>
-              {data.tagline && <p>{data.tagline}</p>}
+              {data.tagline && <p className="sc-hero-lead">{data.tagline}</p>}
+              <p className="sc-hero-meta">
+                {[data.academicYear ? `Année scolaire ${data.academicYear}` : null, data.foundedYear ? `Depuis ${data.foundedYear}` : null, data.city]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
               <div className="sc-hero-actions">
                 <Link href={inscriptionHref} className="btn btn-primary sc-btn-lg">
-                  📝 Déposer une candidature
+                  <FileSignature size={18} aria-hidden="true" /> Déposer une candidature
                 </Link>
-                <a href="#contact" className="btn sc-btn-ghost sc-btn-lg">
+                <a href="#contact" className="btn btn-outline sc-btn-lg">
                   Nous contacter
                 </a>
               </div>
             </div>
-          </div>
-        </section>
-        <div className="flag-stripe" />
 
-        {/* ---------- Key figures ---------- */}
-        <section className="sc-figures" aria-label="Chiffres clés">
-          <div className="sc-container">
-            <div className="sc-figures-grid">
-              {figures.map((f) => (
-                <div className="sc-figure" key={f.label + f.value}>
-                  <div className="sc-figure-value">{f.value}</div>
-                  <div className="sc-figure-label">{f.label}</div>
-                </div>
-              ))}
-            </div>
+            {/* The school's register stub: its real figures, numbered in the margin like a receipt. */}
+            <aside className="sc-ticket" aria-label="Chiffres clés">
+              <div className="sc-ticket-no">
+                <span>N°</span>
+                <strong>{data.code}</strong>
+              </div>
+              <div className="sc-ticket-body">
+                <p className="sc-ticket-title">Fiche de l&apos;établissement</p>
+                <dl className="sc-ticket-figures">
+                  {figures.map((f) => (
+                    <div key={f.label + f.value}>
+                      <dt>{f.label}</dt>
+                      <dd>{f.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {data.academicYear && <span className="stamp sc-ticket-stamp">Inscriptions {data.academicYear}</span>}
+              </div>
+            </aside>
           </div>
         </section>
 
         {/* ---------- About ---------- */}
         <section className="sc-section" id="etablissement">
-          <div className="sc-container sc-about">
+          <div className={`sc-container sc-about${aboutImage ? "" : " no-media"}`}>
             <div className="sc-about-text">
-              <div className="sc-kicker">L&apos;établissement</div>
-              <div className="sc-section-head" style={{ marginBottom: 20 }}>
+              <div className="sc-section-head">
                 <h2>Découvrez notre établissement</h2>
               </div>
               {data.description ? (
@@ -252,7 +286,7 @@ export default function SchoolShowcasePage() {
               <div className="sc-about-facts">
                 {location && (
                   <div className="sc-fact">
-                    <span aria-hidden="true">📍</span>
+                    <MapPin size={18} aria-hidden="true" />
                     <div>
                       <strong>Adresse</strong>
                       {location}
@@ -261,7 +295,7 @@ export default function SchoolShowcasePage() {
                 )}
                 {data.academicYear && (
                   <div className="sc-fact">
-                    <span aria-hidden="true">🗓️</span>
+                    <CalendarDays size={18} aria-hidden="true" />
                     <div>
                       <strong>Année en cours</strong>
                       {data.academicYear}
@@ -270,17 +304,12 @@ export default function SchoolShowcasePage() {
                 )}
               </div>
             </div>
-            <div className="sc-about-media">
-              {aboutImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
+            {aboutImage && (
+              <div className="sc-about-media">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={aboutImage} alt={data.photos[0]?.caption || `Vue de l'établissement ${data.name}`} />
-              ) : (
-                <div className="sc-about-media-empty">
-                  <span aria-hidden="true">🏫</span>
-                  {data.name}
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -289,7 +318,6 @@ export default function SchoolShowcasePage() {
           <section className="sc-section sc-section-alt" id="niveaux">
             <div className="sc-container">
               <div className="sc-section-head center">
-                <div className="sc-kicker">Enseignement</div>
                 <h2>Nos niveaux</h2>
                 <p>Les classes ouvertes pour l&apos;année {data.academicYear || "en cours"}.</p>
               </div>
@@ -317,7 +345,6 @@ export default function SchoolShowcasePage() {
           <section className="sc-section" id="vie-scolaire">
             <div className="sc-container">
               <div className="sc-section-head">
-                <div className="sc-kicker">Vie scolaire</div>
                 <h2>En images</h2>
               </div>
               <div className={`sc-gallery${data.photos.length >= 5 ? " featured" : ""}`}>
@@ -342,13 +369,14 @@ export default function SchoolShowcasePage() {
         <section className={`sc-section${data.photos.length > 0 ? " sc-section-alt" : ""}`} id="actualites">
           <div className="sc-container">
             <div className="sc-section-head">
-              <div className="sc-kicker">Actualités</div>
               <h2>La vie de l&apos;établissement</h2>
             </div>
             {data.announcements.length === 0 ? (
               <div className="card">
                 <div className="state">
-                  <span className="state-icon" aria-hidden="true">📰</span>
+                  <span className="state-icon" aria-hidden="true">
+                    <Newspaper size={20} />
+                  </span>
                   <div className="state-title">Aucune actualité publiée pour le moment</div>
                 </div>
               </div>
@@ -396,7 +424,6 @@ export default function SchoolShowcasePage() {
           <section className="sc-section" id="temoignages">
             <div className="sc-container">
               <div className="sc-section-head center">
-                <div className="sc-kicker">Témoignages</div>
                 <h2>Ils nous font confiance</h2>
               </div>
               <div className="sc-testimonials">
@@ -431,11 +458,10 @@ export default function SchoolShowcasePage() {
         <section className="sc-section sc-section-alt" id="admissions">
           <div className="sc-container">
             <div className="sc-section-head">
-              <div className="sc-kicker">Admissions</div>
               <h2>Rejoindre l&apos;établissement</h2>
               <p>Les candidatures se font en ligne. Voici les étapes jusqu&apos;à l&apos;inscription.</p>
             </div>
-            <ol className="sc-steps" style={{ listStyle: "none" }}>
+            <ol className="sc-steps">
               {ADMISSION_STEPS.map((step) => (
                 <li className="sc-step" key={step.title}>
                   <h3>{step.title}</h3>
@@ -444,12 +470,12 @@ export default function SchoolShowcasePage() {
               ))}
             </ol>
             <div className="sc-cta-band">
-              <div>
+              <div className="sc-cta-text">
                 <h3>Candidatures {data.academicYear ? data.academicYear : "ouvertes"}</h3>
                 <p>Le formulaire prend quelques minutes, sans création de compte.</p>
               </div>
-              <Link href={inscriptionHref} className="btn sc-btn-light sc-btn-lg">
-                Déposer une candidature →
+              <Link href={inscriptionHref} className="btn btn-primary sc-btn-lg">
+                Déposer une candidature <ArrowRight size={18} aria-hidden="true" />
               </Link>
             </div>
           </div>
@@ -460,7 +486,6 @@ export default function SchoolShowcasePage() {
           <section className="sc-section" id="partenaires">
             <div className="sc-container">
               <div className="sc-section-head center">
-                <div className="sc-kicker">Partenaires</div>
                 <h2>Nos partenaires</h2>
               </div>
               <div className="sc-partners">
@@ -492,19 +517,20 @@ export default function SchoolShowcasePage() {
         <section className={`sc-section${data.partners.length > 0 ? " sc-section-alt" : ""}`} id="contact">
           <div className="sc-container">
             <div className="sc-section-head">
-              <div className="sc-kicker">Contact</div>
               <h2>Nous contacter</h2>
               <p>Le secrétariat répond à vos questions sur les inscriptions, la scolarité et la vie de l&apos;établissement.</p>
             </div>
             <div className="sc-contact">
               {location && (
                 <div className="sc-contact-card">
-                  <span className="sc-contact-icon" aria-hidden="true">📍</span>
+                  <span className="sc-contact-icon" aria-hidden="true">
+                    <MapPin size={18} />
+                  </span>
                   <div>
                     <strong>Adresse</strong>
                     <span>{location}</span>
                     {data.mapUrl && (
-                      <div style={{ marginTop: 6 }}>
+                      <div className="sc-contact-more">
                         <a href={data.mapUrl} target="_blank" rel="noopener noreferrer">
                           Voir sur la carte ↗
                         </a>
@@ -515,7 +541,9 @@ export default function SchoolShowcasePage() {
               )}
               {data.phone && (
                 <a className="sc-contact-card" href={`tel:${data.phone.replace(/\s/g, "")}`}>
-                  <span className="sc-contact-icon" aria-hidden="true">📞</span>
+                  <span className="sc-contact-icon" aria-hidden="true">
+                    <Phone size={18} />
+                  </span>
                   <div>
                     <strong>Téléphone</strong>
                     <span>{data.phone}</span>
@@ -524,7 +552,9 @@ export default function SchoolShowcasePage() {
               )}
               {data.whatsappNumber && (
                 <a className="sc-contact-card" href={whatsappLink(data.whatsappNumber)} target="_blank" rel="noopener noreferrer">
-                  <span className="sc-contact-icon" aria-hidden="true">💬</span>
+                  <span className="sc-contact-icon" aria-hidden="true">
+                    <MessageCircle size={18} />
+                  </span>
                   <div>
                     <strong>WhatsApp</strong>
                     <span>{data.whatsappNumber}</span>
@@ -532,7 +562,9 @@ export default function SchoolShowcasePage() {
                 </a>
               )}
               <a className="sc-contact-card" href={`mailto:${data.email}`}>
-                <span className="sc-contact-icon" aria-hidden="true">✉️</span>
+                <span className="sc-contact-icon" aria-hidden="true">
+                  <Mail size={18} />
+                </span>
                 <div>
                   <strong>E-mail</strong>
                   <span>{data.email}</span>
@@ -603,7 +635,7 @@ export default function SchoolShowcasePage() {
       {lightbox !== null && data.photos[lightbox] && (
         <div className="sc-lightbox" role="dialog" aria-modal="true" aria-label="Galerie photo" onClick={() => setLightbox(null)}>
           <button type="button" className="sc-lightbox-close" aria-label="Fermer" onClick={() => setLightbox(null)}>
-            ✕
+            <X size={22} />
           </button>
           {data.photos.length > 1 && (
             <>
@@ -616,7 +648,7 @@ export default function SchoolShowcasePage() {
                   setLightbox((lightbox - 1 + data.photos.length) % data.photos.length);
                 }}
               >
-                ‹
+                <ChevronLeft size={24} />
               </button>
               <button
                 type="button"
@@ -627,7 +659,7 @@ export default function SchoolShowcasePage() {
                   setLightbox((lightbox + 1) % data.photos.length);
                 }}
               >
-                ›
+                <ChevronRight size={24} />
               </button>
             </>
           )}

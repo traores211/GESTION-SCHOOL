@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, Check } from "lucide-react";
 import Shell from "../../components/Shell";
 import ImageField from "../../components/showcase/ImageField";
 import CollectionEditor from "../../components/showcase/CollectionEditor";
+import { FormError, Modal, useFeedback } from "../../components/ui";
 import { api, ApiError } from "../../lib/api";
 import { ShowcaseAdminData, ShowcaseSettings } from "../../lib/showcase";
 
@@ -66,7 +68,9 @@ export default function AnnouncementsPage() {
 
       {loadError && (
         <div className="alert alert-danger" role="alert" style={{ marginBottom: 16 }}>
-          <span className="alert-icon" aria-hidden="true">⚠</span>
+          <span className="alert-icon" aria-hidden="true">
+            <AlertTriangle size={16} />
+          </span>
           <span>
             {loadError}{" "}
             <button className="btn btn-outline btn-sm" onClick={loadShowcase} style={{ marginLeft: 8 }}>
@@ -356,7 +360,7 @@ function IdentityTab({ initial, onSaved }: { initial: ShowcaseSettings; onSaved:
       <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "flex-end" }}>
         {message && (
           <span className={message.type === "success" ? "text-green" : "text-danger"} role="status" style={{ fontSize: 13.5 }}>
-            {message.type === "success" ? "✓ " : "⚠ "}
+            {message.type === "success" ? <Check size={15} aria-hidden="true" /> : <AlertTriangle size={15} aria-hidden="true" />}{" "}
             {message.text}
           </span>
         )}
@@ -369,6 +373,7 @@ function IdentityTab({ initial, onSaved }: { initial: ShowcaseSettings; onSaved:
 }
 
 function NewsTab() {
+  const feedback = useFeedback();
   const [items, setItems] = useState<Announcement[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Partial<Announcement> | null>(null);
@@ -404,18 +409,27 @@ function NewsTab() {
   const togglePublish = async (a: Announcement) => {
     try {
       await api.patch(`/announcements/${a.id}`, { isPublished: !a.isPublished });
+      feedback.success(a.isPublished ? "Annonce retirée de la vitrine" : "Annonce publiée", a.title);
       load();
     } catch (err) {
-      setError(errorText(err));
+      feedback.error("Action impossible", errorText(err));
     }
   };
 
   const remove = async (id: string) => {
+    const item = items?.find((a) => a.id === id);
+    const ok = await feedback.confirm({
+      title: "Supprimer cette annonce ?",
+      message: item ? `« ${item.title} » sera définitivement supprimée${item.isPublished ? " et retirée de la vitrine publique" : ""}.` : undefined,
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     try {
       await api.delete(`/announcements/${id}`);
+      feedback.success("Annonce supprimée");
       load();
     } catch (err) {
-      setError(errorText(err));
+      feedback.error("Suppression impossible", errorText(err));
     }
   };
 
@@ -488,11 +502,25 @@ function NewsTab() {
         </div>
       )}
 
-      {editing && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <h2 style={{ fontSize: 17, marginBottom: 16 }}>{editing.id ? "Modifier l'annonce" : "Nouvelle annonce"}</h2>
-            <form onSubmit={save}>
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        busy={saving}
+        title={editing ? <>{editing.id ? "Modifier l'annonce" : "Nouvelle annonce"}</> : ""}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setEditing(null)} disabled={saving}>
+              Annuler
+            </button>
+            <button type="submit" form="news-form" className="btn btn-primary" disabled={saving}>
+              {saving ? "Enregistrement…" : editing?.id ? "Enregistrer" : "Publier"}
+            </button>
+          </>
+        }
+      >
+        {editing && (
+          <form id="news-form" onSubmit={save}>
+            <FormError message={error} />
               <div className="field">
                 <label htmlFor="n-title">Titre</label>
                 <input id="n-title" className="input" required value={editing.title || ""} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
@@ -509,19 +537,9 @@ function NewsTab() {
                 />
               </div>
               <ImageField id="n-image" label="Image (facultatif)" value={editing.imageUrl ?? null} onChange={(v) => setEditing({ ...editing, imageUrl: v })} />
-              {error && <p className="text-danger" style={{ fontSize: 13, marginBottom: 10 }}>{error}</p>}
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
-                <button type="button" className="btn btn-outline" onClick={() => setEditing(null)}>
-                  Annuler
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? "Enregistrement…" : editing.id ? "Enregistrer" : "Publier"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }

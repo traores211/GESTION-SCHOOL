@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { api, ApiError } from "../../lib/api";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, EyeOff, LoaderCircle, LogIn } from "lucide-react";
+import { BrandMark, ThemeToggle } from "../../components/Brand";
+import { api, errorMessage } from "../../lib/api";
 import { setSession } from "../../lib/auth";
+import { FormError } from "../../components/ui";
+import "./login.css";
 
 interface LoginResponse {
   accessToken: string;
@@ -17,12 +21,15 @@ const DEMO_ACCOUNTS = [
   { role: "Parent", email: "parent@school.local", password: "parent123" },
 ];
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const [email, setEmail] = useState("admin@school.local");
   const [password, setPassword] = useState("admin123");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const expired = params.get("expired") === "1";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,108 +38,148 @@ export default function LoginPage() {
     try {
       const data = await api.post<LoginResponse>("/auth/login", { email, password });
       setSession(data.accessToken, data.user);
-      router.push(data.user.role === "PARENT" ? "/portal" : "/dashboard");
+      const next = params.get("next");
+      const safeNext = next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : null;
+      router.push(data.user.role === "PARENT" ? "/portal" : safeNext || "/dashboard");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Une erreur est survenue");
-    } finally {
+      setError(errorMessage(err));
       setLoading(false);
     }
   };
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background:
-          "linear-gradient(135deg, var(--ci-green-dark) 0%, var(--ci-green) 45%, #ffffff 45%, #ffffff 55%, var(--ci-orange) 55%, var(--ci-orange-dark) 100%)",
-        padding: 20,
-      }}
-    >
-      <div
-        className="card"
-        style={{ width: "100%", maxWidth: 420, boxShadow: "var(--shadow-md)" }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 14,
-              background: "var(--ci-orange)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
-              margin: "0 auto 12px",
-            }}
-          >
-            🎓
-          </div>
-          <h1 style={{ fontSize: 20 }}>School ERP</h1>
-          <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-            Gestion scolaire — Côte d&apos;Ivoire
-          </p>
+    <form onSubmit={handleSubmit} className="login-form">
+      {expired && !error && (
+        <div className="alert alert-info">
+          Votre session a expiré. Reconnectez-vous pour continuer.
         </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="field">
-            <label htmlFor="email">Adresse email</label>
-            <input
-              id="email"
-              type="email"
-              className="input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="password">Mot de passe</label>
-            <input
-              id="password"
-              type="password"
-              className="input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          {error && (
-            <p className="text-danger" style={{ fontSize: 13, marginBottom: 12 }}>
-              {error}
-            </p>
-          )}
-          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? "Connexion..." : "Se connecter"}
+      )}
+      <FormError message={error} />
+      <div className="field">
+        <label htmlFor="email">Adresse email</label>
+        <input id="email" type="email" autoComplete="username" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      </div>
+      <div className="field">
+        <label htmlFor="password">Mot de passe</label>
+        <div className="input-icon">
+          <input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            className="input no-lead"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button type="button" className="input-clear" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
+            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
-        </form>
-
-        <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
-          <p style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>
-            Comptes de démonstration
-          </p>
-          <div style={{ display: "grid", gap: 6 }}>
-            {DEMO_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.email}
-                type="button"
-                className="btn btn-outline btn-sm"
-                style={{ justifyContent: "space-between" }}
-                onClick={() => {
-                  setEmail(acc.email);
-                  setPassword(acc.password);
-                }}
-              >
-                <span>{acc.role}</span>
-                <span className="muted">{acc.email}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
+      <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading}>
+        {loading ? <LoaderCircle size={18} className="spin" /> : <LogIn size={18} />}
+        {loading ? "Connexion…" : "Se connecter"}
+      </button>
+
+      <div className="login-demo">
+        <p>Comptes de démonstration</p>
+        <div className="login-demo-grid">
+          {DEMO_ACCOUNTS.map((acc) => (
+            <button
+              key={acc.email}
+              type="button"
+              className={`login-demo-btn${email === acc.email ? " is-active" : ""}`}
+              onClick={() => {
+                setEmail(acc.email);
+                setPassword(acc.password);
+                setError(null);
+              }}
+            >
+              <strong>{acc.role}</strong>
+              <span>{acc.email}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <main className="login">
+      <section className="login-aside" aria-hidden="true">
+        <div className="login-brand">
+          <BrandMark size={30} />
+          <strong>School ERP</strong>
+        </div>
+        <div className="login-aside-inner">
+          <h2>
+            Chaque reçu, chaque appel, chaque dossier <em>à sa place</em>.
+          </h2>
+          <ol className="login-stubs">
+            <li className="stub">
+              <span className="stub-no">
+                N° 0142
+                <small>Reçu</small>
+              </span>
+              <span className="stub-body">
+                <span className="stub-title">Scolarité, 1er trimestre</span>
+                <span className="stub-meta tabular">75 000 FCFA · Orange Money</span>
+              </span>
+              <span className="stub-end">
+                <span className="stamp stamp-olive">Payé</span>
+              </span>
+            </li>
+            <li className="stub">
+              <span className="stub-no">
+                08:00
+                <small>Appel</small>
+              </span>
+              <span className="stub-body">
+                <span className="stub-title">6e A · Mathématiques</span>
+                <span className="stub-meta tabular">31 présents sur 32</span>
+              </span>
+              <span className="stub-end">
+                <span className="badge badge-danger">1 absent</span>
+              </span>
+            </li>
+            <li className="stub">
+              <span className="stub-no">
+                N° 0057
+                <small>Dossier</small>
+              </span>
+              <span className="stub-body">
+                <span className="stub-title">Admission en 2nde C</span>
+                <span className="stub-meta">Pièces complètes</span>
+              </span>
+              <span className="stub-end">
+                <span className="stamp">Validé</span>
+              </span>
+            </li>
+          </ol>
+          <p className="login-caption">Exemples fictifs.</p>
+        </div>
+        <p className="login-foot">Élèves, présence, notes, facturation, transport et paie, au même endroit.</p>
+      </section>
+      <section className="login-panel">
+        <div className="login-panel-tools">
+          <ThemeToggle />
+        </div>
+        <div className="login-card">
+          <div className="login-head">
+            <div className="login-brand">
+              <BrandMark size={28} />
+              <strong>School ERP</strong>
+            </div>
+            <h1>Connexion</h1>
+            <p>Gestion scolaire de votre établissement</p>
+          </div>
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
+        </div>
+      </section>
     </main>
   );
 }
