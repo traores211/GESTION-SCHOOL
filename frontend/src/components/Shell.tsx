@@ -83,6 +83,8 @@ export default function Shell({ title, children }: { title: string; children: Re
   const [navOpen, setNavOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const [pill, setPill] = useState<{ top: number; height: number; animate: boolean } | null>(null);
 
   useEffect(() => {
     if (!getToken()) {
@@ -121,6 +123,29 @@ export default function Shell({ title, children }: { title: string; children: Re
     document.title = `${title} · School ERP`;
   }, [title]);
 
+  // The orange pill behind the active item glides from where it was on the previous page.
+  useEffect(() => {
+    if (!checked) return;
+    const link = navRef.current?.querySelector<HTMLElement>(".sidebar-link.active");
+    if (!link) {
+      setPill(null);
+      return;
+    }
+    const next = { top: link.offsetTop, height: link.offsetHeight };
+    let prev: { top: number; height: number } | null = null;
+    try {
+      prev = JSON.parse(sessionStorage.getItem("navPill") || "null");
+      sessionStorage.setItem("navPill", JSON.stringify(next));
+    } catch {
+      /* storage unavailable: no glide, the pill simply appears */
+    }
+    if (prev && prev.top !== next.top) {
+      setPill({ ...prev, animate: false });
+      requestAnimationFrame(() => requestAnimationFrame(() => setPill({ ...next, animate: true })));
+    } else {
+      setPill({ ...next, animate: false });
+    }
+  }, [checked, pathname]);
   if (!checked) {
     return (
       <div className="shell-loading" aria-busy="true">
@@ -159,7 +184,14 @@ export default function Shell({ title, children }: { title: string; children: Re
             <span className="sidebar-brand-sub">Côte d&apos;Ivoire</span>
           </span>
         </Link>
-        <nav className="sidebar-nav">
+        <nav className={`sidebar-nav${pill ? " has-pill" : ""}`} ref={navRef}>
+          {pill && (
+            <span
+              className="nav-pill"
+              aria-hidden="true"
+              style={{ transform: `translateY(${pill.top}px)`, height: pill.height, transition: pill.animate ? undefined : "none" }}
+            />
+          )}
           {groups.map((g) => (
             <div key={g.group} role="group" aria-label={g.group}>
               {groups.length > 1 && <div className="sidebar-group">{g.group}</div>}

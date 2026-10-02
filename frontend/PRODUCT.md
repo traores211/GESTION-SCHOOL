@@ -40,6 +40,7 @@ Un « School ERP » complet, pas un simple outil de notes. Il est pensé pour le
 - Nom : « School ERP ». Chaque école a sa propre vitrine, avec son nom et son logo.
 - Direction choisie par le propriétaire (2026-10-01) : une esthétique **inspirée de Claude.ai** (titres en serif, calme et espace) sur **fond blanc partout** (choix du propriétaire, 2026-10-01), sans les dégradés de l'ancienne interface. Cette référence est une inspiration : on n'utilise ni le nom, ni le logo, ni les polices propriétaires d'Anthropic.
 - Couleurs (choix du propriétaire, 2026-10-01) : celles du **drapeau de la Côte d'Ivoire**. L'orange #F77F00 sert d'accent, le vert #009E60 marque ce qui est réglé ou validé, et le blanc est le papier. L'orange ne porte jamais de texte blanc (contraste 2,6:1) : les textes utilisent ses variantes foncées.
+- Couleur et mouvement (choix du propriétaire, 2026-10-01) : menu en vert forêt profond avec l'élément actif en orange plein, chiffres clés teintés, bouton principal orange ; animation « vivante mais sobre ».
 - Bande tricolore (choix du propriétaire, 2026-10-01) : une fine bande orange-blanc-vert, aux couleurs exactes du drapeau, en haut de chaque page (application, connexion, accueil, vitrine, inscription).
 
 ## Evidence on Hand

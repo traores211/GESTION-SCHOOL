@@ -1831,3 +1831,170 @@ html:has(.save-bar) { scroll-padding-bottom: 104px; }
   .spin { animation-duration: 2s; }
   html { scroll-behavior: auto; }
 }
+
+/* ==========================================================================
+   Colour & motion layer
+   - Deep forest-green navigation (from the flag green), active item in solid flag orange.
+   - Key figures each carry a tone: wash + icon chip. Primary action in flag orange, ink text (7.9:1).
+   - Motion: cascade on arrival, count-up figures, charts that draw, sliding active pill.
+   ========================================================================== */
+
+:root {
+  --forest: #0d3b2b;
+  --forest-2: #12493a;
+  --forest-ink: rgba(255, 255, 255, 0.86);
+  --forest-muted: rgba(255, 255, 255, 0.6);
+  --forest-line: rgba(255, 255, 255, 0.1);
+  --tone-blue: #2f62b5;
+  --tone-green: #00875a;
+  --tone-orange: #d46a00;
+  --tone-red: #b8322a;
+  --tone-ochre: #a8740a;
+  --flag-orange: #f77f00;
+  --flag-orange-hover: #e57200;
+}
+:root[data-theme="dark"] {
+  --forest: #0a2b20;
+  --forest-2: #0f3a2c;
+  --tone-blue: #6f9de6;
+  --tone-green: #3cbf8a;
+  --tone-orange: #f08a2c;
+  --tone-red: #ea7b6c;
+  --tone-ochre: #e0b04e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --forest: #0a2b20;
+    --forest-2: #0f3a2c;
+    --tone-blue: #6f9de6;
+    --tone-green: #3cbf8a;
+    --tone-orange: #f08a2c;
+    --tone-red: #ea7b6c;
+    --tone-ochre: #e0b04e;
+  }
+}
+
+/* ---------- Primary action: flag orange ---------- */
+.btn-primary { background: var(--flag-orange); color: #1f1d1a; }
+.btn-primary:hover:not(:disabled) { background: var(--flag-orange-hover); color: #1f1d1a; }
+.btn-primary:focus-visible { box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 4px #1f1d1a; }
+.pagination-page[aria-current="page"] { background: var(--forest); color: #fff; }
+
+/* ---------- Forest navigation ---------- */
+.sidebar {
+  background: var(--forest);
+  border-right-color: transparent;
+  color: var(--forest-ink);
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+.sidebar-brand { color: #fff; }
+.sidebar .brand-mark { color: #fff; }
+.sidebar .brand-mark .brand-mark-lines { stroke: #4fd29a; }
+.sidebar-brand-sub { color: var(--forest-muted); }
+.sidebar-group { color: var(--forest-muted); }
+.sidebar-nav { position: relative; }
+.sidebar-link { color: var(--forest-ink); z-index: 1; transition: color var(--dur) ease, background-color var(--dur-fast) ease; }
+.sidebar-link svg { color: var(--forest-muted); }
+.sidebar-link:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.sidebar-link:hover svg { color: #fff; }
+.sidebar-link.active { background: var(--flag-orange); border-color: transparent; color: #1f1d1a; }
+.sidebar-nav.has-pill .sidebar-link.active { background: transparent; }
+.sidebar-link.active svg { color: #1f1d1a; }
+.sidebar-link:focus-visible { box-shadow: 0 0 0 2px var(--forest), 0 0 0 4px var(--flag-orange); }
+/* The orange pill sits behind the active link and glides from the previous page's item. */
+.nav-pill {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 0;
+  border-radius: var(--radius);
+  background: var(--flag-orange);
+  box-shadow: 0 6px 16px -8px rgba(247, 127, 0, 0.7);
+  pointer-events: none;
+  transition: transform 420ms var(--ease-out), height 420ms var(--ease-out);
+}
+.sidebar-footer { border-top-color: var(--forest-line); }
+.sidebar-role { color: var(--forest-muted); }
+.sidebar .avatar { background: var(--forest-2); border-color: rgba(255, 255, 255, 0.25); color: #fff; }
+.shell-loading-side { background: var(--forest); }
+
+/* ---------- Key figures with tones ---------- */
+.kpi-card { --tone: var(--tone-blue); background: color-mix(in srgb, var(--tone) 5%, var(--surface)); transition: background-color var(--dur) ease; }
+.kpi-card.tone-blue { --tone: var(--tone-blue); }
+.kpi-card.tone-green { --tone: var(--tone-green); }
+.kpi-card.tone-orange { --tone: var(--tone-orange); }
+.kpi-card.tone-red { --tone: var(--tone-red); }
+.kpi-card.tone-ochre { --tone: var(--tone-ochre); }
+.kpi-card:hover { background: color-mix(in srgb, var(--tone) 9%, var(--surface)); }
+.kpi-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--tone) 15%, var(--surface));
+  color: var(--tone) !important;
+  transition: transform var(--dur) var(--ease-out);
+}
+.kpi-card:hover .kpi-icon { transform: rotate(-6deg) scale(1.06); }
+.kpi-meter > span { background: var(--tone); }
+.kpi-label { color: var(--ink-2); }
+
+/* Shortcuts and section marks pick up the tones too. */
+.quick-action svg { color: var(--tone, var(--ink-3)); }
+.quick-actions > li:nth-child(4n + 1) { --tone: var(--tone-green); }
+.quick-actions > li:nth-child(4n + 2) { --tone: var(--tone-blue); }
+.quick-actions > li:nth-child(4n + 3) { --tone: var(--tone-orange); }
+.quick-actions > li:nth-child(4n + 4) { --tone: var(--tone-ochre); }
+.quick-action:hover svg { color: var(--tone, var(--clay)); transform: scale(1.12); }
+.quick-action svg { transition: color var(--dur-fast) ease, transform var(--dur) var(--ease-out); }
+.section-title::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--flag-orange);
+  flex-shrink: 0;
+}
+.section:nth-of-type(3n + 2) .section-title::before { background: var(--tone-green); }
+.section:nth-of-type(3n) .section-title::before { background: var(--tone-blue); }
+
+/* ---------- Motion: cascade on arrival ---------- */
+@keyframes rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.kpi-band > .kpi-card,
+.dash-grid > .chart-card,
+.today-grid > *,
+.kpi-grid-2 > .kpi-card {
+  animation: rise-in 520ms var(--ease-out) both;
+}
+.kpi-band > .kpi-card:nth-child(2) { animation-delay: 60ms; }
+.kpi-band > .kpi-card:nth-child(3) { animation-delay: 120ms; }
+.kpi-band > .kpi-card:nth-child(4) { animation-delay: 180ms; }
+.today-grid > *:nth-child(2) { animation-delay: 160ms; }
+.dash-grid > .chart-card:nth-child(2) { animation-delay: 70ms; }
+.dash-grid > .chart-card:nth-child(3) { animation-delay: 140ms; }
+.dash-grid > .chart-card:nth-child(n + 4) { animation-delay: 200ms; }
+.stub-list > li { animation: rise-in 420ms var(--ease-out) both; }
+.stub-list > li:nth-child(2) { animation-delay: 50ms; }
+.stub-list > li:nth-child(3) { animation-delay: 100ms; }
+.stub-list > li:nth-child(4) { animation-delay: 150ms; }
+.stub-list > li:nth-child(n + 5) { animation-delay: 200ms; }
+.chart-card { transition: border-color var(--dur) ease, box-shadow var(--dur) var(--ease-out); }
+.chart-card:hover { border-color: var(--rule-strong); box-shadow: 0 10px 28px -18px rgba(13, 59, 43, 0.35); }
+.table-wrap tbody tr { transition: background-color var(--dur-fast) ease; }
+
+/* ---------- Login: the carnet side on forest green ---------- */
+.login .login-aside { background: var(--forest); border-right: none; color: #fff; }
+.login .login-aside h2 { color: #fff; }
+.login .login-aside h2 em { color: #ffb15c; }
+.login .login-aside .login-brand { color: #fff; }
+.login .login-aside .brand-mark { color: #fff; }
+.login .login-aside .brand-mark .brand-mark-lines { stroke: #4fd29a; }
+.login .login-caption, .login .login-foot { color: var(--forest-muted); }
+.login .login-stubs .stub { border-color: transparent; box-shadow: 0 14px 30px -18px rgba(0, 0, 0, 0.55); }
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-band > .kpi-card, .dash-grid > .chart-card, .today-grid > *, .kpi-grid-2 > .kpi-card, .stub-list > li { animation-name: fade-in; animation-duration: 200ms; }
+  .nav-pill { transition: none; }
+  .kpi-card:hover .kpi-icon, .quick-action:hover svg { transform: none; }
+}

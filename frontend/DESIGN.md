@@ -290,7 +290,7 @@ Des coins de papier : rayons de 3px (badges, tampons, puces), 4px (boutons, cham
 ### Buttons
 Des boutons sobres et nets, qui pèsent par leur encre plutôt que par leur taille.
 - **Shape:** coins légers (4px), hauteur de 40px (32px en compact, 46px en grand, 44px au toucher).
-- **Primary:** encre pleine sur papier, une seule par écran, pour la tâche la plus fréquente du profil.
+- **Primary:** orange du drapeau #F77F00 avec un texte encre (7,9:1), une seule par écran, pour la tâche la plus fréquente du profil. Jamais de texte blanc dessus.
 - **Secondary:** orange encre sous texte blanc, réservé aux actions d'argent et de validation (encaisser, valider).
 - **Hover / Focus:** l'aplat s'éclaircit ou s'assombrit d'un cran ; le bouton descend d'un pixel à l'appui ; anneau de focus orange décalé de 2px.
 - **Outline / Ghost / Danger:** contour sur papier relevé pour les actions de second rang, fantôme pour les outils de barre, rouge registre pour la destruction (anneau de focus rouge), isolée des autres actions.
@@ -312,9 +312,9 @@ Des boutons sobres et nets, qui pèsent par leur encre plutôt que par leur tail
 - **Error / Disabled:** contour rouge et halo rouge, message d'erreur avec icône ; désactivé sur papier creusé, texte pâle.
 
 ### Navigation
-- **Barre latérale:** papier creusé, groupes en libellés de 12px, liens de 36px (44px au toucher). Le lien actif se pose sur papier relevé avec un filet et son icône passe à l'orange. Marque : la souche du logo (talon orange, lignes vertes) et « School ERP » en serif.
+- **Barre latérale:** vert forêt profond #0D3B2B (dérivé du vert du drapeau), texte blanc à 86 %, groupes en libellés de 12px à 60 %, liens de 36px (44px au toucher). Le lien actif se pose sur une pastille orange #F77F00 en texte encre ; la pastille glisse de l'élément de la page précédente vers le nouveau (420ms). Marque : la souche du logo (talon orange, lignes vert clair) et « School ERP » en serif blanc. La moitié gauche de la page de connexion reprend ce vert.
 - **Onglets:** texte pâle, l'onglet actif à l'encre souligné de 2px d'orange.
-- **Pagination:** page courante en encre pleine.
+- **Pagination:** page courante en vert forêt, texte blanc.
 
 ### Tables (registres)
 En-têtes collants sur papier creusé en 12px, filet appuyé dessous ; lignes de 14px séparées par des filets, survol en papier voilé. La colonne de référence (facture, matricule) est une marge de souche : fond voilé, chiffres tabulaires, perforation en pointillés à droite. Les montants sont alignés à droite.
@@ -329,7 +329,10 @@ L'état final se pose comme un coup de tampon : cartouche en capitales (11px, 70
 Trois tiers égaux orange #F77F00, blanc #FFFFFF, vert #009E60, de 4px de haut, sur toute la largeur et tout en haut de la page. Dans l'application, elle reste fixée au-dessus du menu et de la barre du haut. Le tiers blanc porte un filet d'un pixel pour rester visible sur le fond blanc (inutile en mode sombre). Composant `FlagBand`.
 
 ### Bande de chiffres
-Quatre chiffres clés dans une seule bande réglée : cellules séparées par des filets d'un pixel, libellé de 13px, icône pâle, chiffre de 28px tabulaire, unité (FCFA) en petit à côté, variation avec flèche et période de comparaison. La période couverte s'écrit sous la bande.
+Quatre chiffres clés dans une seule bande réglée : cellules séparées par des filets d'un pixel, chacune avec une teinte (élèves bleu, présence vert, encaissé orange, impayés rouge ; recouvrement ocre) posée en lavis de 5 % et en pastille d'icône à 15 %. Libellé de 13px, chiffre de 28px qui défile de 0 à sa valeur à l'arrivée (850ms, décélération), unité (FCFA) en petit à côté, variation avec flèche et période de comparaison. La période couverte s'écrit sous la bande.
+
+### Mouvement
+Un seul geste par écran, rapide : les cartes et les souches arrivent en cascade (520ms, décalages plafonnés à 200ms), les chiffres clés défilent, les graphiques se dessinent (700ms), la pastille du menu glisse, les icônes des raccourcis et des chiffres réagissent au survol. Avec « réduire les animations », tout passe en fondu court, les chiffres et les graphiques s'affichent directement.
 
 ## Do's and Don'ts
 

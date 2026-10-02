@@ -1,9 +1,56 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Inbox, Minus } from "lucide-react";
 
 type Accent = "green" | "orange" | "danger" | "warning";
+export type Tone = "blue" | "green" | "orange" | "red" | "ochre";
+
+/**
+ * Animates a formatted French figure ("442", "92,3 %", "5,1 M") from its previous value to the new one.
+ * Text that does not start with a number is shown as is. Reduced motion shows the final value at once.
+ */
+export function CountUp({ text, duration = 850 }: { text: string; duration?: number }) {
+  const match = /^(-?[\d\s\u202f\u00a0]+(?:,\d+)?)(.*)$/.exec(text);
+  const target = match ? Number(match[1].replace(/[\s\u202f\u00a0]/g, "").replace(",", ".")) : NaN;
+  const decimals = match && match[1].includes(",") ? match[1].split(",")[1].length : 0;
+  // A space caught at the end of the number ("3 M") belongs to the unit.
+  const suffix = match ? (/[\s\u202f\u00a0]+$/.exec(match[1])?.[0] ?? "") + match[2] : "";
+  const [shown, setShown] = useState(Number.isFinite(target) ? 0 : target);
+  const from = useRef(0);
+
+  useEffect(() => {
+    if (!Number.isFinite(target)) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setShown(target);
+      from.current = target;
+      return;
+    }
+    const start = performance.now();
+    const origin = from.current;
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setShown(origin + (target - origin) * eased);
+      if (t < 1) frame = requestAnimationFrame(tick);
+      else from.current = target;
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, duration]);
+
+  if (!match || !Number.isFinite(target)) return <>{text}</>;
+  return (
+    <>
+      <span aria-hidden="true">
+        {shown.toLocaleString("fr-FR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+        {suffix}
+      </span>
+      <span className="visually-hidden">{text}</span>
+    </>
+  );
+}
 
 const ACCENT_CLASS: Record<Accent, string> = {
   green: "",
@@ -39,6 +86,7 @@ export function KpiCard({
   value,
   unit,
   accent = "green",
+  tone = "blue",
   delta,
   sub,
   meter,
@@ -48,12 +96,13 @@ export function KpiCard({
   value: ReactNode;
   unit?: string;
   accent?: Accent;
+  tone?: Tone;
   delta?: ReactNode;
   sub?: ReactNode;
   meter?: number | null;
 }) {
   return (
-    <div className={`kpi-card${ACCENT_CLASS[accent]}`}>
+    <div className={`kpi-card tone-${tone}${ACCENT_CLASS[accent]}`}>
       <div className="kpi-head">
         <div className="kpi-label">{label}</div>
         <span className="kpi-icon" aria-hidden="true">
@@ -61,7 +110,7 @@ export function KpiCard({
         </span>
       </div>
       <div className="kpi-value">
-        {value}
+        {typeof value === "string" ? <CountUp text={value} /> : value}
         {unit && <span className="kpi-value-unit">{unit}</span>}
       </div>
       {meter !== undefined && meter !== null && (

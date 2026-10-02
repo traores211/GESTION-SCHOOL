@@ -293,12 +293,14 @@ function KpiBand({ data }: { data: Analytics }) {
     <div className="kpi-grid kpi-band">
       <KpiCard
         label="Élèves inscrits"
+        tone="blue"
         icon={<GraduationCap size={16} />}
         value={formatNumber(kpis.enrolledStudents)}
         sub={`${data.classFill.length} classe(s) · ${data.filters.academicYear.name}`}
       />
       <KpiCard
         label="Taux de présence"
+        tone="green"
         icon={<ClipboardCheck size={16} />}
         accent={attendanceLow ? "warning" : "green"}
         value={formatPercent(kpis.attendanceRate.value)}
@@ -313,6 +315,7 @@ function KpiBand({ data }: { data: Analytics }) {
       />
       <KpiCard
         label="Encaissé sur la période"
+        tone="orange"
         icon={<Wallet size={16} />}
         value={formatCompact(kpis.collected.value)}
         unit="FCFA"
@@ -321,6 +324,7 @@ function KpiBand({ data }: { data: Analytics }) {
       />
       <KpiCard
         label="Impayés échus"
+        tone="red"
         icon={<AlarmClock size={16} />}
         accent={kpis.overdue.count > 0 ? "danger" : "green"}
         value={formatCompact(kpis.overdue.amount)}
@@ -343,6 +347,7 @@ function KpiMore({ data }: { data: Analytics }) {
     <div className="kpi-grid kpi-grid-2">
       <KpiCard
         label="Taux de recouvrement"
+        tone="ochre"
         icon={<TrendingUp size={16} />}
         accent={recoveryLow ? "warning" : "green"}
         value={formatPercent(kpis.recoveryRate)}
@@ -351,6 +356,7 @@ function KpiMore({ data }: { data: Analytics }) {
       />
       <KpiCard
         label="Admissions en cours"
+        tone="blue"
         icon={<FileSignature size={16} />}
         accent="orange"
         value={formatNumber(kpis.pendingAdmissions)}

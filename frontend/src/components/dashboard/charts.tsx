@@ -79,6 +79,20 @@ export function useChartColors() {
   return colors;
 }
 
+/** Charts draw themselves on arrival, unless the user asked the system for less motion. */
+export function useMotionOK() {
+  // Charts are client-only (dynamic, ssr: false), so the preference can be read on the first render.
+  const [ok, setOk] = useState(() => typeof window !== "undefined" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setOk(!media.matches);
+    const onChange = () => setOk(!media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+  return ok;
+}
+
 const AXIS_TICK = { fontSize: 12, fontVariantNumeric: "tabular-nums" };
 
 export function ChartTooltip({
@@ -134,6 +148,7 @@ export function TrendLine<T extends Record<string, any>>({
   height?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 12, right: 16, bottom: 4, left: 0 }}>
@@ -175,7 +190,7 @@ export function TrendLine<T extends Record<string, any>>({
           dot={data.length <= 31 ? { r: 4, fill: c["--chart-1"], stroke: c["--surface"], strokeWidth: 2 } : false}
           activeDot={{ r: 6, fill: c["--chart-1"], stroke: c["--surface"], strokeWidth: 2 }}
           connectNulls
-          isAnimationActive={false}
+          isAnimationActive={motion} animationDuration={700} animationEasing="ease-out"
         />
       </LineChart>
     </ResponsiveContainer>
@@ -205,6 +220,7 @@ export function ColumnChart<T extends Record<string, any>>({
   height?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} barCategoryGap="28%">
@@ -224,7 +240,7 @@ export function ColumnChart<T extends Record<string, any>>({
           width={52}
         />
         <Tooltip cursor={{ fill: c["--chart-grid"], opacity: 0.6 }} content={<ChartTooltip title={tooltipTitle} rows={tooltipRows} />} />
-        <Bar dataKey={yKey} radius={[2, 2, 0, 0]} maxBarSize={48} isAnimationActive={false}>
+        <Bar dataKey={yKey} radius={[2, 2, 0, 0]} maxBarSize={48} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out">
           {data.map((_, i) => (
             <Cell
               key={i}
@@ -271,6 +287,7 @@ export function RankBars<T extends Record<string, any>>({
   integer?: boolean;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   const top = reference !== undefined ? 20 : 4;
   const height = Math.max(data.length * rowHeight + 36 + top, 120);
   return (
@@ -303,7 +320,7 @@ export function RankBars<T extends Record<string, any>>({
           />
         )}
         <Tooltip cursor={{ fill: c["--chart-grid"], opacity: 0.6 }} content={<ChartTooltip title={tooltipTitle} rows={tooltipRows} />} />
-        <Bar dataKey={valueKey} radius={[0, 2, 2, 0]} maxBarSize={22} isAnimationActive={false}>
+        <Bar dataKey={valueKey} radius={[0, 2, 2, 0]} maxBarSize={22} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out">
           {data.map((d, i) => (
             <Cell key={i} fill={muted?.(d) ? c["--neutral-bar"] : c["--chart-1"]} />
           ))}
@@ -362,6 +379,7 @@ export function StackedShareArea<T extends Record<string, any>>({
   height?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   return (
     <>
       <ResponsiveContainer width="100%" height={height}>
@@ -380,7 +398,7 @@ export function StackedShareArea<T extends Record<string, any>>({
               strokeWidth={1}
               fill={c[s.token]}
               fillOpacity={1}
-              isAnimationActive={false}
+              isAnimationActive={motion} animationDuration={700} animationEasing="ease-out"
             />
           ))}
         </AreaChart>
@@ -405,6 +423,7 @@ export function DonutChart({
   height?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <div className="donut">
@@ -422,7 +441,7 @@ export function DonutChart({
               strokeWidth={2}
               startAngle={90}
               endAngle={-270}
-              isAnimationActive={false}
+              isAnimationActive={motion} animationDuration={700} animationEasing="ease-out"
             >
               {data.map((d) => (
                 <Cell key={d.label} fill={c[d.token]} />
@@ -486,6 +505,7 @@ export function MultiBars<T extends Record<string, any>>({
   height?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   return (
     <>
       <ResponsiveContainer width="100%" height={height}>
@@ -507,7 +527,7 @@ export function MultiBars<T extends Record<string, any>>({
               strokeWidth={stacked ? 2 : 0}
               radius={stacked ? (i === series.length - 1 ? [2, 2, 0, 0] : 0) : [2, 2, 0, 0]}
               maxBarSize={stacked ? 40 : 22}
-              isAnimationActive={false}
+              isAnimationActive={motion} animationDuration={700} animationEasing="ease-out"
             />
           ))}
         </BarChart>
@@ -538,6 +558,7 @@ export function StackedBarsH<T extends Record<string, any>>({
   labelWidth?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   const height = Math.max(data.length * rowHeight + 36, 120);
   return (
     <>
@@ -556,7 +577,7 @@ export function StackedBarsH<T extends Record<string, any>>({
               stroke={c["--surface"]}
               strokeWidth={2}
               radius={i === series.length - 1 ? [0, 2, 2, 0] : 0}
-              isAnimationActive={false}
+              isAnimationActive={motion} animationDuration={700} animationEasing="ease-out"
             >
               {i === series.length - 1 && (
                 <LabelList dataKey="total" position="right" formatter={(v: number) => valueFormat(v)} style={{ fontSize: 12, fill: "var(--text-secondary)", fontWeight: 600 }} />
@@ -583,6 +604,7 @@ export function Histogram({
   height?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   const data = bins.map((b) => ({ ...b, label: `${b.from}` }));
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -603,7 +625,7 @@ export function Histogram({
             />
           }
         />
-        <Bar dataKey="count" radius={[2, 2, 0, 0]} isAnimationActive={false}>
+        <Bar dataKey="count" radius={[2, 2, 0, 0]} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out">
           {data.map((d) => (
             <Cell key={d.from} fill={d.from < threshold ? c["--neutral-bar"] : c["--series-1"]} />
           ))}
@@ -620,6 +642,7 @@ const shortSubject = (name: string) =>
 /** Subject profile on a 0-20 radar, with the pass mark drawn as a ring. */
 export function SubjectRadar({ data, height = 280 }: { data: { subject: string; average: number; belowTen: number }[]; height?: number }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   const withRef = data.map((d) => ({ ...d, pass: 10 }));
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -627,8 +650,8 @@ export function SubjectRadar({ data, height = 280 }: { data: { subject: string; 
         <PolarGrid stroke={c["--chart-grid"]} />
         <PolarAngleAxis dataKey="subject" tickFormatter={shortSubject} tick={{ fontSize: 11, fill: c["--chart-label"] }} />
         <PolarRadiusAxis domain={[0, 20]} tickCount={5} angle={72} tick={{ fontSize: 10, fill: c["--chart-label"] }} axisLine={false} />
-        <Radar dataKey="pass" stroke={c["--chart-reference"]} strokeDasharray="4 4" fill="none" isAnimationActive={false} />
-        <Radar dataKey="average" stroke={c["--series-1"]} strokeWidth={2} fill={c["--series-1"]} fillOpacity={0.18} dot={{ r: 3, fill: c["--series-1"] }} isAnimationActive={false} />
+        <Radar dataKey="pass" stroke={c["--chart-reference"]} strokeDasharray="4 4" fill="none" isAnimationActive={motion} animationDuration={700} animationEasing="ease-out" />
+        <Radar dataKey="average" stroke={c["--series-1"]} strokeWidth={2} fill={c["--series-1"]} fillOpacity={0.18} dot={{ r: 3, fill: c["--series-1"] }} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out" />
         <Tooltip
           content={
             <ChartTooltip
@@ -656,6 +679,7 @@ export function RiskScatter({
   height?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   const minX = Math.max(0, Math.floor(Math.min(...points.map((p) => p.attendance), thresholds.attendance) / 5) * 5 - 5);
   const atRisk = points.filter((p) => p.average < thresholds.average && p.attendance < thresholds.attendance);
   const others = points.filter((p) => !(p.average < thresholds.average && p.attendance < thresholds.attendance));
@@ -682,8 +706,8 @@ export function RiskScatter({
           <ReferenceLine x={thresholds.attendance} stroke={c["--chart-reference"]} strokeDasharray="4 4" />
           <ReferenceLine y={thresholds.average} stroke={c["--chart-reference"]} strokeDasharray="4 4" />
           <Tooltip cursor={{ strokeDasharray: "3 3", stroke: c["--chart-axis"] }} content={tooltip} />
-          <Scatter data={others} fill={c["--series-2"]} fillOpacity={0.45} stroke={c["--surface"]} strokeWidth={1} isAnimationActive={false} />
-          <Scatter data={atRisk} fill={c["--status-critical"]} stroke={c["--surface"]} strokeWidth={1.5} isAnimationActive={false} />
+          <Scatter data={others} fill={c["--series-2"]} fillOpacity={0.45} stroke={c["--surface"]} strokeWidth={1} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out" />
+          <Scatter data={atRisk} fill={c["--status-critical"]} stroke={c["--surface"]} strokeWidth={1.5} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out" />
         </ScatterChart>
       </ResponsiveContainer>
       <ChartLegend
@@ -717,6 +741,7 @@ export function AreaTrend<T extends Record<string, any>>({
   height?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
@@ -724,7 +749,7 @@ export function AreaTrend<T extends Record<string, any>>({
         <XAxis dataKey={xKey} tickFormatter={xFormat} tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={{ stroke: c["--chart-axis"] }} tickLine={false} />
         <YAxis tickFormatter={yFormat} tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={false} tickLine={false} width={52} />
         <Tooltip cursor={{ stroke: c["--chart-axis"] }} content={<ChartTooltip title={tooltipTitle} rows={tooltipRows} />} />
-        <Area type="monotone" dataKey={yKey} stroke={c["--series-2"]} strokeWidth={2} fill={c["--series-2"]} fillOpacity={0.12} isAnimationActive={false} dot={{ r: 3, fill: c["--series-2"], stroke: c["--surface"], strokeWidth: 2 }} />
+        <Area type="monotone" dataKey={yKey} stroke={c["--series-2"]} strokeWidth={2} fill={c["--series-2"]} fillOpacity={0.12} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out" dot={{ r: 3, fill: c["--series-2"], stroke: c["--surface"], strokeWidth: 2 }} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -750,6 +775,7 @@ export function DivergingBars<T extends Record<string, any>>({
   labelWidth?: number;
 }) {
   const c = useChartColors();
+  const motion = useMotionOK();
   const extent = Math.max(0.5, ...data.map((d) => Math.abs(Number(d[valueKey]) || 0)));
   const bound = Math.ceil(extent * 2) / 2;
   const height = Math.max(data.length * rowHeight + 36, 120);
@@ -762,7 +788,7 @@ export function DivergingBars<T extends Record<string, any>>({
           <YAxis type="category" dataKey={labelKey} width={labelWidth} tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={false} tickLine={false} />
           <ReferenceLine x={0} stroke={c["--chart-reference"]} />
           <Tooltip cursor={{ fill: c["--chart-grid"], opacity: 0.6 }} content={<ChartTooltip title={tooltipTitle} rows={tooltipRows} />} />
-          <Bar dataKey={valueKey} radius={2} maxBarSize={18} isAnimationActive={false}>
+          <Bar dataKey={valueKey} radius={2} maxBarSize={18} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out">
             {data.map((d, i) => {
               const v = Number(d[valueKey]) || 0;
               return <Cell key={i} fill={v > 0 ? c["--series-2"] : v < 0 ? c["--series-1"] : c["--neutral-bar"]} />;
