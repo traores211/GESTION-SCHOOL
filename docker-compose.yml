@@ -7,8 +7,8 @@ services:
       POSTGRES_USER: ${DB_USER:-schooladmin}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-SchoolAdmin123!}
       POSTGRES_DB: ${DB_NAME:-school_erp}
-    ports:
-      - "5432:5432"
+    # No host port: avoids clashes with other local Postgres instances.
+    # Access: docker compose exec postgres psql -U schooladmin school_erp
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,8 +23,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: school-redis
-    ports:
-      - "6379:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -44,9 +42,6 @@ services:
       LDAP_ORGANISATION: "School Network"
       LDAP_DOMAIN: school.local
       LDAP_ADMIN_PASSWORD: ${LDAP_PASSWORD:-LdapAdmin123!}
-    ports:
-      - "389:389"
-      - "636:636"
     volumes:
       - ldap_data:/var/lib/ldap
       - ldap_config:/etc/ldap/slapd.d
@@ -63,8 +58,7 @@ services:
     image: mailhog/mailhog:latest
     container_name: school-mailhog
     ports:
-      - "1025:1025"    # SMTP
-      - "8025:8025"    # Web UI
+      - "8025:8025"    # Web UI (SMTP 1025 reachable inside the Docker network only)
     networks:
       - school-network
 
@@ -89,26 +83,41 @@ services:
       MAIL_USER: ""
       MAIL_PASS: ""
       API_URL: http://localhost:4000
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:1300}
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "1000"
+      # `nest start --watch` uses the TypeScript watcher: file events do not cross Windows bind mounts
+      TSC_WATCHFILE: DynamicPriorityPolling
+      TSC_WATCHDIRECTORY: DynamicPriorityPolling
+      SEED_ON_EMPTY_DB: ${SEED_ON_EMPTY_DB:-true}
+      UPLOAD_DIR: /app/uploads
+      # Optional AI analysis of imported timetables (Claude). Empty = local extraction only.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TIMETABLE_AI_MODEL: ${TIMETABLE_AI_MODEL:-claude-opus-5}
+      # Assistant (Dify): chatbot and agent apps, cloud.dify.ai or self-hosted. Empty keys = assistant disabled.
+      DIFY_API_URL: ${DIFY_API_URL:-https://api.dify.ai/v1}
+      DIFY_CHATBOT_API_KEY: ${DIFY_CHATBOT_API_KEY:-}
+      DIFY_AGENT_API_KEY: ${DIFY_AGENT_API_KEY:-}
+      # Public URL of this API as seen by Dify, for the agent's tools (e.g. an https tunnel to port 4000)
+      ASSISTANT_TOOLS_PUBLIC_URL: ${ASSISTANT_TOOLS_PUBLIC_URL:-}
     ports:
       - "4000:4000"
     volumes:
       - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma   # schema + seed editable without rebuilding the image
       - backend_node_modules:/app/node_modules
+      - uploads_data:/app/uploads   # showcase images + OCR language cache
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      openldap:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 300s   # first boot: npm sync + db push + seed + compile
     networks:
       - school-network
 
@@ -121,11 +130,9 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
-      NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
       WATCHPACK_POLLING: "true"
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-1300}:3000"   # host port 1300 -> next dev listens on 3000 in the container
     volumes:
       - ./frontend/src:/app/src
       - frontend_node_modules:/app/node_modules
@@ -137,6 +144,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 120s
     networks:
       - school-network
 
@@ -163,6 +171,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
   ldap_data:
   ldap_config:
   backend_node_modules:

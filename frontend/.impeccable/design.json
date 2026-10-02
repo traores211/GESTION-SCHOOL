@@ -1,0 +1,732 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-01T22:10:01.440Z",
+  "title": "Design System: School ERP",
+  "extensions": {
+    "colorMeta": {
+      "clay": {
+        "role": "primary",
+        "displayName": "Orange tampon",
+        "canonical": "oklch(71.9% 0.179 54.4)",
+        "tonalRamp": [
+          "#190500",
+          "#3d1a00",
+          "#673100",
+          "#954a00",
+          "#c56400",
+          "#f88002",
+          "#feb788",
+          "#feeade"
+        ],
+        "cssVar": "--clay",
+        "dark": "#ff9a3c"
+      },
+      "clay-ink": {
+        "role": "primary",
+        "displayName": "Orange encre",
+        "canonical": "oklch(53.9% 0.135 54.2)",
+        "tonalRamp": [
+          "#190500",
+          "#3e1a00",
+          "#673100",
+          "#954a01",
+          "#bf6925",
+          "#e58c4c",
+          "#ffb787",
+          "#ffeadd"
+        ],
+        "cssVar": "--clay-ink",
+        "dark": "#ffab5e"
+      },
+      "clay-strong": {
+        "role": "primary",
+        "displayName": "Orange brûlé",
+        "canonical": "oklch(46.8% 0.116 55.1)",
+        "tonalRamp": [
+          "#190500",
+          "#3d1a00",
+          "#673200",
+          "#924c0d",
+          "#b76e37",
+          "#dd915b",
+          "#ffb786",
+          "#feeadd"
+        ],
+        "cssVar": "--clay-strong",
+        "dark": "#ffc18a"
+      },
+      "clay-wash": {
+        "role": "primary",
+        "displayName": "Lavis orange",
+        "canonical": "oklch(93.5% 0.041 73.2)",
+        "tonalRamp": [
+          "#150800",
+          "#31220c",
+          "#4f3f29",
+          "#705e47",
+          "#927f67",
+          "#b5a289",
+          "#dac6ac",
+          "#feebd4"
+        ],
+        "cssVar": "--clay-wash",
+        "dark": "#3a2612"
+      },
+      "clay-line": {
+        "role": "primary",
+        "displayName": "Filet orange",
+        "canonical": "oklch(84.6% 0.089 70.6)",
+        "tonalRamp": [
+          "#150800",
+          "#371f00",
+          "#5d3901",
+          "#815720",
+          "#a47943",
+          "#c99c66",
+          "#eec089",
+          "#ffebd4"
+        ],
+        "cssVar": "--clay-line",
+        "dark": "#6e4318"
+      },
+      "flag-green": {
+        "role": "secondary",
+        "displayName": "Vert drapeau",
+        "canonical": "oklch(61.5% 0.146 157.1)",
+        "tonalRamp": [
+          "#001005",
+          "#002e18",
+          "#00502e",
+          "#037446",
+          "#009b5e",
+          "#41c07f",
+          "#6be5a3",
+          "#c5ffda"
+        ],
+        "cssVar": "--flag-green",
+        "dark": "#009e60"
+      },
+      "olive": {
+        "role": "secondary",
+        "displayName": "Vert réglé",
+        "canonical": "oklch(49.6% 0.114 159.3)",
+        "tonalRamp": [
+          "#001006",
+          "#002e1a",
+          "#024f31",
+          "#04744a",
+          "#389769",
+          "#5ebb8b",
+          "#84e0af",
+          "#c3ffdd"
+        ],
+        "cssVar": "--olive",
+        "dark": "#4cc790"
+      },
+      "olive-wash": {
+        "role": "secondary",
+        "displayName": "Lavis vert",
+        "canonical": "oklch(92.9% 0.030 154.7)",
+        "tonalRamp": [
+          "#020f06",
+          "#19291f",
+          "#36473b",
+          "#54675a",
+          "#75887a",
+          "#97ab9d",
+          "#bbcfc1",
+          "#e0f5e6"
+        ],
+        "cssVar": "--olive-wash",
+        "dark": "#12291e"
+      },
+      "ochre": {
+        "role": "tertiary",
+        "displayName": "Ocre",
+        "canonical": "oklch(50.8% 0.108 73.3)",
+        "tonalRamp": [
+          "#140800",
+          "#362000",
+          "#5b3a01",
+          "#845602",
+          "#a9772e",
+          "#ce9a53",
+          "#f4be77",
+          "#ffebd3"
+        ],
+        "cssVar": "--ochre",
+        "dark": "#e2b55a"
+      },
+      "ochre-mark": {
+        "role": "tertiary",
+        "displayName": "Ocre de marque",
+        "canonical": "oklch(72.3% 0.137 79.2)",
+        "tonalRamp": [
+          "#130900",
+          "#332100",
+          "#583c00",
+          "#805903",
+          "#aa7803",
+          "#d29929",
+          "#f9be56",
+          "#feeccf"
+        ],
+        "cssVar": "--ochre-mark",
+        "dark": "#d9a441"
+      },
+      "ochre-wash": {
+        "role": "tertiary",
+        "displayName": "Lavis ocre",
+        "canonical": "oklch(93.1% 0.043 86.6)",
+        "tonalRamp": [
+          "#120a00",
+          "#2e2309",
+          "#4c4126",
+          "#6c6045",
+          "#8e8165",
+          "#b1a486",
+          "#d6c8aa",
+          "#fbedce"
+        ],
+        "cssVar": "--ochre-wash",
+        "dark": "#332816"
+      },
+      "crimson": {
+        "role": "tertiary",
+        "displayName": "Rouge registre",
+        "canonical": "oklch(48.1% 0.151 27.4)",
+        "tonalRamp": [
+          "#200000",
+          "#4d0002",
+          "#7f050a",
+          "#a6342d",
+          "#cd584e",
+          "#f57c6f",
+          "#feb3aa",
+          "#ffe9e5"
+        ],
+        "cssVar": "--crimson",
+        "dark": "#ee8a7d"
+      },
+      "crimson-strong": {
+        "role": "tertiary",
+        "displayName": "Rouge appuyé",
+        "canonical": "oklch(41.2% 0.133 27.6)",
+        "tonalRamp": [
+          "#200000",
+          "#4d0002",
+          "#791815",
+          "#9f3c34",
+          "#c55f55",
+          "#ed8276",
+          "#ffb3a9",
+          "#ffe9e5"
+        ],
+        "cssVar": "--crimson-strong",
+        "dark": "#f3a398"
+      },
+      "crimson-wash": {
+        "role": "tertiary",
+        "displayName": "Lavis rouge",
+        "canonical": "oklch(92.1% 0.026 32.2)",
+        "tonalRamp": [
+          "#150705",
+          "#31201d",
+          "#4f3d39",
+          "#6f5c58",
+          "#917d78",
+          "#b59f9b",
+          "#dac3be",
+          "#fee9e4"
+        ],
+        "cssVar": "--crimson-wash",
+        "dark": "#3a1f1c"
+      },
+      "slate": {
+        "role": "tertiary",
+        "displayName": "Ardoise",
+        "canonical": "oklch(46.2% 0.071 -104.5)",
+        "tonalRamp": [
+          "#000a24",
+          "#092547",
+          "#274367",
+          "#456389",
+          "#6684ad",
+          "#87a7d2",
+          "#abccf8",
+          "#e4f0fe"
+        ],
+        "cssVar": "--slate",
+        "dark": "#9fb8d9"
+      },
+      "slate-wash": {
+        "role": "tertiary",
+        "displayName": "Lavis ardoise",
+        "canonical": "oklch(92.2% 0.014 -105.4)",
+        "tonalRamp": [
+          "#070b11",
+          "#20262c",
+          "#3d434a",
+          "#5c6269",
+          "#7d838b",
+          "#9fa6ae",
+          "#c3cad3",
+          "#e8eff8"
+        ],
+        "cssVar": "--slate-wash",
+        "dark": "#1f2733"
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Papier",
+        "canonical": "oklch(95.4% 0.013 82.4)",
+        "tonalRamp": [
+          "#0e0b06",
+          "#28251e",
+          "#45413a",
+          "#656159",
+          "#86827a",
+          "#a9a49c",
+          "#cdc8c0",
+          "#f3eee5"
+        ],
+        "cssVar": "--paper",
+        "dark": "#1b1916"
+      },
+      "paper-raised": {
+        "role": "neutral",
+        "displayName": "Papier relevé",
+        "canonical": "oklch(98.0% 0.009 84.6)",
+        "tonalRamp": [
+          "#0d0b07",
+          "#272520",
+          "#44423d",
+          "#63615c",
+          "#85827d",
+          "#a7a59f",
+          "#ccc9c3",
+          "#f1eee8"
+        ],
+        "cssVar": "--paper-raised",
+        "dark": "#23201c"
+      },
+      "paper-sunken": {
+        "role": "neutral",
+        "displayName": "Papier creusé",
+        "canonical": "oklch(92.4% 0.019 83.1)",
+        "tonalRamp": [
+          "#0f0a03",
+          "#2a241b",
+          "#474137",
+          "#666055",
+          "#888276",
+          "#aba498",
+          "#cfc8bc",
+          "#f5eee1"
+        ],
+        "cssVar": "--paper-sunken",
+        "dark": "#161411"
+      },
+      "paper-deep": {
+        "role": "neutral",
+        "displayName": "Papier profond",
+        "canonical": "oklch(89.7% 0.022 83.3)",
+        "tonalRamp": [
+          "#100a02",
+          "#2a2419",
+          "#484135",
+          "#676053",
+          "#898174",
+          "#aca496",
+          "#d0c8b9",
+          "#f6eede"
+        ],
+        "cssVar": "--paper-deep",
+        "dark": "#2c2823"
+      },
+      "surface-muted": {
+        "role": "neutral",
+        "displayName": "Papier voilé",
+        "canonical": "oklch(96.5% 0.010 81.8)",
+        "tonalRamp": [
+          "#0d0b07",
+          "#282520",
+          "#45423c",
+          "#64615b",
+          "#85827c",
+          "#a8a49e",
+          "#ccc9c2",
+          "#f2eee7"
+        ],
+        "cssVar": "--surface-muted",
+        "dark": "#201d19"
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Filet",
+        "canonical": "oklch(87.1% 0.024 79.7)",
+        "tonalRamp": [
+          "#110a02",
+          "#2b2417",
+          "#494134",
+          "#696052",
+          "#8a8172",
+          "#ada494",
+          "#d2c8b8",
+          "#f7eddd"
+        ],
+        "cssVar": "--rule",
+        "dark": "#36312a"
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Filet appuyé",
+        "canonical": "oklch(79.1% 0.032 79.9)",
+        "tonalRamp": [
+          "#120900",
+          "#2d2312",
+          "#4b402e",
+          "#6b5f4d",
+          "#8d816d",
+          "#b0a38f",
+          "#d4c7b2",
+          "#faedd7"
+        ],
+        "cssVar": "--rule-strong",
+        "dark": "#4d463c"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Encre",
+        "canonical": "oklch(23.2% 0.006 78.2)",
+        "tonalRamp": [
+          "#0d0b08",
+          "#272522",
+          "#44423e",
+          "#63615d",
+          "#84827e",
+          "#a7a5a1",
+          "#cbc9c5",
+          "#f1eeea"
+        ],
+        "cssVar": "--ink",
+        "dark": "#ede6da"
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Encre seconde",
+        "canonical": "oklch(38.6% 0.013 76.4)",
+        "tonalRamp": [
+          "#0e0a06",
+          "#29241e",
+          "#46413a",
+          "#666059",
+          "#87817a",
+          "#aaa49c",
+          "#cec8c0",
+          "#f4ede5"
+        ],
+        "cssVar": "--ink-2",
+        "dark": "#cdc4b5"
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Encre pâle",
+        "canonical": "oklch(50.7% 0.018 76.9)",
+        "tonalRamp": [
+          "#0f0a04",
+          "#2a241b",
+          "#474138",
+          "#676056",
+          "#888177",
+          "#aba499",
+          "#d0c8bd",
+          "#f5ede2"
+        ],
+        "cssVar": "--ink-3",
+        "dark": "#a59b8c"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Salutation du tableau de bord (28px sur téléphone)."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "H1 serif de chaque page (26px sur téléphone)."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Titres de section, de fenêtre, de fiche et d'état vide, en serif."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Titres de panneau et de graphique, en sans."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texte de travail et cellules de tableau."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Libellés de champ, boutons compacts, numéros de souche."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Métadonnées, sous-titres de cellule, légendes de période."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Chiffres clés tabulaires de la bande de chiffres."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "Texte des tampons, en capitales ; les badges en reprennent la taille à 600 / 0.06em."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-md",
+        "value": "0 8px 24px -10px rgba(48, 36, 20, 0.22), 0 2px 6px -2px rgba(48, 36, 20, 0.08)",
+        "dark": "0 8px 24px -10px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.4)",
+        "purpose": "Feuille soulevée : menus, info-bulles de graphique, navigation mobile de la vitrine."
+      },
+      {
+        "name": "shadow-lg",
+        "value": "0 24px 56px -16px rgba(48, 36, 20, 0.32)",
+        "dark": "0 24px 56px -16px rgba(0, 0, 0, 0.7)",
+        "purpose": "Feuille détachée : fenêtres, notifications, barre d'enregistrement, tiroir mobile."
+      },
+      {
+        "name": "focus-ring",
+        "value": "0 0 0 2px var(--paper-raised), 0 0 0 4px var(--clay)",
+        "purpose": "Focus clavier de tout élément."
+      },
+      {
+        "name": "focus-ring-danger",
+        "value": "0 0 0 2px var(--paper-raised), 0 0 0 4px var(--crimson)",
+        "purpose": "Focus clavier des actions destructives."
+      },
+      {
+        "name": "input-focus",
+        "value": "0 0 0 3px color-mix(in srgb, var(--clay) 28%, transparent)",
+        "purpose": "Halo d'un champ focalisé (contour à l'encre)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Courbe par défaut des entrées et des changements d'état."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+        "purpose": "Progression indéterminée."
+      },
+      {
+        "name": "dur-fast",
+        "value": "120ms",
+        "purpose": "Survols, couleurs, appui de bouton."
+      },
+      {
+        "name": "dur",
+        "value": "180ms",
+        "purpose": "Focus, fenêtres, alertes."
+      },
+      {
+        "name": "dur-slow",
+        "value": "280ms",
+        "purpose": "Entrée de page, révélation échelonnée (35ms par élément), tiroir mobile, notifications."
+      },
+      {
+        "name": "stamp-in",
+        "value": "420ms ease-out; scale 1.35 → 0.96 → 1 à rotation constante",
+        "purpose": "Le tampon se pose une fois ; fondu seul en mouvement réduit."
+      },
+      {
+        "name": "meter-grow",
+        "value": "700ms ease-out; scaleX 0 → 1",
+        "purpose": "Remplissage des jauges ; supprimé en mouvement réduit."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "xs",
+        "value": "480px",
+        "purpose": "Bande de chiffres compacte, contrôles segmentés pleine largeur."
+      },
+      {
+        "name": "sm",
+        "value": "640px",
+        "purpose": "Fenêtres en feuilles du bas, appel en cartes, bande de 2 chiffres."
+      },
+      {
+        "name": "md",
+        "value": "860px",
+        "purpose": "Barre latérale en tiroir, grilles empilées."
+      },
+      {
+        "name": "md-login",
+        "value": "900px",
+        "purpose": "La connexion masque la colonne des souches."
+      },
+      {
+        "name": "lg",
+        "value": "1100px",
+        "purpose": "Colonnes du tableau de bord à la moitié, marges de 24px."
+      },
+      {
+        "name": "xl",
+        "value": "1440px",
+        "purpose": "Bande de 6 chiffres sur une ligne."
+      },
+      {
+        "name": "coarse-pointer",
+        "value": "(pointer: coarse)",
+        "purpose": "Contrôles portés à 44px."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bouton primaire",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Encre pleine ; une seule par écran, pour la tâche la plus fréquente.",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"8\" y=\"2\" width=\"8\" height=\"4\" rx=\"1\"/><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"/><path d=\"m9 14 2 2 4-4\"/></svg>Faire l'appel</button>",
+      "css": ":host, .ds-root { --paper: #ffffff; --paper-raised: #ffffff; --paper-sunken: #f6f5f2; --rule: #e5e3dd; --rule-strong: #cdcac2; --ink: #1f1d1a; --ink-2: #48433c; --ink-3: #6b645a; --ink-inverse: #ffffff; --clay: #f77f00; --clay-ink: #a85400; --clay-strong: #8a4500; --olive: #00754a; --crimson: #a2302a; --crimson-strong: #84231e; --surface-muted: #fafaf8; --font-sans: Inter, \"Segoe UI\", system-ui, sans-serif; --font-serif: \"Source Serif 4\", Georgia, serif; font-family: var(--font-sans); color: var(--ink); } .ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 15px; min-height: 40px; border: 1px solid transparent; border-radius: 4px; font: 600 14px/1.2 var(--font-sans); cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease, transform 120ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 4px var(--clay); } .ds-btn-primary { background: var(--ink); color: var(--ink-inverse); } .ds-btn-primary:hover { background: var(--ink-2); }"
+    },
+    {
+      "name": "Bouton secondaire",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Orange encre sous texte blanc, pour l'argent et la validation.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\">Encaisser</button>",
+      "css": ":host, .ds-root { --paper: #ffffff; --paper-raised: #ffffff; --paper-sunken: #f6f5f2; --rule: #e5e3dd; --rule-strong: #cdcac2; --ink: #1f1d1a; --ink-2: #48433c; --ink-3: #6b645a; --ink-inverse: #ffffff; --clay: #f77f00; --clay-ink: #a85400; --clay-strong: #8a4500; --olive: #00754a; --crimson: #a2302a; --crimson-strong: #84231e; --surface-muted: #fafaf8; --font-sans: Inter, \"Segoe UI\", system-ui, sans-serif; --font-serif: \"Source Serif 4\", Georgia, serif; font-family: var(--font-sans); color: var(--ink); } .ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 15px; min-height: 40px; border: 1px solid transparent; border-radius: 4px; font: 600 14px/1.2 var(--font-sans); cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease, transform 120ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 4px var(--clay); } .ds-btn-secondary { background: var(--clay-ink); color: #fff; } .ds-btn-secondary:hover { background: var(--clay-strong); }"
+    },
+    {
+      "name": "Bouton contour",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Action de second rang sur papier relevé.",
+      "html": "<button class=\"ds-btn ds-btn-outline\">Réinitialiser</button>",
+      "css": ":host, .ds-root { --paper: #ffffff; --paper-raised: #ffffff; --paper-sunken: #f6f5f2; --rule: #e5e3dd; --rule-strong: #cdcac2; --ink: #1f1d1a; --ink-2: #48433c; --ink-3: #6b645a; --ink-inverse: #ffffff; --clay: #f77f00; --clay-ink: #a85400; --clay-strong: #8a4500; --olive: #00754a; --crimson: #a2302a; --crimson-strong: #84231e; --surface-muted: #fafaf8; --font-sans: Inter, \"Segoe UI\", system-ui, sans-serif; --font-serif: \"Source Serif 4\", Georgia, serif; font-family: var(--font-sans); color: var(--ink); } .ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 15px; min-height: 40px; border: 1px solid transparent; border-radius: 4px; font: 600 14px/1.2 var(--font-sans); cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease, transform 120ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 4px var(--clay); } .ds-btn-outline { background: var(--paper-raised); color: var(--ink); border-color: var(--rule-strong); } .ds-btn-outline:hover { background: var(--paper-sunken); border-color: var(--ink-3); }"
+    },
+    {
+      "name": "Champ",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Papier relevé, filet appuyé ; au focus, contour à l'encre et halo orange.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-label\">Matricule</span><input class=\"ds-input\" placeholder=\"CI-2026-0142\"></label>",
+      "css": ":host, .ds-root { --paper: #ffffff; --paper-raised: #ffffff; --paper-sunken: #f6f5f2; --rule: #e5e3dd; --rule-strong: #cdcac2; --ink: #1f1d1a; --ink-2: #48433c; --ink-3: #6b645a; --ink-inverse: #ffffff; --clay: #f77f00; --clay-ink: #a85400; --clay-strong: #8a4500; --olive: #00754a; --crimson: #a2302a; --crimson-strong: #84231e; --surface-muted: #fafaf8; --font-sans: Inter, \"Segoe UI\", system-ui, sans-serif; --font-serif: \"Source Serif 4\", Georgia, serif; font-family: var(--font-sans); color: var(--ink); } .ds-field { display: flex; flex-direction: column; gap: 6px; max-width: 280px; } .ds-label { font: 600 13px/1.4 var(--font-sans); color: var(--ink-2); } .ds-input { padding: 8px 12px; min-height: 40px; border: 1px solid var(--rule-strong); border-radius: 4px; background: var(--paper-raised); color: var(--ink); font: 14px var(--font-sans); transition: border-color 120ms ease, box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-input::placeholder { color: var(--ink-3); } .ds-input:hover:not(:focus) { border-color: var(--ink-3); } .ds-input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--clay) 28%, transparent); }"
+    },
+    {
+      "name": "Lien de navigation",
+      "kind": "nav",
+      "refersTo": "sidebar-link-active",
+      "description": "Barre latérale sur papier creusé ; le lien actif se pose sur papier relevé, icône orange.",
+      "html": "<nav class=\"ds-side\"><a class=\"ds-link is-active\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1\"/></svg>Tableau de bord</a><a class=\"ds-link\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1\"/><path d=\"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4\"/></svg>Facturation</a></nav>",
+      "css": ":host, .ds-root { --paper: #ffffff; --paper-raised: #ffffff; --paper-sunken: #f6f5f2; --rule: #e5e3dd; --rule-strong: #cdcac2; --ink: #1f1d1a; --ink-2: #48433c; --ink-3: #6b645a; --ink-inverse: #ffffff; --clay: #f77f00; --clay-ink: #a85400; --clay-strong: #8a4500; --olive: #00754a; --crimson: #a2302a; --crimson-strong: #84231e; --surface-muted: #fafaf8; --font-sans: Inter, \"Segoe UI\", system-ui, sans-serif; --font-serif: \"Source Serif 4\", Georgia, serif; font-family: var(--font-sans); color: var(--ink); } .ds-side { width: 248px; padding: 10px; background: var(--paper-sunken); border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 1px; } .ds-link { display: flex; align-items: center; gap: 10px; padding: 7px 10px; min-height: 36px; border: 1px solid transparent; border-radius: 4px; color: var(--ink-2); font: 500 14px var(--font-sans); text-decoration: none; transition: background-color 120ms ease, color 120ms ease; } .ds-link svg { color: var(--ink-3); } .ds-link:hover { background: #ecebe6; color: var(--ink); } .ds-link.is-active { background: var(--paper-raised); border-color: var(--rule); color: var(--ink); font-weight: 600; } .ds-link.is-active svg { color: var(--clay); } .ds-link:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 4px var(--clay); }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Cartouche droit en capitales pour les états intermédiaires.",
+      "html": "<span class=\"ds-badge ds-orange\">À venir</span> <span class=\"ds-badge ds-danger\">12 j</span> <span class=\"ds-badge ds-neutral\">Terminé</span>",
+      "css": ":host, .ds-root { --paper: #ffffff; --paper-raised: #ffffff; --paper-sunken: #f6f5f2; --rule: #e5e3dd; --rule-strong: #cdcac2; --ink: #1f1d1a; --ink-2: #48433c; --ink-3: #6b645a; --ink-inverse: #ffffff; --clay: #f77f00; --clay-ink: #a85400; --clay-strong: #8a4500; --olive: #00754a; --crimson: #a2302a; --crimson-strong: #84231e; --surface-muted: #fafaf8; --font-sans: Inter, \"Segoe UI\", system-ui, sans-serif; --font-serif: \"Source Serif 4\", Georgia, serif; font-family: var(--font-sans); color: var(--ink); } .ds-badge { display: inline-flex; align-items: center; padding: 1px 7px; border: 1px solid color-mix(in srgb, currentColor 45%, transparent); border-radius: 3px; background: color-mix(in srgb, currentColor 7%, transparent); font: 600 11px/1.5 var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; font-variant-numeric: tabular-nums; } .ds-orange { color: var(--clay-ink); } .ds-danger { color: var(--crimson); } .ds-neutral { color: var(--ink-3); }"
+    },
+    {
+      "name": "Tampon",
+      "kind": "chip",
+      "refersTo": "stamp",
+      "description": "État final : double filet, capitales, −2°, se pose une fois.",
+      "html": "<span class=\"ds-stamp ds-stamp-olive\">Payé</span> <span class=\"ds-stamp\">Validé</span>",
+      "css": ":host, .ds-root { --paper: #ffffff; --paper-raised: #ffffff; --paper-sunken: #f6f5f2; --rule: #e5e3dd; --rule-strong: #cdcac2; --ink: #1f1d1a; --ink-2: #48433c; --ink-3: #6b645a; --ink-inverse: #ffffff; --clay: #f77f00; --clay-ink: #a85400; --clay-strong: #8a4500; --olive: #00754a; --crimson: #a2302a; --crimson-strong: #84231e; --surface-muted: #fafaf8; --font-sans: Inter, \"Segoe UI\", system-ui, sans-serif; --font-serif: \"Source Serif 4\", Georgia, serif; font-family: var(--font-sans); color: var(--ink); } @keyframes ds-stamp-in { 0% { opacity: 0; transform: rotate(-2deg) scale(1.35); } 60% { opacity: 1; transform: rotate(-2deg) scale(0.96); } 100% { opacity: 1; transform: rotate(-2deg) scale(1); } } .ds-stamp { display: inline-flex; align-items: center; padding: 2px 8px; border: 1.5px solid currentColor; outline: 1px solid color-mix(in srgb, currentColor 40%, transparent); outline-offset: 1.5px; border-radius: 3px; color: var(--clay-ink); font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.1em; text-transform: uppercase; transform: rotate(-2deg); animation: ds-stamp-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both; } .ds-stamp-olive { color: var(--olive); } @media (prefers-reduced-motion: reduce) { .ds-stamp { animation: none; } }"
+    },
+    {
+      "name": "Souche",
+      "kind": "custom",
+      "refersTo": "stub-margin",
+      "description": "Ligne d'enregistrement signature : marge numérotée, perforation, contenu, état.",
+      "html": "<ol class=\"ds-stubs\"><li class=\"ds-stub\"><span class=\"ds-stub-no\">ADM-0381</span><span class=\"ds-stub-body\"><span class=\"ds-stub-title\">Inscription · Koné Ibrahim</span><span class=\"ds-stub-meta\">6e A · dossier complet</span></span><span class=\"ds-stub-end\"><span class=\"ds-stamp\">Validé</span></span></li><li class=\"ds-stub\"><span class=\"ds-stub-no\">FAC-0142</span><span class=\"ds-stub-body\"><span class=\"ds-stub-title\">Scolarité T1 · Yao Aya</span><span class=\"ds-stub-meta\">75 000 FCFA · Orange Money</span></span><span class=\"ds-stub-end\"><span class=\"ds-stamp ds-stamp-olive\">Payé</span></span></li></ol>",
+      "css": ":host, .ds-root { --paper: #ffffff; --paper-raised: #ffffff; --paper-sunken: #f6f5f2; --rule: #e5e3dd; --rule-strong: #cdcac2; --ink: #1f1d1a; --ink-2: #48433c; --ink-3: #6b645a; --ink-inverse: #ffffff; --clay: #f77f00; --clay-ink: #a85400; --clay-strong: #8a4500; --olive: #00754a; --crimson: #a2302a; --crimson-strong: #84231e; --surface-muted: #fafaf8; --font-sans: Inter, \"Segoe UI\", system-ui, sans-serif; --font-serif: \"Source Serif 4\", Georgia, serif; font-family: var(--font-sans); color: var(--ink); } .ds-stubs { list-style: none; margin: 0; padding: 0; max-width: 520px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper-raised); overflow: hidden; } .ds-stub { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; min-height: 52px; border-bottom: 1px solid var(--rule); transition: background-color 120ms ease; } .ds-stub:last-child { border-bottom: none; } .ds-stub:hover { background: var(--surface-muted); } .ds-stub-no { align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 8px 12px; background: var(--paper-sunken); border-right: 1px dashed var(--rule-strong); font: 600 13px/1.25 var(--font-sans); font-variant-numeric: tabular-nums; color: var(--ink-2); } .ds-stub-no small { font-weight: 500; font-size: 12px; color: var(--ink-3); } .ds-stub-body { padding: 9px 14px; min-width: 0; } .ds-stub-title, .ds-stub-meta { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-stub-title { font: 600 14px var(--font-sans); } .ds-stub-meta { font-size: 12px; color: var(--ink-3); } .ds-stub-end { padding: 0 14px; } .ds-stamp { display: inline-flex; padding: 2px 8px; border: 1.5px solid currentColor; outline: 1px solid color-mix(in srgb, currentColor 40%, transparent); outline-offset: 1.5px; border-radius: 3px; color: var(--clay-ink); font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.1em; text-transform: uppercase; transform: rotate(-2deg); } .ds-stamp-olive { color: var(--olive); }"
+    },
+    {
+      "name": "Bande de chiffres",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Chiffres clés dans une bande réglée, cellules séparées par des filets, sans cartes.",
+      "html": "<div class=\"ds-band\"><div class=\"ds-kpi\"><span class=\"ds-kpi-label\">Élèves inscrits</span><span class=\"ds-kpi-value\">1 248</span><span class=\"ds-kpi-sub\">32 classes</span></div><div class=\"ds-kpi\"><span class=\"ds-kpi-label\">Encaissé sur la période</span><span class=\"ds-kpi-value\">18,4 M<small>FCFA</small></span><span class=\"ds-kpi-sub\"><b class=\"ds-up\">▲ 6 %</b> vs période préc.</span></div></div>",
+      "css": ":host, .ds-root { --paper: #ffffff; --paper-raised: #ffffff; --paper-sunken: #f6f5f2; --rule: #e5e3dd; --rule-strong: #cdcac2; --ink: #1f1d1a; --ink-2: #48433c; --ink-3: #6b645a; --ink-inverse: #ffffff; --clay: #f77f00; --clay-ink: #a85400; --clay-strong: #8a4500; --olive: #00754a; --crimson: #a2302a; --crimson-strong: #84231e; --surface-muted: #fafaf8; --font-sans: Inter, \"Segoe UI\", system-ui, sans-serif; --font-serif: \"Source Serif 4\", Georgia, serif; font-family: var(--font-sans); color: var(--ink); } .ds-band { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; max-width: 520px; } .ds-kpi { display: flex; flex-direction: column; gap: 6px; background: var(--paper-raised); padding: 16px 18px 18px; } .ds-kpi-label { font: 500 13px var(--font-sans); color: var(--ink-2); } .ds-kpi-value { font: 600 28px/1.1 var(--font-sans); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; } .ds-kpi-value small { font-size: 13px; font-weight: 500; color: var(--ink-3); margin-left: 5px; letter-spacing: 0.02em; } .ds-kpi-sub { font-size: 12px; color: var(--ink-3); } .ds-up { color: var(--olive); font-weight: 600; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le carnet à souches",
+    "overview": "Chaque enregistrement de l'école se lit comme la souche d'un carnet de reçus. Son numéro (matricule, référence de facture, heure de cours) tient dans une marge en chiffres tabulaires ; une perforation en pointillés le sépare du contenu ; l'état final se pose comme un coup de tampon. Le papier est blanc, l'encre presque noire, et les seules couleurs fortes sont les encres du drapeau ivoirien : l'orange pour les tampons et les marques, le vert pour ce qui est réglé.\n\nLe système sert d'abord le personnel qui traite des dizaines d'opérations par jour. La densité est lisible plutôt que décorative : des registres réglés de filets d'un pixel, des chiffres alignés, une seule action en encre pleine par écran. Le calme vient de la retenue (un seul accent, aucune ombre sur les panneaux, aucun dégradé) et des titres en serif qui donnent à chaque page l'allure d'un document tenu avec soin.\n\nLe mode sombre n'est pas une inversion : c'est un papier carbone, brun-noir chaud, encre crème, avec des encres éclaircies pour garder le contraste. La grille SaaS de cartes blanches ombrées et de badges pastel est explicitement refusée, comme les dégradés de l'ancienne interface. Seule trace directe du drapeau : une bande tricolore de 4px en haut de chaque page.",
+    "keyCharacteristics": [
+      "Papier blanc et encre presque noire ; orange et vert du drapeau comme seules encres de couleur.",
+      "Panneaux séparés par des filets d'un pixel, jamais par des ombres.",
+      "Numéros en marge, en chiffres tabulaires, derrière une perforation en pointillés.",
+      "États finaux tamponnés : cartouche en capitales, double filet, inclinaison de −2°.",
+      "Serif pour les titres, sans de travail pour l'interface.",
+      "Grille de 4 px, rayons de 3 à 8 px."
+    ],
+    "rules": [
+      {
+        "name": "The Flag Ink Rule",
+        "body": "L'orange #F77F00 et le vert #009E60 sont des encres de marque : ils dessinent, ils ne portent pas de texte. Tout texte orange passe par clay-ink, tout texte vert par olive.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Accent Rule",
+        "body": "Une seule couleur d'accent par écran fait autorité : l'orange marque, le vert ne dit que « réglé ». Aucun autre aplat de couleur ne décore.",
+        "section": "colors"
+      },
+      {
+        "name": "The Never Color Alone Rule",
+        "body": "Une couleur sémantique est toujours doublée d'une icône, d'une flèche ou d'un libellé (variation, alerte, statut).",
+        "section": "colors"
+      },
+      {
+        "name": "The Serif Names, Sans Works Rule",
+        "body": "Le serif nomme (titres de page, de section, de fenêtre, de fiche) ; tout ce qui se lit en travaillant est en Inter. Un bouton, un champ ou une cellule n'est jamais en serif.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Montants FCFA, matricules, références, heures et pourcentages sont en chiffres tabulaires, alignés à droite dans les tableaux.",
+        "section": "typography"
+      },
+      {
+        "name": "The 4px Grid Rule",
+        "body": "Tout espacement est un multiple de 4 px, pris dans l'échelle de tokens.",
+        "section": "layout"
+      },
+      {
+        "name": "The Rules Not Shadows Rule",
+        "body": "Un panneau posé sur la page se sépare par un filet d'un pixel ou un changement de ton du papier, jamais par une ombre. L'ombre est réservée aux couches flottantes.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** séparer les panneaux par des filets d'un pixel (rule) et par le ton du papier.",
+      "**Do** mettre le numéro de chaque enregistrement (matricule, référence, heure) en marge, en chiffres tabulaires, derrière une perforation en pointillés.",
+      "**Do** réserver le tampon incliné aux états finaux (payé, validé, confirmé) et le badge droit aux états intermédiaires ou en cours.",
+      "**Do** utiliser clay-ink (#a85400) pour tout texte orange et olive (#00754a) pour tout texte vert.",
+      "**Do** garder une seule action en encre pleine par écran, en haut à droite de l'en-tête.",
+      "**Do** doubler toute couleur sémantique d'une icône, d'une flèche ou d'un libellé.",
+      "**Do** porter chaque contrôle à 44px au toucher et respecter prefers-reduced-motion (fondus seulement)."
+    ],
+    "donts": [
+      "**Don't** poser du texte blanc sur l'orange #F77F00, ni écrire en orange ou en vert du drapeau purs.",
+      "**Don't** ombrer un panneau posé sur la page ; l'ombre est réservée aux menus, fenêtres et notifications.",
+      "**Don't** composer des grilles de cartes blanches ombrées avec des badges pastel.",
+      "**Don't** revenir aux dégradés de l'ancienne interface, ni multiplier la bande tricolore : une seule par page, tout en haut, aux couleurs exactes du drapeau.",
+      "**Don't** utiliser le serif pour un bouton, un champ, une cellule ou un chiffre clé.",
+      "**Don't** introduire une seconde couleur d'accent décorative."
+    ]
+  }
+}

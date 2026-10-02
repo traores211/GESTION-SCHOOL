@@ -1,11 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateStaffDto } from './dto/create-staff.dto';
 
 function randomPassword() {
-  return Math.random().toString(36).slice(-10);
+  return randomBytes(9).toString('base64url');
 }
 
 @Injectable()

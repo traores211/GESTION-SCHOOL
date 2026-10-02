@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateSubjectDto } from './dto/create-subject.dto';
@@ -22,6 +22,12 @@ export class SubjectsService {
     });
   }
 
+  async update(user: AuthUser, id: string, dto: Partial<CreateSubjectDto>) {
+    const subject = await this.prisma.subject.findUnique({ where: { id } });
+    if (!subject || subject.schoolId !== user.schoolId) throw new NotFoundException('Matière introuvable');
+    return this.prisma.subject.update({ where: { id }, data: dto });
+  }
+
   async assignToClass(user: AuthUser, subjectId: string, classId: string, teacherId?: string, coefficient?: number) {
     const subject = await this.prisma.subject.findUnique({ where: { id: subjectId } });
     if (!subject || subject.schoolId !== user.schoolId) throw new NotFoundException('Matière introuvable');
@@ -38,7 +44,7 @@ export class SubjectsService {
 
   async remove(user: AuthUser, id: string) {
     const subject = await this.prisma.subject.findUnique({ where: { id } });
-    if (!subject || subject.schoolId !== user.schoolId) throw new ForbiddenException();
+    if (!subject || subject.schoolId !== user.schoolId) throw new NotFoundException('Matière introuvable');
     await this.prisma.subject.delete({ where: { id } });
     return { success: true };
   }

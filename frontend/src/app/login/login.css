@@ -1,0 +1,85 @@
+.login {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  background: var(--paper);
+}
+
+/* The flag band runs across both halves of the page. */
+.login > .flag-band { position: absolute; top: 0; left: 0; right: 0; z-index: 2; }
+
+/* Left: the carnet. A serif statement over three example stubs, one of which gets stamped. */
+.login-aside {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-10);
+  padding: 40px 56px 48px;
+  background: var(--paper);
+  border-right: 1px solid var(--rule);
+}
+.login-brand { display: flex; align-items: center; gap: 10px; color: var(--ink); }
+.login-brand strong { font-family: var(--font-serif); font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+
+.login-aside-inner { max-width: 520px; }
+.login-aside h2 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(32px, 3.4vw, 44px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-8);
+}
+.login-aside h2 em { font-style: italic; color: var(--clay-ink); }
+
+.login-stubs { list-style: none; display: grid; gap: 10px; max-width: 460px; }
+.login-stubs .stub { grid-template-columns: 88px minmax(0, 1fr) auto; border: 1px solid var(--rule); border-radius: var(--radius-lg); background: var(--paper-raised); overflow: hidden; animation: fade-in-up 500ms var(--ease-out) both; }
+.login-stubs .stub:nth-child(2) { animation-delay: 80ms; margin-left: 18px; }
+.login-stubs .stub:nth-child(3) { animation-delay: 160ms; margin-left: 36px; }
+.login-stubs .stamp { animation-delay: 700ms; }
+.login-caption { margin-top: 12px; font-size: var(--fs-xs); color: var(--ink-3); }
+
+.login-foot { font-size: var(--fs-xs); color: var(--ink-3); }
+
+/* Right: the form, on raised paper. */
+.login-panel { position: relative; display: flex; align-items: center; justify-content: center; padding: 56px 24px 40px; }
+.login-panel-tools { position: absolute; top: 16px; right: 16px; }
+.login-card { width: 100%; max-width: 380px; animation: fade-in-up 450ms var(--ease-out) 60ms both; }
+.login-head { margin-bottom: var(--space-8); }
+.login-head .login-brand { display: none; margin-bottom: var(--space-6); }
+.login-head h1 { font-size: 34px; }
+.login-head p { margin-top: 6px; color: var(--ink-3); }
+.login-form .btn-lg { margin-top: 6px; }
+.login-form .alert { margin-bottom: 16px; }
+
+.login-demo { margin-top: 32px; padding-top: 18px; border-top: 1px dashed var(--rule-strong); }
+.login-demo > p { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink-2); margin-bottom: 10px; }
+.login-demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.login-demo-btn {
+  text-align: left;
+  padding: 8px 11px;
+  min-height: 48px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+  display: grid;
+  gap: 1px;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+.login-demo-btn:hover { border-color: var(--rule-strong); background: var(--paper-sunken); }
+.login-demo-btn.is-active { border-color: var(--ink); background: var(--paper-raised); box-shadow: inset 0 0 0 1px var(--ink); }
+.login-demo-btn strong { font-size: var(--fs-sm); }
+.login-demo-btn span { font-size: var(--fs-xs); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .login { grid-template-columns: 1fr; }
+  .login-aside { display: none; }
+  .login-head .login-brand { display: flex; }
+  .login-panel { align-items: flex-start; padding-top: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-stubs .stub, .login-card { animation-name: fade-in; }
+}

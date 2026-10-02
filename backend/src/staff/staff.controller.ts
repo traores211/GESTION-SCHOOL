@@ -2,6 +2,9 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } f
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsNumber, IsPositive } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../common/roles.decorator';
+import { RolesGuard } from '../common/roles.guard';
+import { FINANCE, MANAGEMENT, OFFICE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { StaffService } from './staff.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
@@ -14,11 +17,13 @@ class UpdateSalaryDto {
 
 @Controller('staff')
 @ApiTags('Staff')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...OFFICE, 'COMPTABLE')
 @ApiBearerAuth()
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
 
+  @Roles(...MANAGEMENT)
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateStaffDto) {
     return this.staffService.create(user, dto);
@@ -34,11 +39,13 @@ export class StaffController {
     return this.staffService.findOne(user, id);
   }
 
+  @Roles(...FINANCE)
   @Patch(':id/salary')
   updateSalary(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateSalaryDto) {
     return this.staffService.updateSalary(user, id, dto.baseSalary);
   }
 
+  @Roles(...MANAGEMENT)
   @Delete(':id')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.staffService.remove(user, id);

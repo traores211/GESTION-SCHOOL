@@ -1,7 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../common/roles.decorator';
+import { RolesGuard } from '../common/roles.guard';
+import { TEACHING } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { AttendanceService } from './attendance.service';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
@@ -13,7 +16,8 @@ class JustifyDto {
 
 @Controller('attendance')
 @ApiTags('Attendance')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(...TEACHING)
 @ApiBearerAuth()
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
@@ -25,6 +29,9 @@ export class AttendanceController {
 
   @Get()
   findByClassAndDate(@CurrentUser() user: AuthUser, @Query('classId') classId: string, @Query('date') date: string) {
+    if (!classId || !date || Number.isNaN(Date.parse(date))) {
+      throw new BadRequestException('Les paramètres classId et date (AAAA-MM-JJ) sont requis');
+    }
     return this.attendanceService.findByClassAndDate(user, classId, date);
   }
 

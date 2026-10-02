@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
 import { api, ApiError } from "../../lib/api";
+import { EmptyState, PageHeader } from "../../components/ui";
+import { ATTENDANCE_STATUS, INVOICE_STATUS, statusBadge } from "../../lib/labels";
 
 interface Child {
   id: string;
@@ -45,14 +47,21 @@ export default function ParentPortalPage() {
 
   return (
     <Shell title="Mon espace parent">
-      <div className="page-header">
-        <div>
-          <h1>👨‍👩‍👧 Mes enfants</h1>
-          <p>Suivi scolaire, présence, notes et scolarité</p>
-        </div>
-      </div>
+      <PageHeader title="Mes enfants" description="Suivi scolaire : présence, notes et scolarité." />
 
-      {error && <p className="text-danger">{error}</p>}
+      {error && (
+        <div className="card">
+          <EmptyState tone="error" title="Informations indisponibles">
+            {error}
+          </EmptyState>
+        </div>
+      )}
+      {!error && !selected && (
+        <div className="grid-2">
+          <div className="skeleton" style={{ height: 120 }} />
+          <div className="skeleton" style={{ height: 120 }} />
+        </div>
+      )}
 
       {children.length > 1 && (
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -77,26 +86,20 @@ export default function ParentPortalPage() {
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="grid-2">
             <div className="card">
-              <h3 style={{ fontSize: 14, marginBottom: 12 }}>✅ Présence récente</h3>
+              <h3 className="card-title" style={{ marginBottom: 12 }}>Présence récente</h3>
               {selected.attendance.slice(0, 8).map((a, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
                   <span>{new Date(a.date).toLocaleDateString("fr-FR")}</span>
-                  <span
-                    className={`badge ${
-                      a.status === "PRESENT" ? "badge-green" : a.status === "ABSENT" ? "badge-danger" : "badge-warning"
-                    }`}
-                  >
-                    {a.status}
-                  </span>
+                  <span className={`badge ${statusBadge(ATTENDANCE_STATUS, a.status).badge}`}>{statusBadge(ATTENDANCE_STATUS, a.status).label}</span>
                 </div>
               ))}
               {selected.attendance.length === 0 && <p className="muted">Aucune donnée de présence.</p>}
             </div>
 
             <div className="card">
-              <h3 style={{ fontSize: 14, marginBottom: 12 }}>📚 Dernières notes</h3>
+              <h3 className="card-title" style={{ marginBottom: 12 }}>Dernières notes</h3>
               {selected.grades.slice(0, 8).map((g, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
                   <span>{g.subject.name} <span className="muted">({g.term.name})</span></span>
@@ -108,7 +111,7 @@ export default function ParentPortalPage() {
           </div>
 
           <div className="card" style={{ marginTop: 16 }}>
-            <h3 style={{ fontSize: 14, marginBottom: 12 }}>💰 Scolarité</h3>
+            <h3 className="card-title" style={{ marginBottom: 12 }}>Scolarité</h3>
             <div className="table-wrap">
               <table>
                 <thead>
@@ -130,9 +133,7 @@ export default function ParentPortalPage() {
                         <td>{formatFCFA(inv.totalAmount)}</td>
                         <td>{formatFCFA(paid)}</td>
                         <td>
-                          <span className={`badge ${inv.status === "PAID" ? "badge-green" : inv.status === "PARTIALLY_PAID" ? "badge-warning" : "badge-danger"}`}>
-                            {inv.status}
-                          </span>
+                          <span className={`badge ${statusBadge(INVOICE_STATUS, inv.status).badge}`}>{statusBadge(INVOICE_STATUS, inv.status).label}</span>
                         </td>
                       </tr>
                     );
