@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, ApiError } from "../../../lib/api";
-import { ADMISSION_STEPS, Showcase, groupLevelsByCycle } from "../../../lib/showcase";
 import {
   AlertOctagon,
   ArrowRight,
@@ -12,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileSignature,
+  Lock,
   Mail,
   MapPin,
   Menu,
@@ -20,15 +19,19 @@ import {
   Phone,
   X,
 } from "lucide-react";
+import { api, ApiError } from "../../../lib/api";
+import { Showcase, groupLevelsByCycle } from "../../../lib/showcase";
 import { FlagBand, ThemeToggle } from "../../../components/Brand";
+import { AdmissionJourney, CalendarSection, FeesSection, PortalSection, ProgramsSection, QuickAccess } from "../../../components/showcase/sections";
 import "./showcase.css";
 
 const NAV = [
   { href: "#etablissement", label: "L'établissement" },
-  { href: "#niveaux", label: "Nos niveaux" },
-  { href: "#vie-scolaire", label: "Vie scolaire" },
-  { href: "#actualites", label: "Actualités" },
+  { href: "#programmes", label: "Programmes" },
   { href: "#admissions", label: "Admissions" },
+  { href: "#frais", label: "Frais" },
+  { href: "#calendrier", label: "Calendrier" },
+  { href: "#actualites", label: "Actualités" },
   { href: "#contact", label: "Contact" },
 ];
 
@@ -50,6 +53,29 @@ function whatsappLink(number: string) {
   return `https://wa.me/${number.replace(/[^\d]/g, "")}`;
 }
 
+/** Reveals sections as they scroll into view; without JavaScript everything is simply visible. */
+function useReveal(ready: boolean) {
+  useEffect(() => {
+    if (!ready || !("IntersectionObserver" in window)) return;
+    document.documentElement.classList.add("js-reveal");
+    const observer = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("is-visible");
+            observer.unobserve(e.target);
+          }
+        }),
+      { threshold: 0.1, rootMargin: "0px 0px -40px 0px" },
+    );
+    document.querySelectorAll("[data-reveal]").forEach((el) => observer.observe(el));
+    return () => {
+      observer.disconnect();
+      document.documentElement.classList.remove("js-reveal");
+    };
+  }, [ready]);
+}
+
 export default function SchoolShowcasePage() {
   const params = useParams<{ code: string }>();
   const [data, setData] = useState<Showcase | null>(null);
@@ -57,6 +83,7 @@ export default function SchoolShowcasePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  useReveal(!!data);
 
   const load = useCallback(() => {
     if (!params?.code) return;
@@ -108,11 +135,10 @@ export default function SchoolShowcasePage() {
     return (
       <main className="sc" aria-busy="true">
         <div className="skeleton" style={{ height: 70, borderRadius: 0 }} />
-        <div className="skeleton" style={{ height: 420, borderRadius: 0, marginTop: 2 }} />
+        <div className="skeleton" style={{ height: 460, borderRadius: 0, marginTop: 2 }} />
         <div className="sc-container" style={{ marginTop: 32, display: "grid", gap: 16 }}>
           <div className="skeleton" style={{ height: 24, width: "40%" }} />
           <div className="skeleton" style={{ height: 16, width: "80%" }} />
-          <div className="skeleton" style={{ height: 16, width: "70%" }} />
         </div>
       </main>
     );
@@ -132,22 +158,23 @@ export default function SchoolShowcasePage() {
   ].filter((s): s is { label: string; url: string } => !!s.url);
   const inscriptionHref = `/ecole/${data.code}/inscription`;
   const location = [data.address, data.city].filter(Boolean).join(", ");
+  const fromFee = data.fees.length ? Math.min(...data.fees.map((f) => f.annual)) : null;
 
   const figures = [
     { value: data.studentsCount.toLocaleString("fr-FR"), label: "élèves inscrits" },
     { value: String(data.classesCount), label: data.classesCount > 1 ? "classes" : "classe" },
     ...(cycles.length > 0 ? [{ value: String(data.levels.length), label: "niveaux d'enseignement" }] : []),
-    ...(yearsOfExperience && yearsOfExperience > 0
-      ? [{ value: String(yearsOfExperience), label: `ans d'expérience (depuis ${data.foundedYear})` }]
-      : []),
+    ...(yearsOfExperience && yearsOfExperience > 0 ? [{ value: String(yearsOfExperience), label: `ans d'expérience (depuis ${data.foundedYear})` }] : []),
     ...data.highlights.map((h) => ({ value: h.value, label: h.label })),
   ].slice(0, 6);
 
   const navItems = NAV.filter((item) => {
-    if (item.href === "#vie-scolaire") return data.photos.length > 0;
-    if (item.href === "#niveaux") return cycles.length > 0;
+    if (item.href === "#programmes") return data.programs.length > 0;
+    if (item.href === "#frais") return data.fees.length > 0;
+    if (item.href === "#calendrier") return !!data.calendar;
     return true;
   });
+  const [featured, ...otherNews] = data.announcements.slice(0, 7);
 
   return (
     <div className="sc">
@@ -171,7 +198,9 @@ export default function SchoolShowcasePage() {
                 {s.label}
               </a>
             ))}
-            <Link href="/login">Espace établissement</Link>
+            <Link href="/login">
+              <Lock size={13} aria-hidden="true" /> Espace parents
+            </Link>
             <ThemeToggle className="sc-theme" />
           </div>
         </div>
@@ -194,14 +223,7 @@ export default function SchoolShowcasePage() {
               {data.city && <span className="sc-brand-sub">{data.city}, Côte d&apos;Ivoire</span>}
             </span>
           </a>
-          <button
-            type="button"
-            className="sc-menu-toggle"
-            aria-label="Menu"
-            aria-expanded={menuOpen}
-            aria-controls="sc-nav"
-            onClick={() => setMenuOpen((o) => !o)}
-          >
+          <button type="button" className="sc-menu-toggle" aria-label="Menu" aria-expanded={menuOpen} aria-controls="sc-nav" onClick={() => setMenuOpen((o) => !o)}>
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <nav id="sc-nav" className={`sc-nav${menuOpen ? " open" : ""}`} aria-label="Navigation principale">
@@ -217,7 +239,6 @@ export default function SchoolShowcasePage() {
         </div>
       </header>
 
-      {/* ---------- Flash info ---------- */}
       {latest && (
         <div className="sc-flash">
           <div className="sc-container">
@@ -244,13 +265,11 @@ export default function SchoolShowcasePage() {
                 <Link href={inscriptionHref} className="btn btn-primary sc-btn-lg">
                   <FileSignature size={18} aria-hidden="true" /> Déposer une candidature
                 </Link>
-                <a href="#contact" className="btn btn-outline sc-btn-lg">
-                  Nous contacter
+                <a href="#etablissement" className="btn btn-outline sc-btn-lg">
+                  Découvrir l&apos;école
                 </a>
               </div>
             </div>
-
-            {/* The school's register stub: its real figures, numbered in the margin like a receipt. */}
             <aside className="sc-ticket" aria-label="Chiffres clés">
               <div className="sc-ticket-no">
                 <span>N°</span>
@@ -265,6 +284,12 @@ export default function SchoolShowcasePage() {
                       <dd>{f.value}</dd>
                     </div>
                   ))}
+                  {fromFee !== null && (
+                    <div>
+                      <dt>scolarité annuelle à partir de</dt>
+                      <dd className="sc-ticket-text">{fromFee.toLocaleString("fr-FR")} FCFA</dd>
+                    </div>
+                  )}
                 </dl>
                 {data.academicYear && <span className="stamp sc-ticket-stamp">Inscriptions {data.academicYear}</span>}
               </div>
@@ -272,18 +297,16 @@ export default function SchoolShowcasePage() {
           </div>
         </section>
 
+        <QuickAccess inscriptionHref={inscriptionHref} hasFees={data.fees.length > 0} hasCalendar={!!data.calendar} />
+
         {/* ---------- About ---------- */}
         <section className="sc-section" id="etablissement">
-          <div className={`sc-container sc-about${aboutImage ? "" : " no-media"}`}>
+          <div className={`sc-container sc-about${aboutImage ? "" : " no-media"}`} data-reveal>
             <div className="sc-about-text">
               <div className="sc-section-head">
                 <h2>Découvrez notre établissement</h2>
               </div>
-              {data.description ? (
-                <p>{data.description}</p>
-              ) : (
-                <p className="muted">La présentation de l&apos;établissement sera bientôt disponible.</p>
-              )}
+              {data.description ? <p>{data.description}</p> : <p className="muted">La présentation de l&apos;établissement sera bientôt disponible.</p>}
               <div className="sc-about-facts">
                 {location && (
                   <div className="sc-fact">
@@ -314,48 +337,66 @@ export default function SchoolShowcasePage() {
           </div>
         </section>
 
-        {/* ---------- Levels ---------- */}
-        {cycles.length > 0 && (
-          <section className="sc-section sc-section-alt" id="niveaux">
-            <div className="sc-container">
-              <div className="sc-section-head center">
-                <h2>Nos niveaux</h2>
-                <p>Les classes ouvertes pour l&apos;année {data.academicYear || "en cours"}.</p>
+        {/* ---------- Programmes ---------- */}
+        {data.programs.length > 0 && (
+          <section className="sc-section sc-section-alt" id="programmes">
+            <div className="sc-container" data-reveal>
+              <div className="sc-section-head">
+                <h2>Programmes &amp; niveaux</h2>
+                <p>Choisissez un niveau pour voir les matières enseignées cette année et leur coefficient.</p>
               </div>
-              <div className="sc-cycles">
-                {cycles.map((cycle) => (
-                  <article className="sc-cycle" key={cycle.name}>
-                    <h3>{cycle.name}</h3>
-                    {cycle.description && <p>{cycle.description}</p>}
-                    <div className="sc-chips">
-                      {cycle.levels.map((level) => (
-                        <span className="sc-chip" key={level}>
-                          {level}
-                        </span>
-                      ))}
-                    </div>
-                  </article>
-                ))}
+              <ProgramsSection programs={data.programs} cycles={cycles} />
+            </div>
+          </section>
+        )}
+
+        {/* ---------- Admissions ---------- */}
+        <section className="sc-section" id="admissions">
+          <div className="sc-container" data-reveal>
+            <div className="sc-section-head">
+              <h2>Rejoindre l&apos;établissement</h2>
+              <p>Le parcours d&apos;admission, de la première prise de contact à l&apos;inscription.</p>
+            </div>
+            <AdmissionJourney inscriptionHref={inscriptionHref} academicYear={data.academicYear} />
+          </div>
+        </section>
+
+        {/* ---------- Fees ---------- */}
+        {data.fees.length > 0 && (
+          <section className="sc-section sc-section-alt" id="frais">
+            <div className="sc-container" data-reveal>
+              <div className="sc-section-head">
+                <h2>Frais de scolarité</h2>
+                <p>Les montants de l&apos;année et leur échéancier, niveau par niveau.</p>
               </div>
+              <FeesSection fees={data.fees} academicYear={data.academicYear} />
+            </div>
+          </section>
+        )}
+
+        {/* ---------- Calendar ---------- */}
+        {data.calendar && (
+          <section className="sc-section" id="calendrier">
+            <div className="sc-container" data-reveal>
+              <div className="sc-section-head">
+                <h2>Calendrier de l&apos;année {data.academicYear}</h2>
+                <p>Trimestres, vacances et échéances de scolarité.</p>
+              </div>
+              <CalendarSection calendar={data.calendar} fees={data.fees} />
             </div>
           </section>
         )}
 
         {/* ---------- Gallery ---------- */}
         {data.photos.length > 0 && (
-          <section className="sc-section" id="vie-scolaire">
-            <div className="sc-container">
+          <section className="sc-section sc-section-alt" id="vie-scolaire">
+            <div className="sc-container" data-reveal>
               <div className="sc-section-head">
-                <h2>En images</h2>
+                <h2>La vie scolaire en images</h2>
               </div>
               <div className={`sc-gallery${data.photos.length >= 5 ? " featured" : ""}`}>
                 {data.photos.slice(0, 9).map((photo, index) => (
-                  <button
-                    type="button"
-                    key={photo.id}
-                    onClick={() => setLightbox(index)}
-                    aria-label={`Agrandir ${photo.caption || `la photo ${index + 1}`}`}
-                  >
+                  <button type="button" key={photo.id} onClick={() => setLightbox(index)} aria-label={`Agrandir ${photo.caption || `la photo ${index + 1}`}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={api.mediaUrl(photo.url) || ""} alt={photo.caption || ""} loading="lazy" />
                     {photo.caption && <figcaption>{photo.caption}</figcaption>}
@@ -366,13 +407,14 @@ export default function SchoolShowcasePage() {
           </section>
         )}
 
-        {/* ---------- News ---------- */}
-        <section className={`sc-section${data.photos.length > 0 ? " sc-section-alt" : ""}`} id="actualites">
-          <div className="sc-container">
+        {/* ---------- News: one featured, the rest as a dated list ---------- */}
+        <section className="sc-section" id="actualites">
+          <div className="sc-container" data-reveal>
             <div className="sc-section-head">
-              <h2>La vie de l&apos;établissement</h2>
+              <h2>Actualités</h2>
+              <p>La vie de l&apos;établissement, publiée par l&apos;équipe.</p>
             </div>
-            {data.announcements.length === 0 ? (
+            {!featured ? (
               <div className="card">
                 <div className="state">
                   <span className="state-icon" aria-hidden="true">
@@ -382,48 +424,63 @@ export default function SchoolShowcasePage() {
                 </div>
               </div>
             ) : (
-              <div className="sc-news">
-                {data.announcements.slice(0, 6).map((a) => {
-                  const image = api.mediaUrl(a.imageUrl);
-                  const long = a.content.length > 180;
-                  const open = expanded[a.id];
-                  return (
-                    <article className="sc-news-card" key={a.id}>
-                      <div className={`sc-news-media${image ? "" : " is-placeholder"}`} aria-hidden={!image}>
-                        {image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={image} alt="" loading="lazy" />
-                        ) : null}
-                      </div>
-                      <div className="sc-news-body">
-                        <time className="sc-news-date" dateTime={a.publishedAt}>
-                          {formatDay(a.publishedAt)}
-                        </time>
-                        <h3>{a.title}</h3>
-                        <p>{long && !open ? `${a.content.slice(0, 180).trimEnd()}…` : a.content}</p>
-                        {long && (
-                          <button
-                            type="button"
-                            className="sc-link-btn"
-                            aria-expanded={!!open}
-                            onClick={() => setExpanded((e) => ({ ...e, [a.id]: !open }))}
-                          >
-                            {open ? "Réduire" : "Lire la suite →"}
-                          </button>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
+              <div className="sc-newsroom">
+                <article className="sc-news-featured">
+                  {api.mediaUrl(featured.imageUrl) && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={api.mediaUrl(featured.imageUrl) || ""} alt="" />
+                  )}
+                  <div>
+                    <time dateTime={featured.publishedAt}>{formatDay(featured.publishedAt)}</time>
+                    <h3>{featured.title}</h3>
+                    <p>{expanded[featured.id] || featured.content.length <= 320 ? featured.content : `${featured.content.slice(0, 320).trimEnd()}…`}</p>
+                    {featured.content.length > 320 && (
+                      <button type="button" className="sc-link-btn" aria-expanded={!!expanded[featured.id]} onClick={() => setExpanded((e) => ({ ...e, [featured.id]: !e[featured.id] }))}>
+                        {expanded[featured.id] ? "Réduire" : "Lire la suite"}
+                      </button>
+                    )}
+                  </div>
+                </article>
+                {otherNews.length > 0 && (
+                  <ol className="sc-news-list">
+                    {otherNews.map((a) => {
+                      const open = expanded[a.id];
+                      return (
+                        <li key={a.id}>
+                          <span className="sc-news-day">
+                            <strong>{new Date(a.publishedAt).getDate()}</strong>
+                            <small>{new Date(a.publishedAt).toLocaleDateString("fr-FR", { month: "short" })}</small>
+                          </span>
+                          <div>
+                            <h3>{a.title}</h3>
+                            <p>{open || a.content.length <= 140 ? a.content : `${a.content.slice(0, 140).trimEnd()}…`}</p>
+                            {a.content.length > 140 && (
+                              <button type="button" className="sc-link-btn" aria-expanded={!!open} onClick={() => setExpanded((e) => ({ ...e, [a.id]: !open }))}>
+                                {open ? "Réduire" : "Lire la suite"}
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
               </div>
             )}
+          </div>
+        </section>
+
+        {/* ---------- Secure portal ---------- */}
+        <section className="sc-section sc-portal-section" id="espace">
+          <div className="sc-container" data-reveal>
+            <PortalSection schoolName={data.name} />
           </div>
         </section>
 
         {/* ---------- Testimonials ---------- */}
         {data.testimonials.length > 0 && (
           <section className="sc-section" id="temoignages">
-            <div className="sc-container">
+            <div className="sc-container" data-reveal>
               <div className="sc-section-head center">
                 <h2>Ils nous font confiance</h2>
               </div>
@@ -455,37 +512,10 @@ export default function SchoolShowcasePage() {
           </section>
         )}
 
-        {/* ---------- Admissions ---------- */}
-        <section className="sc-section sc-section-alt" id="admissions">
-          <div className="sc-container">
-            <div className="sc-section-head">
-              <h2>Rejoindre l&apos;établissement</h2>
-              <p>Les candidatures se font en ligne. Voici les étapes jusqu&apos;à l&apos;inscription.</p>
-            </div>
-            <ol className="sc-steps">
-              {ADMISSION_STEPS.map((step) => (
-                <li className="sc-step" key={step.title}>
-                  <h3>{step.title}</h3>
-                  <p>{step.text}</p>
-                </li>
-              ))}
-            </ol>
-            <div className="sc-cta-band">
-              <div className="sc-cta-text">
-                <h3>Candidatures {data.academicYear ? data.academicYear : "ouvertes"}</h3>
-                <p>Le formulaire prend quelques minutes, sans création de compte.</p>
-              </div>
-              <Link href={inscriptionHref} className="btn btn-primary sc-btn-lg">
-                Déposer une candidature <ArrowRight size={18} aria-hidden="true" />
-              </Link>
-            </div>
-          </div>
-        </section>
-
         {/* ---------- Partners ---------- */}
         {data.partners.length > 0 && (
-          <section className="sc-section" id="partenaires">
-            <div className="sc-container">
+          <section className="sc-section sc-section-alt" id="partenaires">
+            <div className="sc-container" data-reveal>
               <div className="sc-section-head center">
                 <h2>Nos partenaires</h2>
               </div>
@@ -515,8 +545,8 @@ export default function SchoolShowcasePage() {
         )}
 
         {/* ---------- Contact ---------- */}
-        <section className={`sc-section${data.partners.length > 0 ? " sc-section-alt" : ""}`} id="contact">
-          <div className="sc-container">
+        <section className="sc-section" id="contact">
+          <div className="sc-container" data-reveal>
             <div className="sc-section-head">
               <h2>Nous contacter</h2>
               <p>Le secrétariat répond à vos questions sur les inscriptions, la scolarité et la vie de l&apos;établissement.</p>
@@ -572,6 +602,19 @@ export default function SchoolShowcasePage() {
                 </div>
               </a>
             </div>
+          </div>
+        </section>
+
+        {/* ---------- Closing call ---------- */}
+        <section className="sc-close">
+          <div className="sc-container">
+            <div>
+              <h2>Une place pour votre enfant en {data.academicYear || "cette année"} ?</h2>
+              <p>La candidature se fait en ligne, en quelques minutes.</p>
+            </div>
+            <Link href={inscriptionHref} className="btn btn-primary sc-btn-lg">
+              Déposer une candidature <ArrowRight size={18} aria-hidden="true" />
+            </Link>
           </div>
         </section>
       </main>
@@ -632,7 +675,6 @@ export default function SchoolShowcasePage() {
         </div>
       </footer>
 
-      {/* ---------- Lightbox ---------- */}
       {lightbox !== null && data.photos[lightbox] && (
         <div className="sc-lightbox" role="dialog" aria-modal="true" aria-label="Galerie photo" onClick={() => setLightbox(null)}>
           <button type="button" className="sc-lightbox-close" aria-label="Fermer" onClick={() => setLightbox(null)}>

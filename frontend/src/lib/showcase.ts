@@ -42,6 +42,12 @@ export interface Showcase {
   whatsappNumber: string | null;
   social: { facebook: string | null; instagram: string | null; linkedin: string | null; youtube: string | null };
   academicYear: string | null;
+  /** Current school year and its terms, for the public calendar. */
+  calendar: { start: string; end: string; terms: { name: string; order: number; startDate: string; endDate: string }[] } | null;
+  /** Tuition per level, from the instalments actually billed this year. */
+  fees: { level: string; annual: number; instalments: { label: string; amount: number; dueDate: string }[] }[];
+  /** Subjects and coefficients taught at each level this year. */
+  programs: { level: string; subjects: { name: string; coefficient: number }[] }[];
   levels: string[];
   classesCount: number;
   studentsCount: number;
@@ -88,6 +94,7 @@ const CYCLES: { name: string; description: string; match: RegExp }[] = [
   { name: "Primaire", description: "Du CP1 au CM2", match: /^(cp|ce|cm)/i },
   { name: "Collège", description: "Premier cycle du secondaire, jusqu'au BEPC", match: /^(6|5|4|3)(e|è|ème|eme)/i },
   { name: "Lycée", description: "Second cycle, jusqu'au Baccalauréat", match: /^(2nde|seconde|1(e|è|ère|ere)|t(le|erm))/i },
+  { name: "Technique & professionnel", description: "Brevets de technicien et BTS", match: /^(bt|bts|cap)/i },
 ];
 
 export function groupLevelsByCycle(levels: string[]) {
