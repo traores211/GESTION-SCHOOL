@@ -334,6 +334,15 @@ Quatre chiffres clés dans une seule bande réglée : cellules séparées par de
 ### Mouvement
 Un seul geste par écran, rapide : les cartes et les souches arrivent en cascade (520ms, décalages plafonnés à 200ms), les chiffres clés défilent, les graphiques se dessinent (700ms), la pastille du menu glisse, les icônes des raccourcis et des chiffres réagissent au survol. Avec « réduire les animations », tout passe en fondu court, les chiffres et les graphiques s'affichent directement.
 
+### Page d'accueil (mode Persuade)
+La page d'accueil (`src/app/home.css`) monte d'un cran l'échelle de l'application, sans changer d'univers :
+- **Typographie d'affiche:** titre en serif de 40 à 72px (`clamp`), titres de section de 32 à 48px, mots clés en italique orange (#FFB15C sur vert, clay-ink sur blanc), corps de 17 à 20px.
+- **Formes:** cartes de 12 à 16px de rayon, boutons de 52px de haut et 8px de rayon, appareils dessinés en CSS (ordinateur, téléphone) avec des captures miniatures de l'interface claire.
+- **Couleurs:** bandeau d'ouverture et bandeau final en vert forêt avec deux halos (orange et vert du drapeau) ; chiffres du bandeau de chiffres en orange clair #FFB15C, vert #4FD29A et bleu #9CC0FF sur le vert.
+- **Sections:** carnet de souches animé, moyens de paiement, avant / avec School ERP, onglets par profil avec aperçu d'appareil, niveaux (chacun relié à son école de démonstration), modules filtrables et dépliables, arguments locaux, chiffres réels de l'installation, écoles de démonstration, questions fréquentes, pied de page en quatre colonnes.
+- **Mouvement:** le carnet s'écrit à l'ouverture (souches qui arrivent, tampons qui se posent, appel qui se remplit), puis les sections apparaissent au défilement ; sans JavaScript ou avec moins d'animations, tout est visible et passe en fondu.
+- **Vérité des contenus:** aucun témoignage, client, prix ou chiffre de marché inventé ; les exemples du carnet sont signalés comme fictifs et les chiffres affichés viennent des écoles de démonstration.
+
 ## Do's and Don'ts
 
 ### Do:
