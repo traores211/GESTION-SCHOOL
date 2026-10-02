@@ -25,6 +25,7 @@ import { AnnouncementsModule } from './announcements/announcements.module';
 import { PublicModule } from './public/public.module';
 import { ShowcaseModule } from './showcase/showcase.module';
 import { TimetableModule } from './timetable/timetable.module';
+import { AssistantModule } from './assistant/assistant.module';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 
 @Module({
@@ -56,6 +57,7 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
     PublicModule,
     ShowcaseModule,
     TimetableModule,
+    AssistantModule,
   ],
   controllers: [AppController],
   providers: [AppService],

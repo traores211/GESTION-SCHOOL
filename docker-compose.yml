@@ -94,6 +94,12 @@ services:
       # Optional AI analysis of imported timetables (Claude). Empty = local extraction only.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       TIMETABLE_AI_MODEL: ${TIMETABLE_AI_MODEL:-claude-opus-5}
+      # Assistant (Dify): chatbot and agent apps, cloud.dify.ai or self-hosted. Empty keys = assistant disabled.
+      DIFY_API_URL: ${DIFY_API_URL:-https://api.dify.ai/v1}
+      DIFY_CHATBOT_API_KEY: ${DIFY_CHATBOT_API_KEY:-}
+      DIFY_AGENT_API_KEY: ${DIFY_AGENT_API_KEY:-}
+      # Public URL of this API as seen by Dify, for the agent's tools (e.g. an https tunnel to port 4000)
+      ASSISTANT_TOOLS_PUBLIC_URL: ${ASSISTANT_TOOLS_PUBLIC_URL:-}
     ports:
       - "4000:4000"
     volumes:

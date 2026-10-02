@@ -25,6 +25,7 @@ import {
 import { AuthUser, ROLE_LABELS, clearSession, getStoredUser, getToken } from "../lib/auth";
 import NotificationBell from "./NotificationBell";
 import { BrandMark, FlagBand, ThemeToggle } from "./Brand";
+import AssistantPanel from "./assistant/AssistantPanel";
 import { Avatar } from "./ui";
 
 interface NavItem {
@@ -268,6 +269,7 @@ export default function Shell({ title, children }: { title: string; children: Re
         <main id="main" className="page-content page-enter" key={pathname} tabIndex={-1}>
           {children}
         </main>
+        {user && user.role !== "PARENT" && <AssistantPanel />}
       </div>
     </div>
     </div>
