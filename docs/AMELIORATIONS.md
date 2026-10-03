@@ -1,0 +1,203 @@
+# School ERP — Points d'amélioration
+
+Audit du dépôt au 3 octobre 2026 (branche `feature/planning-admissions`). Chaque point indique **ce qui a été constaté dans les fichiers**, **pourquoi c'est important** et **quoi faire**. Les priorités vont de P0 (à traiter avant toute mise en production chez un client) à P3 (finition).
+
+Repères chiffrés relevés dans le code :
+
+| Indicateur | Valeur |
+|---|---|
+| Modules backend | 26, dont **4** avec des tests unitaires (timetable, admissions, assistant, common) |
+| Tests frontend | **0** (aucun test, aucune page `error.tsx` ni `not-found.tsx`) |
+| Requêtes `findMany` dans les services | 92, dont **20** seulement limitées (`take`) |
+| Écritures dans `AuditLog` | **0** (le modèle existe, rien n'y est enregistré) |
+| Modèles Prisma avec archivage (`deletedAt`) | **0** sur 41 |
+| Intégration continue | **aucune** (pas de dossier `.github/`) |
+| Paiements Mobile Money | **simulés** (`SimulatedMobileMoneyProvider`) |
+
+---
+
+## P0 — Bloquants avant une mise en production
+
+### 1. Les images Docker sont des images de développement
+- **Constat** : `frontend/Dockerfile` lance `npm install && npm run dev` (serveur de développement Next) ; `backend/docker-entrypoint.sh` lance `npm install`, `prisma db push` puis `nest start --watch`. `docker-compose.yml` monte le code source en volume.
+- **Impact** : lenteur (compilation à la demande), consommation mémoire élevée (le moteur Docker a planté pendant cette session), dépendances résolues au démarrage, code modifiable en production.
+- **Action** : Dockerfiles multi-étapes (`next build` + `next start` en mode `standalone` ; `nest build` + `node dist/main`), `npm ci`, utilisateur non root, et un `docker-compose.prod.yml` sans volumes de code ni ports de debug.
+
+### 2. Pas de migrations de base de données
+- **Constat** : le schéma est appliqué par `prisma db push` à chaque démarrage, et `prisma/migrations/` est exclu par `.gitignore`. Pendant cette session, un changement a exigé `--accept-data-loss`.
+- **Impact** : aucune traçabilité des changements de schéma, risque de perte de données en production, impossible de revenir en arrière.
+- **Action** : versionner `prisma/migrations`, générer une migration initiale depuis la base actuelle (`prisma migrate diff`), utiliser `prisma migrate deploy` au déploiement, et interdire `db push` hors développement.
+
+### 3. Secrets par défaut dans `docker-compose.yml`
+- **Constat** : mots de passe par défaut (`DB_PASSWORD:-SchoolAdmin123!`, `LDAP_PASSWORD:-LdapAdmin123!`) et `JWT_SECRET:-your-secret-key-change-in-production`. `backend/src/auth/jwt-secret.ts` refuse bien un secret faible si `NODE_ENV=production`, mais `NODE_ENV` vaut `development` par défaut.
+- **Impact** : une installation faite « par défaut » chez un client est attaquable (jetons forgeables, base accessible avec un mot de passe public).
+- **Action** : aucune valeur par défaut pour les secrets en production (le démarrage doit échouer s'ils manquent), `.env.production.example` documenté, rotation des secrets.
+
+### 4. Aucune sauvegarde
+- **Constat** : les volumes `postgres_data` et `uploads_data` (qui contient désormais les justificatifs d'admission : actes de naissance, bulletins) n'ont aucune sauvegarde ni procédure de restauration.
+- **Impact** : une panne disque fait perdre toute l'année scolaire (notes, paiements, dossiers).
+- **Action** : `pg_dump` chiffré quotidien et sauvegarde des fichiers, conservés hors site (30 jours de rétention), plus un test de restauration mensuel automatisé et documenté.
+
+### 5. Session : jeton de 24 h dans le `localStorage`, sans révocation
+- **Constat** : `frontend/src/lib/auth.ts` stocke le JWT dans `localStorage` ; `JWT_EXPIRATION` vaut 24 h ; il n'existe ni jeton de rafraîchissement ni déconnexion côté serveur.
+- **Impact** : toute faille XSS permet de voler une session valable une journée ; un compte compromis ou un départ de personnel ne peut pas être coupé.
+- **Action** : cookie `HttpOnly` + `Secure` + `SameSite`, jeton d'accès court (15 min) et jeton de rafraîchissement à rotation, liste de révocation, et déconnexion de toutes les sessions depuis l'administration.
+
+### 6. Authentification incomplète
+- **Constat** : pas de « mot de passe oublié », pas de double authentification. Le limiteur de tentatives (`backend/src/auth/login-rate-limiter.ts`) est en mémoire : il se vide à chaque redémarrage et ne fonctionne pas avec plusieurs instances.
+- **Impact** : support saturé par les mots de passe perdus ; comptes de direction et de comptabilité (accès financiers) protégés par un seul facteur.
+- **Action** : réinitialisation par e-mail ou SMS avec un jeton à usage unique ; double authentification (TOTP) obligatoire pour la direction et la comptabilité ; limiteur dans Redis (déjà déployé, voir P1) ; politique de mots de passe.
+
+### 7. Documentation de l'API publique
+- **Constat** : `backend/src/main.ts` expose Swagger sur `/api/docs` sans condition.
+- **Impact** : la carte complète de l'API est offerte à un attaquant.
+- **Action** : désactiver Swagger en production, ou le protéger par authentification.
+
+### 8. Journal d'audit jamais alimenté
+- **Constat** : le modèle `AuditLog` existe dans `schema.prisma`, mais aucun `auditLog.create` n'existe dans le code. Seuls les emplois du temps (`TimetableChange`) et les admissions (`AdmissionEvent`) ont leur propre historique.
+- **Impact** : impossible de savoir qui a modifié une note, annulé une facture ou changé un salaire. C'est un point bloquant pour la comptabilité et en cas de litige avec une famille.
+- **Action** : un intercepteur global qui enregistre toute écriture sur les notes, factures, paiements, paie, utilisateurs et inscriptions (auteur, avant/après, adresse IP), plus un écran de consultation pour la direction.
+
+### 9. Pas d'intégration continue
+- **Constat** : aucun pipeline. Les tests (114 au backend) ne sont lancés qu'à la main.
+- **Impact** : des régressions peuvent arriver sur `main` sans être vues.
+- **Action** : GitHub Actions sur chaque PR (lint, `tsc` pour les deux applications, `jest`, scripts de bout en bout `test/e2e-*.js` sur une base Docker éphémère, build des images de production) et branche `main` protégée.
+
+---
+
+## P1 — Fiabilité, performance, maintenabilité
+
+### 10. Listes non paginées côté serveur
+- **Constat** : 72 des 92 `findMany` des services n'ont pas de limite. Par exemple, `GET /admissions` renvoie toutes les candidatures ; c'est aussi le cas des élèves, des factures et des paiements.
+- **Impact** : temps de réponse et mémoire qui croissent avec l'école (un lycée de 3 000 élèves, plusieurs années d'historique).
+- **Action** : pagination par curseur et filtres côté serveur sur toutes les listes ; le frontend (`useTable`) passe en mode serveur au-delà d'un seuil.
+
+### 11. Calculs critiques sans tests
+- **Constat** : aucun test pour `billing` (factures, paiements, reste dû), `grades` (moyennes pondérées, rangs ; voir `grades.service.ts`), `payroll`, `attendance`, `bulletins`.
+- **Impact** : une erreur de moyenne ou de reste dû touche directement les familles et la crédibilité de l'école.
+- **Action** : tests unitaires des calculs (cas limites : absent, note manquante, coefficient nul, égalité de rang) et tests de bout en bout des parcours paiement et bulletin.
+
+### 12. Frontend sans filet
+- **Constat** : aucun test frontend ; pas de `app/error.tsx`, `app/global-error.tsx` ni `app/not-found.tsx`.
+- **Impact** : une erreur JavaScript affiche une page blanche ; une URL fausse renvoie la page 404 par défaut de Next.
+- **Action** : pages d'erreur et de page introuvable dans le style de l'application ; tests Playwright des parcours critiques (connexion, appel, saisie de notes, paiement, admission).
+
+### 13. Observabilité
+- **Constat** : logs texte de Nest uniquement ; pas de suivi d'erreurs, de métriques ni d'alertes. Le `/api/health` ne vérifie pas la base.
+- **Action** : logs structurés (`pino`) avec un identifiant de requête ; Sentry côté API et côté navigateur ; métriques (temps de réponse, erreurs 5xx) ; contrôle de santé qui teste PostgreSQL ; alertes en cas d'échec de sauvegarde.
+
+### 14. Infrastructure déployée mais inutilisée
+- **Constat** : Redis, OpenLDAP et MailHog tournent dans `docker-compose.yml`, mais le code ne les utilise nulle part (aucune référence à `REDIS_URL`, à un client Redis, à `nodemailer` ni à `ldapjs` dans `backend/src`).
+- **Impact** : mémoire consommée pour rien sur des serveurs modestes ; fausse impression que l'envoi d'e-mails ou le LDAP fonctionnent.
+- **Action** : utiliser Redis (limiteur de connexion, cache du tableau de bord, files de tâches BullMQ pour les envois SMS et e-mail, exports lourds) et brancher l'envoi d'e-mails ; retirer LDAP tant qu'aucun client ne le demande.
+
+### 15. Suppressions définitives
+- **Constat** : aucun des 41 modèles n'a de champ d'archivage. Supprimer un élève supprime en cascade ses inscriptions, notes, factures et paiements (`onDelete: Cascade`).
+- **Impact** : perte d'historique comptable et scolaire. En comptabilité, une pièce ne doit pas disparaître.
+- **Action** : archivage (`archivedAt`) pour les élèves, le personnel, les factures et les paiements ; annulation par avoir plutôt que suppression ; corbeille restaurable.
+
+### 16. Numérotations fragiles
+- **Constat** : les numéros sont calculés à partir d'un `count` : références de factures `INV-…` (`billing.service.ts:35`) et matricules des élèves (`students.service.ts:14`).
+- **Impact** : doublons possibles quand deux secrétaires saisissent en même temps.
+- **Action** : séquences PostgreSQL, ou une table de compteurs verrouillée en transaction ; contrainte unique avec nouvelle tentative (déjà fait pour les références d'admission).
+
+### 17. Cloisonnement entre écoles fait à la main
+- **Constat** : chaque service filtre lui-même par `schoolId` (`requireSchool`, `findOwned`…).
+- **Impact** : un seul oubli fait fuir les données d'une école vers une autre. C'est le risque n°1 d'un SaaS multi-écoles.
+- **Action** : extension Prisma qui injecte `schoolId` automatiquement, ou Row-Level Security PostgreSQL ; tests systématiques « un utilisateur de l'école A ne voit rien de l'école B » sur toutes les routes.
+
+### 18. Stockage des fichiers
+- **Constat** : images et justificatifs sont stockés sur un volume local (`UPLOAD_DIR`).
+- **Action** : stockage objet compatible S3 (MinIO en local), URL signées à durée limitée, analyse antivirus (ClamAV) des documents déposés par les familles, quotas par école.
+
+---
+
+## P2 — Ce qui rendra l'application incontournable sur le marché
+
+Positionnement visé : le marché ivoirien et ouest-africain, face à EduKo, Logesco, SchoolExpert, GEP-CI et Eduka.
+
+### 19. Paiement Mobile Money réel (priorité commerciale n°1)
+- **Constat** : `backend/src/billing/providers/payment-providers.registry.ts` simule Orange Money, MTN, Moov et Wave (`SimulatedMobileMoneyProvider` renvoie toujours `SUCCESS`).
+- **Action** : brancher un agrégateur (CinetPay, PayDunya, FedaPay) ou l'API Wave, avec webhooks signés, rapprochement automatique, reçus PDF et SMS de confirmation. Les parents doivent pouvoir payer depuis leur téléphone à partir d'un lien reçu par SMS.
+
+### 20. Notifications SMS et WhatsApp aux familles
+- **Constat** : notifications internes uniquement, appelées depuis seulement 2 endroits du code.
+- **Action** : passerelle SMS (Orange SMS API, Twilio) et WhatsApp Business pour les absences du jour, les notes et bulletins publiés, les impayés et relances, et les convocations d'admission (test, entretien). Gestion du coût (quota par école, regroupement en résumé quotidien).
+
+### 21. Application mobile ou PWA hors ligne
+- **Constat** : pas de manifeste, aucun fonctionnement hors ligne.
+- **Action** : PWA installable avec service worker. L'appel et la saisie des notes doivent fonctionner hors connexion puis se synchroniser (connexions instables dans beaucoup d'établissements) ; application parents légère.
+
+### 22. Bulletins et examens conformes au système ivoirien
+- **Constat** : moyennes pondérées et rang calculés (`grades.service.ts`), mais rien sur les appréciations, la moyenne annuelle, le conseil de classe, les décisions de passage ou les examens.
+- **Action** :
+  - appréciations par matière et générale, mentions, tableaux d'honneur ;
+  - moyennes annuelles, conseil de classe et décisions (passage, redoublement, exclusion) ;
+  - exports au format attendu par la DREN et le MENA, livret scolaire ;
+  - gestion des candidats au BEPC et au BAC.
+
+### 23. Import de données en masse pour l'arrivée d'une école
+- **Constat** : `students.controller.ts` et `staff.controller.ts` n'offrent qu'une création unitaire ; seul l'emploi du temps a un import.
+- **Action** : imports Excel (modèle téléchargeable, rapport ligne par ligne, confirmation explicite, comme pour la planification) pour les élèves, les parents, le personnel, les notes et les soldes de scolarité. Sans cela, l'arrivée d'une école prend des semaines au lieu d'une journée.
+
+### 24. Portail parents enrichi
+- **Constat** : `parent-portal.controller.ts` n'offre que deux routes (liste et détail des enfants).
+- **Action** : paiement en ligne, justification d'absence, messagerie avec l'école, emploi du temps, cahier de textes et devoirs, bulletins téléchargeables, suivi du dossier d'admission par référence `ADM-…`.
+
+### 25. Modules attendus par les directions
+Fonctionnalités courantes chez les concurrents ou demandées par les directeurs :
+- discipline et sanctions ;
+- cantine ;
+- bibliothèque ;
+- infirmerie ;
+- cartes scolaires avec QR code et pointage par badge ;
+- stocks et fournitures ;
+- comptabilité complète (journal, grand livre, export Sage ou Excel) ;
+- consolidation pour les groupes scolaires (plusieurs établissements, indicateurs agrégés).
+
+### 26. SaaS en libre-service
+- **Action** : création d'un établissement en autonomie avec essai gratuit, abonnements et facturation de la plateforme, sous-domaine ou domaine personnalisé pour la vitrine, sauvegarde et export des données par école (réversibilité, argument de confiance).
+
+### 27. Conformité ARTCI (loi n° 2013-450 sur les données personnelles)
+- **Action** :
+  - déclaration auprès de l'ARTCI ;
+  - consentement des parents (formulaire d'admission en ligne) ;
+  - registre des traitements ;
+  - droits d'accès, de rectification et de suppression ;
+  - chiffrement des données sensibles (santé, justificatifs) ;
+  - durées de conservation ;
+  - hébergement documenté.
+
+  C'est un argument de vente auprès des établissements privés et confessionnels.
+
+### 28. Intelligence artificielle utile
+- **Constat** : l'assistant Dify (chatbot et agent) est intégré, ainsi qu'un import d'emploi du temps assisté par IA (optionnel).
+- **Action** :
+  - alertes de risque de décrochage (absences, chute des notes) ;
+  - prévision des impayés ;
+  - propositions d'appréciations de bulletin ;
+  - résumé hebdomadaire envoyé au directeur.
+
+---
+
+## P3 — Finition
+
+29. **Accessibilité** : audit WCAG 2.2 AA (contrastes en thème sombre, navigation au clavier dans les grilles, libellés ARIA), tests automatiques axe.
+30. **Performance du frontend** : chargement différé des graphiques Recharts, mesures Web Vitals, budget de taille par page.
+31. **Bilinguisme** : interface anglaise pour les établissements internationaux ou bilingues (`next-intl`).
+32. **Documentation** : guide utilisateur par rôle, visites guidées dans l'application, centre d'aide, vidéos courtes.
+33. **Qualité de code** : ESLint et Prettier vérifiés en CI, dépendances à jour (Dependabot), versions de Node et TypeScript identiques entre la machine hôte et les conteneurs (la machine hôte a TypeScript 7 incompatible avec `ts-node`).
+
+---
+
+## Feuille de route proposée
+
+| Période | Objectif | Points |
+|---|---|---|
+| **0–30 jours** | Installable chez un premier client sans risque | 1, 2, 3, 4, 7, 9, 12, 13 |
+| **30–60 jours** | Sécurité et confiance | 5, 6, 8, 10, 11, 15, 16, 17 |
+| **60–90 jours** | Différenciation commerciale | 19, 20, 23, 21 (appel hors ligne d'abord) |
+| **90–180 jours** | Couverture fonctionnelle complète | 22, 24, 25, 26, 27, 18, 14 |
+| En continu | Finition | 28 à 33 |
+
+Les deux leviers les plus forts face à la concurrence sont le **paiement Mobile Money réel avec relances par SMS** (19 et 20) et un **import de données en une journée** (23). Ils transforment l'outil de gestion en outil qui rapporte de l'argent à l'école et qui s'installe vite.

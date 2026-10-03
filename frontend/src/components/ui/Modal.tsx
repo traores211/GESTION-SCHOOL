@@ -41,9 +41,14 @@ export default function Modal({ open, onClose, title, description, size = "md", 
     }
   }, [open, mounted]);
 
+  // Parents usually pass an inline onClose, so it changes on every keystroke in the form.
+  // Read it through a ref: the focus effect below must only run when `open` changes,
+  // otherwise each re-render moves focus away from the field being typed in.
+  const closeRef = useRef({ onClose, busy });
+  closeRef.current = { onClose, busy };
   const requestClose = useCallback(() => {
-    if (!busy) onClose();
-  }, [busy, onClose]);
+    if (!closeRef.current.busy) closeRef.current.onClose();
+  }, []);
 
   useEffect(() => {
     if (!open) return;

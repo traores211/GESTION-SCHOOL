@@ -3,20 +3,42 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, CalendarDays, CalendarRange, DoorOpen, FileUp, GraduationCap, Plus, Settings2, UserRound } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  CalendarDays,
+  CalendarRange,
+  DoorOpen,
+  FileDown,
+  FileUp,
+  GraduationCap,
+  History,
+  LoaderCircle,
+  Lock,
+  LockOpen,
+  Plus,
+  Undo2,
+  UserRound,
+  X,
+  XCircle,
+} from "lucide-react";
 import Shell from "../../components/Shell";
 import { EmptyState, Modal, PageHeader, useFeedback } from "../../components/ui";
 import TimetableGrid, { SlotChange } from "../../components/timetable/TimetableGrid";
+import TimetableNav from "../../components/timetable/TimetableNav";
 import SessionModal, { SessionDraft, draftFromSession } from "../../components/timetable/SessionModal";
 import { api, ApiError, errorMessage } from "../../lib/api";
 import { getStoredUser } from "../../lib/auth";
+import { downloadFile } from "../../lib/download";
 import {
-  Conflict,
+  Check,
   DAY_NAMES,
   EDITOR_ROLES,
   Resources,
   Session,
+  Suggestions,
   ViewMode,
+  formatHours,
   fromMinutes,
   gridBounds,
   hasBlocking,
@@ -24,6 +46,35 @@ import {
   toMinutes,
   visibleDays,
 } from "../../lib/timetable";
+
+interface HistoryBatch {
+  batchId: string;
+  action: string;
+  userName: string | null;
+  createdAt: string;
+  undone: boolean;
+  undoable: boolean;
+  count: number;
+  summary: string;
+}
+
+/** A refused change: what failed, and what would work instead. */
+interface Refusal {
+  session: Session;
+  message: string;
+  checks: Check[];
+  suggestions: Suggestions | null;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  CREATE: "Ajout",
+  UPDATE: "Modification",
+  DELETE: "Suppression",
+  SWAP: "Échange",
+  LOCK: "Verrouillage",
+  GENERATE: "Génération",
+  UNDO: "Annulation",
+};
 
 const VIEWS: { mode: ViewMode; label: string; icon: typeof GraduationCap }[] = [
   { mode: "class", label: "Classe", icon: GraduationCap },
@@ -57,6 +108,12 @@ function TimetableEditor() {
   const [modal, setModal] = useState<SessionDraft | null>(null);
   const [showConflicts, setShowConflicts] = useState(false);
   const [allConflicts, setAllConflicts] = useState<Session[] | null>(null);
+  const [swapSource, setSwapSource] = useState<Session | null>(null);
+  const [refusal, setRefusal] = useState<Refusal | null>(null);
+  const [history, setHistory] = useState<HistoryBatch[] | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
 
   const view = (params.get("view") as ViewMode) || "class";
   const entityId = params.get("id") || "";
@@ -137,6 +194,9 @@ function TimetableEditor() {
   const blockingCount = allConflicts?.filter((s) => hasBlocking(s.conflicts)).length ?? 0;
   const viewBlocking = sessions?.filter((s) => hasBlocking(s.conflicts)).length ?? 0;
   const totalMinutes = sessions?.reduce((sum, s) => sum + toMinutes(s.endTime) - toMinutes(s.startTime), 0) ?? 0;
+  // A 45–60 min period counts as one teaching hour (official volumes).
+  const slot = resources?.settings.slotMinutes ?? 60;
+  const hourUnit = slot >= 45 && slot <= 60 ? slot : 60;
 
   const refreshAfterChange = () => {
     load();
@@ -162,46 +222,109 @@ function TimetableEditor() {
     });
   };
 
-  /** Drag & drop / resize / keyboard move: optimistic, with an explicit choice on conflict. */
-  const moveSession = async (session: Session, change: SlotChange, force = false): Promise<void> => {
-    const previous = sessions;
-    setSessions((list) => list?.map((s) => (s.id === session.id ? { ...s, ...change } : s)) ?? null);
+  /** A refused change shows what failed and fetches compatible slots, teachers and rooms. */
+  const showRefusal = async (session: Session, err: ApiError) => {
+    const body = err.body as { checks?: Check[] } | undefined;
+    setRefusal({ session, message: err.message, checks: (body?.checks ?? []).filter((c) => c.status === "fail"), suggestions: null });
     try {
-      await api.patch<Session>(`/timetable/sessions/${session.id}`, { ...change, ...(force ? { force: true } : {}) });
+      const suggestions = await api.get<Suggestions>(`/timetable/sessions/${session.id}/suggestions`);
+      setRefusal((r) => (r && r.session.id === session.id ? { ...r, suggestions } : r));
+    } catch {
+      setRefusal((r) => (r ? { ...r, suggestions: { slots: [], teachers: [], rooms: [] } } : r));
+    }
+  };
+
+  /** Drag & drop / resize / keyboard move / suggestion: optimistic; the server applies every rule. */
+  const changeSession = async (session: Session, change: Partial<SlotChange> & { teacherId?: string; roomId?: string }, label?: string): Promise<boolean> => {
+    const previous = sessions;
+    if (change.dayOfWeek) setSessions((list) => list?.map((s) => (s.id === session.id ? { ...s, ...change } : s)) ?? null);
+    try {
+      await api.patch<Session>(`/timetable/sessions/${session.id}`, change);
       feedback.toast({
-        kind: force ? "warning" : "success",
-        title: force ? "Séance déplacée malgré le conflit" : "Séance déplacée",
-        message: `${sessionTitle(session)} · ${DAY_NAMES[change.dayOfWeek]} ${change.startTime}–${change.endTime}`,
-        action: force
-          ? undefined
-          : { label: "Annuler", onClick: () => moveSession({ ...session, ...change }, { dayOfWeek: session.dayOfWeek, startTime: session.startTime, endTime: session.endTime }) },
+        kind: "success",
+        title: label ?? "Cours déplacé",
+        message: change.dayOfWeek ? `${sessionTitle(session)} · ${DAY_NAMES[change.dayOfWeek]} ${change.startTime}–${change.endTime}` : sessionTitle(session),
+        action: change.dayOfWeek
+          ? { label: "Annuler", onClick: () => changeSession({ ...session, ...change } as Session, { dayOfWeek: session.dayOfWeek, startTime: session.startTime, endTime: session.endTime }, "Déplacement annulé") }
+          : undefined,
       });
       refreshAfterChange();
+      return true;
     } catch (err) {
       setSessions(previous);
-      if (err instanceof ApiError && err.status === 409) {
-        const conflicts = ((err.body as { conflicts?: Conflict[] })?.conflicts ?? []).filter((c) => c.severity === "error");
-        const ok = await feedback.confirm({
-          title: "Ce créneau est en conflit",
-          tone: "warning",
-          message: (
-            <div className="conflict-list">
-              {conflicts.map((c, i) => (
-                <div key={i} className="conflict-item error">
-                  <AlertTriangle size={16} />
-                  <span>{c.message}</span>
-                </div>
-              ))}
-              <p style={{ marginTop: 6 }}>Déplacer quand même ? La séance restera signalée en conflit.</p>
-            </div>
-          ),
-          confirmLabel: "Déplacer quand même",
-          cancelLabel: "Ne pas déplacer",
-        });
-        if (ok) await moveSession(session, change, true);
-      } else {
-        feedback.error("Déplacement impossible", errorMessage(err));
-      }
+      if (err instanceof ApiError && err.status === 409) await showRefusal(session, err);
+      else feedback.error("Modification impossible", errorMessage(err));
+      return false;
+    }
+  };
+  const moveSession = (session: Session, change: SlotChange) => changeSession(session, change);
+
+  const swapWith = async (target: Session) => {
+    const source = swapSource;
+    setSwapSource(null);
+    if (!source || source.id === target.id) return;
+    try {
+      await api.post(`/timetable/sessions/${source.id}/swap`, { otherId: target.id });
+      feedback.success("Cours échangés", `${sessionTitle(source)} ⇄ ${sessionTitle(target)}`);
+      refreshAfterChange();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) await showRefusal(source, err);
+      else feedback.error("Échange impossible", errorMessage(err));
+    }
+  };
+
+  const toggleLock = async (id: string, locked: boolean) => {
+    try {
+      await api.patch(`/timetable/sessions/${id}/lock`, { locked });
+      feedback.success(locked ? "Cours verrouillé" : "Cours déverrouillé", locked ? "La génération automatique ne le modifiera pas." : undefined);
+      load();
+    } catch (err) {
+      feedback.error("Action impossible", errorMessage(err));
+    }
+  };
+
+  const lockClass = async (locked: boolean) => {
+    try {
+      const r = await api.post<{ count: number }>("/timetable/lock-class", { classId: entityId, locked });
+      feedback.success(locked ? "Classe verrouillée" : "Classe déverrouillée", `${r.count} cours`);
+      load();
+    } catch (err) {
+      feedback.error("Action impossible", errorMessage(err));
+    }
+  };
+
+  const loadHistory = useCallback(() => {
+    api
+      .get<HistoryBatch[]>("/timetable/history?limit=40")
+      .then(setHistory)
+      .catch(() => setHistory([]));
+  }, []);
+
+  const undo = async (batch: HistoryBatch) => {
+    const ok = await feedback.confirm({ title: "Annuler cette modification ?", message: batch.summary, confirmLabel: "Annuler la modification", cancelLabel: "Garder" });
+    if (!ok) return;
+    try {
+      await api.post(`/timetable/history/${batch.batchId}/undo`);
+      feedback.success("Modification annulée");
+      loadHistory();
+      refreshAfterChange();
+    } catch (err) {
+      feedback.error("Annulation impossible", errorMessage(err));
+    }
+  };
+
+  const exportFile = async (format: "pdf" | "xlsx", all: boolean) => {
+    const key = `${format}-${all ? "all" : "one"}`;
+    setExporting(key);
+    try {
+      const q = new URLSearchParams({ format, view });
+      if (!all && entityId) q.set("id", entityId);
+      const name = all ? `emplois-du-temps-${view === "class" ? "classes" : view === "teacher" ? "enseignants" : "salles"}` : `emploi-du-temps-${selected?.name ?? view}`;
+      await downloadFile(`/timetable/export?${q}`, `${name.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase()}.${format}`);
+    } catch (err) {
+      feedback.error("Export impossible", errorMessage(err));
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -238,25 +361,35 @@ function TimetableEditor() {
         title="Emplois du temps"
         description={
           resources
-            ? `${resources.academicYear.name} · ${selected ? `${selected.name} — ` : ""}${sessions ? `${sessions.length} séance(s), ${Math.round(totalMinutes / 6) / 10} h / semaine` : "chargement…"}`
+            ? `${resources.academicYear.name} · ${selected ? `${selected.name} — ` : ""}${sessions ? `${sessions.length} cours, ${formatHours(totalMinutes / hourUnit)} de cours / semaine` : "chargement…"}`
             : "Chargement…"
         }
         actions={
-          canEdit && (
-            <>
-              <Link href="/timetable/manage" className="btn btn-outline">
-                <Settings2 size={16} /> Salles, matières & horaires
-              </Link>
-              <Link href="/timetable/import" className="btn btn-outline">
-                <FileUp size={16} /> Importer un fichier
-              </Link>
-              <button type="button" className="btn btn-primary" onClick={() => openCreate()} disabled={!resources || !resources.classes.length}>
-                <Plus size={16} /> Nouvelle séance
-              </button>
-            </>
-          )
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => setShowExport(true)} disabled={!entityId}>
+              <FileDown size={16} /> Exporter
+            </button>
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => {
+                    setShowHistory(true);
+                    loadHistory();
+                  }}
+                >
+                  <History size={16} /> Historique
+                </button>
+                <button type="button" className="btn btn-primary" onClick={() => openCreate()} disabled={!resources || !resources.classes.length}>
+                  <Plus size={16} /> Nouveau cours
+                </button>
+              </>
+            )}
+          </>
         }
       />
+      <TimetableNav />
 
       <div className="tt-toolbar" role="toolbar" aria-label="Affichage de l'emploi du temps">
         <div className="segmented" role="group" aria-label="Vue">
@@ -286,6 +419,12 @@ function TimetableEditor() {
           </select>
         )}
         <span className="tt-toolbar-spacer" />
+        {canEdit && view === "class" && sessions && sessions.length > 0 && (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => lockClass(!sessions.every((s) => s.locked))} title="Les cours verrouillés sont conservés lors des régénérations">
+            {sessions.every((s) => s.locked) ? <LockOpen size={15} /> : <Lock size={15} />}
+            {sessions.every((s) => s.locked) ? "Déverrouiller la classe" : "Verrouiller la classe"}
+          </button>
+        )}
         {!narrow && (
           <div className="segmented" role="group" aria-label="Période affichée">
             <button type="button" aria-pressed={!dayMode} onClick={() => setParams({ day: null })}>
@@ -309,6 +448,18 @@ function TimetableEditor() {
               {narrow ? DAY_NAMES[d].slice(0, 3) : DAY_NAMES[d]}
             </button>
           ))}
+        </div>
+      )}
+
+      {swapSource && (
+        <div className="alert alert-info swap-banner" role="status" style={{ marginBottom: 12 }}>
+          <ArrowLeftRight size={17} />
+          <div className="alert-body">
+            <span className="alert-title">Échange :</span> cliquez sur le cours à échanger avec « {sessionTitle(swapSource)} » ({DAY_NAMES[swapSource.dayOfWeek]} {swapSource.startTime}). Les deux cours doivent rester conformes à toutes les règles.
+          </div>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSwapSource(null)}>
+            <X size={15} /> Annuler
+          </button>
         </div>
       )}
 
@@ -354,10 +505,11 @@ function TimetableEditor() {
             settings={resources.settings}
             sessions={sessions}
             view={view}
-            editable={canEdit}
+            editable={canEdit && !swapSource}
             highlightId={highlight}
+            markedId={swapSource?.id}
             onSlotClick={(day, time) => openCreate(day, time)}
-            onSessionClick={(s) => setModal(draftFromSession(s))}
+            onSessionClick={(s) => (swapSource ? swapWith(s) : setModal(draftFromSession(s)))}
             onSessionChange={(s, change) => moveSession(s, change)}
           />
           {sessions.length === 0 && (
@@ -391,6 +543,9 @@ function TimetableEditor() {
             <span>
               <i style={{ background: "var(--warning-mark)" }} /> Avertissement (pause, hors horaires)
             </span>
+            <span>
+              <Lock size={12} aria-hidden="true" /> Verrouillé (conservé par la génération)
+            </span>
           </div>
         </>
       )}
@@ -404,17 +559,185 @@ function TimetableEditor() {
           onClose={() => setModal(null)}
           onSaved={(saved, created) => {
             setModal(null);
-            const conflicted = hasBlocking(saved.conflicts);
+            const warnings = (saved as Session & { warnings?: { message: string }[] }).warnings ?? [];
             feedback.toast({
-              kind: conflicted ? "warning" : "success",
-              title: created ? "Séance créée" : "Séance enregistrée",
-              message: `${sessionTitle(saved)} · ${saved.class.name} · ${DAY_NAMES[saved.dayOfWeek]} ${saved.startTime}–${saved.endTime}${conflicted ? " — en conflit" : ""}`,
+              kind: warnings.length ? "warning" : "success",
+              title: created ? "Cours créé" : "Cours enregistré",
+              message: `${sessionTitle(saved)} · ${saved.class.name} · ${DAY_NAMES[saved.dayOfWeek]} ${saved.startTime}–${saved.endTime}${warnings.length ? ` — ${warnings[0].message}` : ""}`,
             });
             refreshAfterChange();
           }}
           onDeleted={deleteSession}
+          onLockToggle={canEdit ? toggleLock : undefined}
+          onSwapStart={
+            canEdit
+              ? (id) => {
+                  const s = sessions?.find((x) => x.id === id);
+                  setModal(null);
+                  if (s) setSwapSource(s);
+                }
+              : undefined
+          }
         />
       )}
+
+      <Modal
+        open={!!refusal}
+        onClose={() => setRefusal(null)}
+        size="lg"
+        title="Modification refusée"
+        description={refusal ? `${sessionTitle(refusal.session)} · ${refusal.session.class.name} · ${DAY_NAMES[refusal.session.dayOfWeek]} ${refusal.session.startTime}–${refusal.session.endTime}` : undefined}
+      >
+        {refusal && (
+          <div className="stack" style={{ gap: 14 }}>
+            <ul className="checklist-items">
+              {(refusal.checks.length ? refusal.checks : [{ id: "GRID", status: "fail", label: refusal.message } as Check]).map((c, i) => (
+                <li key={i} className="is-fail">
+                  <XCircle size={16} className="check-fail" />
+                  <span>
+                    {c.label}
+                    {c.detail && <small>{c.detail}</small>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {!refusal.suggestions ? (
+              <p className="muted">
+                <LoaderCircle size={14} className="spin" /> Recherche des solutions compatibles…
+              </p>
+            ) : (
+              <>
+                <div>
+                  <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>
+                    Créneaux compatibles
+                  </h3>
+                  {refusal.suggestions.slots.length === 0 ? (
+                    <p className="muted">Aucun autre créneau ne respecte toutes les règles pour ce cours.</p>
+                  ) : (
+                    <div className="btn-row">
+                      {refusal.suggestions.slots.map((s) => (
+                        <button
+                          key={`${s.dayOfWeek}-${s.startTime}`}
+                          type="button"
+                          className="chip"
+                          title={s.warnings ? `${s.warnings} avertissement(s) non bloquant(s)` : "Sans avertissement"}
+                          onClick={async () => {
+                            const r = refusal;
+                            setRefusal(null);
+                            await changeSession(r.session, { dayOfWeek: s.dayOfWeek, startTime: s.startTime, endTime: s.endTime });
+                          }}
+                        >
+                          {DAY_NAMES[s.dayOfWeek].slice(0, 3)} {s.startTime}
+                          {s.warnings ? " ⚠" : ""}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {refusal.suggestions.teachers.length > 0 && (
+                  <div>
+                    <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>
+                      Autres professeurs habilités et libres sur ce créneau
+                    </h3>
+                    <div className="btn-row">
+                      {refusal.suggestions.teachers.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className="chip"
+                          onClick={async () => {
+                            const r = refusal;
+                            setRefusal(null);
+                            await changeSession(r.session, { teacherId: t.id }, `Cours confié à ${t.name}`);
+                          }}
+                        >
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {refusal.suggestions.rooms.length > 0 && (
+                  <div>
+                    <h3 className="card-title" style={{ fontSize: 14, marginBottom: 8 }}>
+                      Salles libres et adaptées
+                    </h3>
+                    <div className="btn-row">
+                      {refusal.suggestions.rooms.slice(0, 12).map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          className="chip"
+                          onClick={async () => {
+                            const current = refusal;
+                            setRefusal(null);
+                            await changeSession(current.session, { roomId: r.id }, `Salle changée : ${r.name}`);
+                          }}
+                        >
+                          {r.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={showHistory} onClose={() => setShowHistory(false)} size="lg" title="Historique des modifications" description="Qui a modifié quoi, et quand. Une modification peut être annulée tant que les cours concernés n'ont pas changé depuis.">
+        {!history ? (
+          <p className="muted">
+            <LoaderCircle size={14} className="spin" /> Chargement…
+          </p>
+        ) : history.length === 0 ? (
+          <EmptyState icon={<History size={22} />} title="Aucune modification">
+            Les ajouts, déplacements, échanges, verrouillages et générations apparaîtront ici.
+          </EmptyState>
+        ) : (
+          <ol className="history-list">
+            {history.map((h) => (
+              <li key={h.batchId} className={h.undone ? "is-undone" : ""}>
+                <div className="history-main">
+                  <span className={`badge ${h.action === "GENERATE" ? "badge-info" : h.action === "UNDO" ? "badge-neutral" : "badge-success"}`}>{ACTION_LABELS[h.action] ?? h.action}</span>
+                  <span className="history-summary">{h.summary}</span>
+                </div>
+                <div className="history-meta">
+                  <span>
+                    {h.userName ?? "—"} · {new Date(h.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+                    {h.undone ? " · annulée" : ""}
+                  </span>
+                  {h.undoable && (
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => undo(h)}>
+                      <Undo2 size={14} /> Annuler
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Modal>
+
+      <Modal open={showExport} onClose={() => setShowExport(false)} title="Exporter l'emploi du temps" description="PDF imprimable (A4 paysage) ou classeur Excel, une page ou une feuille par emploi du temps.">
+        <div className="export-grid">
+          {(["pdf", "xlsx"] as const).map((format) =>
+            [false, true].map((all) => {
+              const key = `${format}-${all ? "all" : "one"}`;
+              return (
+                <button key={key} type="button" className="export-option" onClick={() => exportFile(format, all)} disabled={!!exporting || (!all && !entityId)}>
+                  {exporting === key ? <LoaderCircle size={18} className="spin" /> : <FileDown size={18} />}
+                  <span>
+                    <strong>{format === "pdf" ? "PDF" : "Excel"}</strong>
+                    <small>{all ? `Tou${view === "room" ? "tes les salles" : view === "teacher" ? "s les enseignants" : "tes les classes"}` : selected?.name ?? "—"}</small>
+                  </span>
+                </button>
+              );
+            }),
+          )}
+        </div>
+      </Modal>
 
       <Modal open={showConflicts} onClose={() => setShowConflicts(false)} size="lg" title="Conflits de l'emploi du temps" description="Toutes classes confondues, pour l'année en cours.">
         {!allConflicts || allConflicts.length === 0 ? (

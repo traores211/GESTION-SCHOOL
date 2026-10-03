@@ -1,4 +1,4 @@
-/* Weekly timetable grid: time gutter + one column per day, lessons absolutely positioned.
+﻿/* Weekly timetable grid: time gutter + one column per day, lessons absolutely positioned.
    A lesson is tinted with its subject colour; its height is exactly its duration. */
 
 .tt-grid {
@@ -36,7 +36,7 @@
   border-left: 1px solid var(--border);
 }
 .tt-day-head.is-today { color: var(--clay-ink); }
-.tt-day-head.is-today .tt-day-long::after { content: " · aujourd'hui"; font-weight: var(--fw-medium); color: var(--text-muted); font-size: var(--fs-xs); }
+.tt-day-head.is-today .tt-day-long::after { content: " Â· aujourd'hui"; font-weight: var(--fw-medium); color: var(--text-muted); font-size: var(--fs-xs); }
 .tt-day-short { display: none; }
 .tt-day-count { min-width: 18px; padding: 0 6px; border-radius: var(--radius-sm); background: var(--paper-raised); border: 1px solid var(--rule); color: var(--text-muted); font-size: 11px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
 .tt-day-count:empty { display: none; }
@@ -214,4 +214,143 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tt-session.is-highlight { animation: none; outline: 2px solid var(--c); }
+}
+
+/* ---------- Planning: locks, swap, free half-days ---------- */
+
+.tt-break.tt-free {
+  background: repeating-linear-gradient(135deg, var(--paper-sunken) 0 6px, color-mix(in srgb, var(--rule) 55%, transparent) 6px 7px);
+}
+.tt-session.is-locked { border-style: solid; border-width: 1px 1px 1px 3px; border-left-color: var(--c); }
+.tt-session-flag.tt-session-lock { background: color-mix(in srgb, var(--c) 70%, var(--ink)); }
+.tt-session.is-marked { outline: 2px dashed var(--clay); outline-offset: 2px; z-index: 3; box-shadow: var(--shadow-md); }
+.swap-banner { align-items: center; }
+.swap-banner .btn { margin-left: auto; }
+
+/* ---------- Lesson form: fields + checklist ---------- */
+
+.lesson-form { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.checklist {
+  position: sticky;
+  top: 0;
+  padding: 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper-sunken);
+}
+.checklist-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; font-size: var(--fs-sm); }
+.checklist-head > span { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
+.checklist-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.checklist-items li { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; font-size: 12.5px; line-height: 1.35; color: var(--text); }
+.checklist-items li svg { margin-top: 1px; }
+.checklist-items li small { display: block; margin-top: 2px; color: var(--text-muted); font-size: 11.5px; }
+.checklist-items li.is-fail small { color: var(--danger); }
+.checklist-items li.is-na { color: var(--text-muted); }
+.checklist-warnings { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--rule-strong); }
+.check-ok { color: var(--success); }
+.check-fail { color: var(--danger); }
+.check-na { color: var(--text-subtle); }
+.check-warn { color: var(--warning-mark); }
+.check-inline { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: var(--fs-xs); color: var(--text-muted); cursor: pointer; }
+
+.free-slots { display: grid; gap: 6px; margin-top: 4px; }
+.free-slots-day { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.free-slots-label { width: 34px; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-muted); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 2px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--paper-raised);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+.chip:hover { border-color: var(--clay); background: color-mix(in srgb, var(--clay) 8%, var(--paper-raised)); }
+.chip.is-active, .chip[aria-pressed="true"] { border-color: var(--clay); background: var(--clay); color: var(--paper-raised); }
+
+/* ---------- History & export ---------- */
+
+.history-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.history-list li { padding: 10px 2px; border-bottom: 1px dashed var(--rule); }
+.history-list li.is-undone { opacity: 0.55; }
+.history-list li.is-undone .history-summary { text-decoration: line-through; }
+.history-main { display: flex; gap: 10px; align-items: baseline; }
+.history-summary { font-size: var(--fs-sm); line-height: 1.4; }
+.history-meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 4px; font-size: var(--fs-xs); color: var(--text-muted); }
+
+.export-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--paper-raised);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-out);
+}
+.export-option:hover:not(:disabled) { border-color: var(--clay); transform: translateY(-1px); }
+.export-option:disabled { opacity: 0.55; cursor: not-allowed; }
+.export-option span { display: grid; gap: 2px; }
+.export-option small { color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* ---------- Generation, compliance, planning import ---------- */
+
+.tt-nav { margin-bottom: 16px; }
+.gen-scope { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.gen-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
+.gen-stat { padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--radius-lg); background: var(--paper-raised); }
+.gen-stat strong { display: block; font-family: var(--font-serif, inherit); font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.gen-stat span { font-size: var(--fs-xs); color: var(--text-muted); }
+.gen-stat.is-good strong { color: var(--success); }
+.gen-stat.is-bad strong { color: var(--danger); }
+.unplaced-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.unplaced-list li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; padding: 10px 12px; border-radius: var(--radius); background: var(--danger-light); color: var(--danger); font-size: var(--fs-sm); }
+
+.hours-bar { position: relative; height: 8px; min-width: 90px; border-radius: 999px; background: var(--paper-sunken); overflow: hidden; }
+.hours-bar > span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--success); }
+.hours-bar.is-missing > span { background: var(--warning-mark); }
+.hours-bar.is-over > span { background: var(--danger); }
+.status-pill { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); font-weight: var(--fw-semibold); white-space: nowrap; }
+.status-pill.is-ok { color: var(--success); }
+.status-pill.is-missing { color: var(--warning); }
+.status-pill.is-over { color: var(--danger); }
+.status-pill.is-none { color: var(--text-muted); }
+.subject-rows { display: grid; gap: 4px; margin-top: 6px; }
+.subject-row { display: grid; grid-template-columns: minmax(110px, 1fr) 90px 70px auto; gap: 10px; align-items: center; font-size: var(--fs-xs); }
+
+.report-row.is-error td { background: color-mix(in srgb, var(--danger) 6%, transparent); }
+.report-row.is-warning td { background: color-mix(in srgb, var(--warning-mark) 8%, transparent); }
+.report-msgs { display: grid; gap: 2px; font-size: var(--fs-xs); }
+.report-msgs .err { color: var(--danger); }
+.report-msgs .warn { color: var(--warning); }
+.dropzone {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  border: 1.5px dashed var(--rule-strong);
+  border-radius: var(--radius-lg);
+  background: var(--paper-sunken);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+}
+.dropzone:hover, .dropzone.is-over { border-color: var(--clay); background: color-mix(in srgb, var(--clay) 6%, var(--paper-sunken)); }
+
+@media (max-width: 860px) {
+  .lesson-form { grid-template-columns: 1fr; }
+  .checklist { position: static; }
+  .export-grid { grid-template-columns: 1fr; }
+  .subject-row { grid-template-columns: 1fr 70px auto; }
+  .subject-row .hours-bar { display: none; }
 }

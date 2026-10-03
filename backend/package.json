@@ -24,7 +24,9 @@
     "test:e2e": "node test/e2e-import.js",
     "fixtures": "ts-node test/make-fixtures.ts",
     "seed:timetable": "ts-node prisma/seed-timetable.ts",
-    "seed:bulk": "ts-node prisma/seed-bulk.ts"
+    "seed:bulk": "ts-node prisma/seed-bulk.ts",
+    "seed:planning": "ts-node prisma/seed-planning.ts",
+    "seed:admissions": "ts-node prisma/seed-admissions.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",

@@ -56,7 +56,7 @@ export default function PublicAdmissionPage() {
     setSubmitting(true);
     try {
       const res = await api.post<{ reference: string }>(`/public/schools/${params?.code}/admissions`, form);
-      setReference(res.reference.slice(-6).toUpperCase());
+      setReference(res.reference.startsWith("ADM-") ? res.reference : res.reference.slice(-6).toUpperCase());
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Une erreur est survenue");
     } finally {

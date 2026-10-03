@@ -12,7 +12,10 @@ import {
   hasBlockingConflict,
   validateSlot,
 } from './domain/conflicts';
-import { TIME_PATTERN, formatSlot, fromMinutes, parseDays, parseRanges, toMinutes } from './domain/time';
+import { TIME_PATTERN, formatSlot, fromMinutes, parseRanges, toMinutes } from './domain/time';
+import { YearGrid, formatHalfDays, hourUnit } from './domain/grid';
+import { LessonReport, checkLesson, failureMessages } from './domain/rules';
+import { PlanningDataService, SessionSnapshot } from './planning/planning-data.service';
 import {
   CheckSlotDto,
   DuplicateSessionDto,
@@ -34,15 +37,81 @@ export const SESSION_INCLUDE = {
 
 type SessionWithRefs = Prisma.TimetableSessionGetPayload<{ include: typeof SESSION_INCLUDE }>;
 
-export type TimetableSettings = GridSettings & { slotMinutes: number };
+export type TimetableSettings = GridSettings & {
+  slotMinutes: number;
+  freeHalfDays: string;
+  halfDaySplit: string;
+  maxClassHoursPerDay: number | null;
+  maxTeacherHoursPerDay: number | null;
+};
 
 export function teacherDisplayName(user: { firstName: string; lastName: string }) {
   return `${user.firstName} ${user.lastName}`.trim();
 }
 
+/** Grid as sent to the editor: the year settings, with daily maximums in official hours. */
+export function presentGrid(grid: YearGrid): TimetableSettings {
+  const unit = hourUnit(grid);
+  return {
+    days: grid.days,
+    start: grid.start,
+    end: grid.end,
+    breaks: grid.breaks,
+    slotMinutes: grid.slotMinutes,
+    freeHalfDays: formatHalfDays(grid.freeHalfDays),
+    halfDaySplit: grid.halfDaySplit,
+    maxClassHoursPerDay: grid.maxClassMinutesPerDay == null ? null : grid.maxClassMinutesPerDay / unit,
+    maxTeacherHoursPerDay: grid.maxTeacherMinutesPerDay == null ? null : grid.maxTeacherMinutesPerDay / unit,
+  };
+}
+
+/** Lesson refused by the rules: 409 with every check, so the form can show ✅/❌. */
+export function refuse(report: LessonReport, prefix = 'Cours refusé') {
+  throw new ConflictException({ message: `${prefix} : ${failureMessages(report).join(' · ')}`, checks: report.checks, warnings: report.warnings, conflicts: [] });
+}
+
+/** Session fields kept in the history, enough to recreate it on undo. */
+export function snapshot(s: SessionSnapshot | SessionWithRefs): SessionSnapshot {
+  return {
+    id: s.id,
+    classId: s.classId,
+    subjectId: s.subjectId,
+    teacherId: s.teacherId,
+    roomId: s.roomId,
+    termId: s.termId,
+    dayOfWeek: s.dayOfWeek,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    label: s.label,
+    notes: s.notes,
+    locked: s.locked,
+    importId: s.importId,
+  };
+}
+
+/** "Mathématiques · 6e A · Lundi 08:00–10:00" for the history. */
+export function describe(s: SessionWithRefs) {
+  return [s.subject?.name ?? s.label ?? 'Séance', s.class?.name, formatSlot(s.dayOfWeek, s.startTime, s.endTime)].filter(Boolean).join(' · ');
+}
+
+export function describeChange(before: SessionWithRefs, after: SessionWithRefs) {
+  const parts: string[] = [];
+  if (before.dayOfWeek !== after.dayOfWeek || before.startTime !== after.startTime || before.endTime !== after.endTime) {
+    parts.push(formatSlot(after.dayOfWeek, after.startTime, after.endTime));
+  }
+  if (before.teacherId !== after.teacherId) parts.push(`professeur : ${after.teacher ? teacherDisplayName(after.teacher.user) : 'aucun'}`);
+  if (before.roomId !== after.roomId) parts.push(`salle : ${after.room?.name ?? 'aucune'}`);
+  if (before.subjectId !== after.subjectId) parts.push(`matière : ${after.subject?.name ?? 'aucune'}`);
+  if (before.classId !== after.classId) parts.push(`classe : ${after.class?.name}`);
+  return parts.join(', ') || 'détails';
+}
+
 @Injectable()
 export class TimetableService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly planning: PlanningDataService,
+  ) {}
 
   // ---------------------------------------------------------------- context
 
@@ -62,18 +131,14 @@ export class TimetableService {
     return current.id;
   }
 
-  async loadSettings(schoolId: string): Promise<TimetableSettings> {
-    const school = await this.prisma.school.findUniqueOrThrow({
-      where: { id: schoolId },
-      select: { timetableDays: true, timetableStart: true, timetableEnd: true, timetableBreaks: true, timetableSlotMinutes: true },
-    });
-    return {
-      days: parseDays(school.timetableDays),
-      start: school.timetableStart,
-      end: school.timetableEnd,
-      breaks: parseRanges(school.timetableBreaks),
-      slotMinutes: school.timetableSlotMinutes,
-    };
+  /** Grid of the given year (current year by default). */
+  async loadSettings(schoolId: string, academicYearId?: string): Promise<TimetableSettings> {
+    return presentGrid(await this.loadGrid(schoolId, academicYearId));
+  }
+
+  async loadGrid(schoolId: string, academicYearId?: string): Promise<YearGrid> {
+    const yearId = academicYearId ?? (await this.resolveYearId(schoolId));
+    return this.planning.loadGrid(schoolId, yearId);
   }
 
   /** Display names for conflict messages, for every class/teacher/room of the school. */
@@ -102,30 +167,41 @@ export class TimetableService {
 
   // ---------------------------------------------------------------- settings & resources
 
-  async getSettings(user: AuthUser) {
-    return this.loadSettings(this.requireSchool(user));
+  async getSettings(user: AuthUser, academicYearId?: string) {
+    const schoolId = this.requireSchool(user);
+    return this.loadSettings(schoolId, await this.resolveYearId(schoolId, academicYearId));
   }
 
+  /** Saves the grid of one academic year (the current year by default). */
   async updateSettings(user: AuthUser, dto: TimetableSettingsDto) {
     const schoolId = this.requireSchool(user);
-    const current = await this.loadSettings(schoolId);
+    const yearId = await this.resolveYearId(schoolId, dto.academicYearId);
+    const current = await this.planning.loadGrid(schoolId, yearId);
     const start = dto.start ?? current.start;
     const end = dto.end ?? current.end;
+    const split = dto.halfDaySplit ?? current.halfDaySplit;
+    const slot = dto.slotMinutes ?? current.slotMinutes;
     if (start >= end) throw new BadRequestException("L'heure de fin de journée doit être après l'heure de début");
+    if (split <= start || split >= end) throw new BadRequestException(`La limite matin / après-midi doit être entre ${start} et ${end}`);
     if (dto.days && dto.days.length === 0) throw new BadRequestException('Sélectionnez au moins un jour de cours');
-    await this.prisma.school.update({
-      where: { id: schoolId },
-      data: {
-        ...(dto.days ? { timetableDays: [...new Set(dto.days)].sort().join(',') } : {}),
-        timetableStart: start,
-        timetableEnd: end,
-        ...(dto.breaks !== undefined
-          ? { timetableBreaks: parseRanges(dto.breaks).map((b) => `${b.start}-${b.end}`).join(',') }
-          : {}),
-        ...(dto.slotMinutes ? { timetableSlotMinutes: dto.slotMinutes } : {}),
-      },
-    });
-    return this.loadSettings(schoolId);
+    const breaks = dto.breaks !== undefined ? parseRanges(dto.breaks) : current.breaks;
+    const outside = breaks.find((b) => b.start < start || b.end > end);
+    if (outside) throw new BadRequestException(`La pause ${outside.start}–${outside.end} sort de la journée de cours`);
+    const unit = slot >= 45 && slot <= 60 ? slot : 60;
+    const toMin = (hours: number | null | undefined, fallback: number | null) => (hours === undefined ? fallback : hours === null ? null : Math.round(hours * unit));
+    const data = {
+      days: [...new Set(dto.days ?? current.days)].sort((a, b) => a - b).join(','),
+      start,
+      end,
+      slotMinutes: slot,
+      breaks: breaks.map((b) => `${b.start}-${b.end}`).join(','),
+      freeHalfDays: dto.freeHalfDays !== undefined ? formatHalfDays(dto.freeHalfDays) : formatHalfDays(current.freeHalfDays),
+      halfDaySplit: split,
+      maxClassMinutesPerDay: toMin(dto.maxClassHoursPerDay, current.maxClassMinutesPerDay),
+      maxTeacherMinutesPerDay: toMin(dto.maxTeacherHoursPerDay, current.maxTeacherMinutesPerDay),
+    };
+    await this.prisma.timetableGrid.upsert({ where: { academicYearId: yearId }, update: data, create: { ...data, academicYearId: yearId } });
+    return this.loadSettings(schoolId, yearId);
   }
 
   /** Everything the editor needs in one call: classes, subjects, teachers, rooms, terms, settings. */
@@ -142,22 +218,32 @@ export class TimetableService {
       this.prisma.subject.findMany({ where: { schoolId }, select: { id: true, name: true, code: true, color: true }, orderBy: { name: 'asc' } }),
       this.prisma.staffMember.findMany({
         where: { user: { schoolId, role: { in: ['ENSEIGNANT', 'DIRECTOR'] } } },
-        select: { id: true, position: true, user: { select: { firstName: true, lastName: true, role: true } } },
+        select: { id: true, position: true, matricule: true, weeklyMaxMinutes: true, user: { select: { firstName: true, lastName: true, role: true } } },
         orderBy: { user: { lastName: 'asc' } },
       }),
-      this.prisma.room.findMany({ where: { schoolId }, orderBy: { name: 'asc' } }),
+      this.prisma.room.findMany({ where: { schoolId }, include: { subjects: { select: { id: true } } }, orderBy: { name: 'asc' } }),
       this.prisma.term.findMany({ where: { academicYearId: yearId }, select: { id: true, name: true, order: true }, orderBy: { order: 'asc' } }),
-      this.loadSettings(schoolId),
+      this.loadSettings(schoolId, yearId),
       this.prisma.staffMember.findUnique({ where: { userId: user.userId }, select: { id: true } }),
     ]);
+    // Planning data, so the lesson form can filter its lists and pre-check rules client side.
+    const data = await this.planning.loadData(schoolId, yearId);
     return {
       academicYear: year,
       classes: classes.map(({ _count, ...c }) => ({ ...c, studentCount: _count.enrollments })),
       subjects,
-      teachers: teachers.map((t) => ({ id: t.id, name: teacherDisplayName(t.user), position: t.position })),
-      rooms,
+      teachers: teachers.map((t) => ({ id: t.id, name: teacherDisplayName(t.user), position: t.position, matricule: t.matricule, weeklyMaxMinutes: t.weeklyMaxMinutes })),
+      rooms: rooms.map(({ subjects: linked, ...r }) => ({ ...r, subjectIds: linked.map((s) => s.id) })),
       terms,
       settings,
+      planning: {
+        qualifications: data.qualifications,
+        availability: Object.fromEntries(data.availability),
+        volumes: [...data.volumes.entries()].map(([key, v]) => {
+          const [level, subjectId] = key.split('|');
+          return { level, subjectId, ...v };
+        }),
+      },
       me: { role: user.role, teacherId: me?.id ?? null },
     };
   }
@@ -174,7 +260,7 @@ export class TimetableService {
         orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
       }),
       this.nameLookup(schoolId),
-      this.loadSettings(schoolId),
+      this.loadSettings(schoolId, academicYearId),
     ]);
     // Conflicts are computed on the whole year, then the requested view is filtered.
     const conflicts = detectAllConflicts(all, names, settings);
@@ -205,22 +291,37 @@ export class TimetableService {
     };
   }
 
+  /** Every rule for a lesson, without saving it (lesson form, drag preview). */
   async check(user: AuthUser, dto: CheckSlotDto) {
     const schoolId = this.requireSchool(user);
     const klass = await this.assertRefs(schoolId, dto);
-    return { conflicts: await this.conflictsFor(schoolId, klass.academicYearId, { ...dto, id: dto.id }) };
+    const [report, conflicts] = await Promise.all([
+      this.report(schoolId, klass.academicYearId, { ...dto, id: dto.id }),
+      this.conflictsFor(schoolId, klass.academicYearId, { ...dto, id: dto.id }),
+    ]);
+    return { ...report, conflicts };
+  }
+
+  /** The shared rules applied to one lesson against the current timetable of its year. */
+  async report(schoolId: string, academicYearId: string, lesson: SessionDto & { id?: string }): Promise<LessonReport> {
+    const [data, lessons] = await Promise.all([this.planning.loadData(schoolId, academicYearId), this.planning.yearLessons(schoolId, academicYearId)]);
+    return checkLesson(lesson, data, lessons);
   }
 
   async create(user: AuthUser, dto: SessionDto) {
     const schoolId = this.requireSchool(user);
     const klass = await this.assertRefs(schoolId, dto);
-    const conflicts = await this.conflictsFor(schoolId, klass.academicYearId, dto);
-    this.refuseIfBlocking(conflicts, dto.force);
-    const created = await this.prisma.timetableSession.create({
-      data: { ...this.data(dto), schoolId, academicYearId: klass.academicYearId },
-      include: SESSION_INCLUDE,
+    const report = await this.report(schoolId, klass.academicYearId, dto);
+    if (!report.ok) refuse(report, 'Cours refusé');
+    const batch = this.planning.newBatch();
+    const created = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.timetableSession.create({ data: { ...this.data(dto), schoolId, academicYearId: klass.academicYearId }, include: SESSION_INCLUDE });
+      await this.planning.record(tx, user, schoolId, klass.academicYearId, batch, [
+        { action: 'CREATE', sessionId: row.id, after: snapshot(row), summary: `Ajout : ${describe(row)}` },
+      ]);
+      return row;
     });
-    return this.present(created, conflicts);
+    return { ...this.present(created, []), warnings: report.warnings };
   }
 
   async update(user: AuthUser, id: string, dto: UpdateSessionDto) {
@@ -239,14 +340,18 @@ export class TimetableService {
       notes: dto.notes !== undefined ? dto.notes : existing.notes,
     };
     const klass = await this.assertRefs(schoolId, merged);
-    const conflicts = await this.conflictsFor(schoolId, klass.academicYearId, { ...merged, id });
-    this.refuseIfBlocking(conflicts, dto.force);
-    const updated = await this.prisma.timetableSession.update({
-      where: { id },
-      data: { ...this.data(merged), academicYearId: klass.academicYearId },
-      include: SESSION_INCLUDE,
+    const report = await this.report(schoolId, klass.academicYearId, { ...merged, id });
+    if (!report.ok) refuse(report, 'Modification refusée');
+    const batch = this.planning.newBatch();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const before = await tx.timetableSession.findUniqueOrThrow({ where: { id }, include: SESSION_INCLUDE });
+      const row = await tx.timetableSession.update({ where: { id }, data: { ...this.data(merged), academicYearId: klass.academicYearId }, include: SESSION_INCLUDE });
+      await this.planning.record(tx, user, schoolId, klass.academicYearId, batch, [
+        { action: 'UPDATE', sessionId: id, before: snapshot(before), after: snapshot(row), summary: `Modification : ${describe(before)} → ${describeChange(before, row)}` },
+      ]);
+      return row;
     });
-    return this.present(updated, conflicts);
+    return { ...this.present(updated, []), warnings: report.warnings };
   }
 
   /**
@@ -268,7 +373,6 @@ export class TimetableService {
       endTime: source.endTime,
       label: source.label,
       notes: source.notes,
-      force: dto.force,
     };
     if (dto.startTime) {
       const end = toMinutes(dto.startTime) + duration;
@@ -281,47 +385,73 @@ export class TimetableService {
       return this.create(user, base);
     }
 
-    const settings = await this.loadSettings(schoolId);
-    const days = settings.days.length ? settings.days : [1, 2, 3, 4, 5, 6];
+    const [data, lessons] = await Promise.all([
+      this.planning.loadData(schoolId, source.academicYearId),
+      this.planning.yearLessons(schoolId, source.academicYearId),
+    ]);
+    const days = data.grid.days.length ? data.grid.days : [1, 2, 3, 4, 5, 6];
     const ordered = [...days.filter((d) => d > source.dayOfWeek), ...days.filter((d) => d < source.dayOfWeek)];
     for (const day of ordered) {
       const candidate = { ...base, dayOfWeek: day };
-      const conflicts = await this.conflictsFor(schoolId, source.academicYearId, candidate);
-      if (!hasBlockingConflict(conflicts)) return this.create(user, candidate);
+      if (checkLesson(candidate, data, lessons).ok) return this.create(user, candidate);
     }
     throw new ConflictException({
-      message: `Aucun autre jour n'est libre de ${source.startTime} à ${source.endTime} pour cette classe, cet enseignant et cette salle`,
+      message: `Aucun autre jour ne permet de copier ce cours de ${source.startTime} à ${source.endTime} sans enfreindre une règle (classe, professeur, salle ou volume horaire)`,
       conflicts: [],
     });
   }
 
   async remove(user: AuthUser, id: string) {
     const schoolId = this.requireSchool(user);
-    await this.findOwned(schoolId, id);
-    await this.prisma.timetableSession.delete({ where: { id } });
+    const existing = await this.findOwned(schoolId, id);
+    const batch = this.planning.newBatch();
+    await this.prisma.$transaction(async (tx) => {
+      const before = await tx.timetableSession.findUniqueOrThrow({ where: { id }, include: SESSION_INCLUDE });
+      await tx.timetableSession.delete({ where: { id } });
+      await this.planning.record(tx, user, schoolId, existing.academicYearId, batch, [
+        { action: 'DELETE', sessionId: id, before: snapshot(before), summary: `Suppression : ${describe(before)}` },
+      ]);
+    });
     return { success: true };
   }
 
   // ---------------------------------------------------------------- rooms
 
-  listRooms(user: AuthUser) {
+  async listRooms(user: AuthUser) {
     const schoolId = this.requireSchool(user);
-    return this.prisma.room.findMany({
+    const rooms = await this.prisma.room.findMany({
       where: { schoolId },
-      include: { _count: { select: { sessions: true } } },
+      include: { _count: { select: { sessions: true } }, subjects: { select: { id: true, name: true } } },
       orderBy: { name: 'asc' },
     });
+    return rooms.map((r) => ({ ...r, subjectIds: r.subjects.map((s) => s.id) }));
   }
 
-  createRoom(user: AuthUser, dto: RoomDto) {
+  async createRoom(user: AuthUser, dto: RoomDto) {
     const schoolId = this.requireSchool(user);
-    return this.prisma.room.create({ data: { ...dto, name: dto.name.trim(), schoolId } });
+    const { subjectIds, ...rest } = dto;
+    const subjects = await this.roomSubjects(schoolId, subjectIds);
+    return this.prisma.room.create({ data: { ...rest, name: dto.name.trim(), schoolId, ...(subjects ? { subjects: { connect: subjects } } : {}) } });
   }
 
   async updateRoom(user: AuthUser, id: string, dto: UpdateRoomDto) {
     const schoolId = this.requireSchool(user);
     await this.findOwnedRoom(schoolId, id);
-    return this.prisma.room.update({ where: { id }, data: { ...dto, ...(dto.name ? { name: dto.name.trim() } : {}) } });
+    const { subjectIds, ...rest } = dto;
+    const subjects = await this.roomSubjects(schoolId, subjectIds);
+    return this.prisma.room.update({
+      where: { id },
+      data: { ...rest, ...(dto.name ? { name: dto.name.trim() } : {}), ...(subjects ? { subjects: { set: subjects } } : {}) },
+    });
+  }
+
+  /** Validates the subjects of a specialised room (undefined = leave unchanged). */
+  private async roomSubjects(schoolId: string, ids: string[] | undefined) {
+    if (ids === undefined) return undefined;
+    const unique = [...new Set(ids)];
+    const found = await this.prisma.subject.count({ where: { schoolId, id: { in: unique } } });
+    if (found !== unique.length) throw new NotFoundException('Matière introuvable');
+    return unique.map((id) => ({ id }));
   }
 
   async removeRoom(user: AuthUser, id: string) {
@@ -370,20 +500,9 @@ export class TimetableService {
     const [others, names, settings] = await Promise.all([
       this.yearSlots(schoolId, academicYearId),
       this.nameLookup(schoolId),
-      this.loadSettings(schoolId),
+      this.loadSettings(schoolId, academicYearId),
     ]);
     return [...validateSlot(slot, settings), ...findConflicts(slot, others, names)];
-  }
-
-  private refuseIfBlocking(conflicts: Conflict[], force?: boolean) {
-    const invalid = conflicts.filter((c) => c.kind === 'INVALID');
-    if (invalid.length) throw new BadRequestException(invalid.map((c) => c.message).join(' · '));
-    if (!force && hasBlockingConflict(conflicts)) {
-      throw new ConflictException({
-        message: 'Ce créneau est en conflit : ' + conflicts.filter((c) => c.severity === 'error').map((c) => c.message).join(' · '),
-        conflicts,
-      });
-    }
   }
 
   private data(dto: SessionDto) {
