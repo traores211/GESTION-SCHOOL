@@ -87,6 +87,9 @@ function findKeys(value, path = '', found = []) {
     ok(checked >= 30, `${checked} responses examined for 4 roles`);
     ok(leaks.length === 0, 'no password hash, two-factor secret or token hash in any response', leaks);
 
+    const metrics = await (await fetch(`${BASE}/metrics`)).text();
+    ok(/http_requests_total\{method="GET",status="2xx"\} \d+/.test(metrics) && /school_erp_database_up 1/.test(metrics) && !/@|admin|Bearer/.test(metrics), 'the metrics page counts requests and carries no personal data');
+
     const created = await fetch(`${BASE}/staff`, { method: 'POST', headers: { Authorization: `Bearer ${tokens.admin}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ firstName: 'Temp', lastName: 'Test-Leaks', email: `test-leaks-${Date.now()}@school.local`, role: 'ENSEIGNANT', position: 'Professeur', hireDate: '2026-01-01' }) });
     const body = await created.json();
     ok(created.status === 201 && findKeys(body).length === 0 && typeof body.temporaryPassword === 'string', 'creating an account returns the temporary password once, never the stored hash', findKeys(body));

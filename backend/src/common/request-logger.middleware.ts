@@ -1,6 +1,7 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
+import { observeRequest } from '../infra/metrics';
 
 /**
  * Gives every request an id (kept from X-Request-Id when a proxy sets one, returned in the response
@@ -17,7 +18,8 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     req.id = typeof incoming === 'string' && /^[\w-]{8,64}$/.test(incoming) ? incoming : randomUUID();
     res.setHeader('X-Request-Id', req.id);
     res.on('finish', () => {
-      if (req.originalUrl.endsWith('/health')) return;
+      if (req.originalUrl.endsWith('/health') || req.originalUrl.endsWith('/metrics')) return;
+      observeRequest(req.method, res.statusCode, Date.now() - start);
       const entry = {
         msg: `${req.method} ${req.originalUrl.split('?')[0]} ${res.statusCode} ${Date.now() - start}ms`,
         requestId: req.id ?? '-',
