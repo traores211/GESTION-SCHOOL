@@ -268,7 +268,7 @@ export function Heatmap({
                 return (
                   <td
                     key={i}
-                    style={v === null ? undefined : { background: `color-mix(in srgb, var(--series-1) ${Math.round(8 + s * 64)}%, var(--surface))` }}
+                    style={v === null ? undefined : { background: `color-mix(in srgb, var(--series-1) calc(8% + ${s.toFixed(3)} * var(--heat-range)), var(--surface))` }}
                     title={v === null ? "Pas d'appel" : `${r.label}, ${columns[i]} : ${format(v)}`}
                   >
                     {v === null ? "—" : format(v)}

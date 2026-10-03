@@ -276,7 +276,6 @@ export default function AttendancePage() {
                             type="button"
                             role="radio"
                             aria-checked={status === opt.value}
-                            aria-pressed={status === opt.value}
                             onClick={() => setMarks((m) => ({ ...m, [e.student.id]: opt.value }))}
                           >
                             {opt.label}

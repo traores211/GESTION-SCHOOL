@@ -446,7 +446,7 @@ function Sections({ data, loading }: { data: Analytics | null; loading: boolean 
           empty={!data?.classFill.length}
           emptyText="Aucune classe pour cette année."
         >
-          <div className="meter-list meter-list-scroll">
+          <div className="meter-list meter-list-scroll" role="region" aria-label="Remplissage des classes" tabIndex={0}>
             {data?.classFill.map((c) => {
               const level =
                 c.rate === null || !thresholds ? "" : c.rate >= thresholds.classFillDanger ? " is-danger" : c.rate >= thresholds.classFillWarning ? " is-warning" : "";

@@ -31,7 +31,7 @@
   /* ---- Semantic (always paired with an icon or a label) ---- */
   --olive: #00754a; /* vert du drapeau, darkened for text (AA) */
   --olive-wash: #d9eedf;
-  --ochre: #8a5a00;
+  --ochre: #7a4f00;
   --ochre-mark: #d39a2a;
   --ochre-wash: #f5e7c8;
   --crimson: #a2302a;
@@ -1134,7 +1134,8 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .segmented button:hover { color: var(--text); }
-.segmented button[aria-pressed="true"] {
+.segmented button[aria-pressed="true"],
+.segmented button[aria-checked="true"] {
   background: var(--paper-raised);
   color: var(--ink);
   box-shadow: 0 0 0 1px var(--rule-strong);
@@ -1157,6 +1158,7 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
 .alert-body { flex: 1; min-width: 0; }
 .alert-title { font-weight: var(--fw-bold); }
 .alert-danger { background: var(--danger-light); border-color: color-mix(in srgb, var(--crimson) 30%, transparent); color: var(--danger); }
+.alert a { color: inherit; font-weight: var(--fw-semibold, 600); text-decoration: underline; text-underline-offset: 2px; }
 .alert-warning { background: var(--warning-light); border-color: color-mix(in srgb, var(--ochre) 30%, transparent); color: var(--warning); }
 .alert-info { background: var(--info-light); border-color: color-mix(in srgb, var(--slate) 30%, transparent); color: var(--info); }
 .alert-success { background: var(--success-light); border-color: color-mix(in srgb, var(--olive) 30%, transparent); color: var(--success); }
@@ -1247,6 +1249,12 @@ a.alert:hover { text-decoration: none; filter: brightness(0.98); }
 
 /* Heatmap */
 .heatmap-wrap { overflow-x: auto; }
+/* How far the strongest cell goes towards the series colour; shorter in dark mode so the light text stays readable. */
+.heatmap { --heat-range: 64%; }
+:root[data-theme="dark"] .heatmap { --heat-range: 34%; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .heatmap { --heat-range: 34%; }
+}
 .heatmap { border-collapse: separate; border-spacing: 2px; width: 100%; font-variant-numeric: tabular-nums; }
 .heatmap thead tr { background: none; }
 .heatmap th { position: static; background: none; border: none; padding: 4px 8px; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--ink-2); text-align: center; }
