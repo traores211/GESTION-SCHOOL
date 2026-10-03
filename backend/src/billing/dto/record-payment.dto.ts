@@ -1,4 +1,4 @@
-import { IsIn, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsPositive, IsString, MaxLength } from 'class-validator';
 
 const METHODS = [
   'CASH',
@@ -12,7 +12,8 @@ const METHODS = [
 ] as const;
 
 export class RecordPaymentDto {
-  @IsNumber()
+  /** Whole francs CFA. */
+  @IsInt({ message: 'Montant en francs CFA entiers' })
   @IsPositive()
   amount!: number;
 
@@ -21,5 +22,6 @@ export class RecordPaymentDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   reference?: string;
 }

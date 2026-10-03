@@ -8,6 +8,25 @@ import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { BillingService } from './billing.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
+import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { PageQueryDto } from '../common/pagination';
+
+class InvoiceQueryDto extends PageQueryDto {
+  @IsOptional()
+  @IsString()
+  studentId?: string;
+
+  @IsOptional()
+  @IsIn(['DRAFT', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'CANCELLED'])
+  status?: string;
+}
+
+class ReasonDto {
+  @IsString()
+  @MinLength(3, { message: 'Indiquez le motif' })
+  @MaxLength(500)
+  reason!: string;
+}
 
 @Controller('billing')
 @ApiTags('Billing')
@@ -23,8 +42,20 @@ export class BillingController {
   }
 
   @Get('invoices')
-  findAll(@CurrentUser() user: AuthUser, @Query('studentId') studentId?: string, @Query('status') status?: string) {
-    return this.billingService.findAll(user, studentId, status);
+  findAll(@CurrentUser() user: AuthUser, @Query() q: InvoiceQueryDto) {
+    return this.billingService.findAll(user, q.studentId, q.status, q);
+  }
+
+  @Post('invoices/:id/cancel')
+  @Roles(...FINANCE)
+  cancel(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ReasonDto) {
+    return this.billingService.cancelInvoice(user, id, dto.reason);
+  }
+
+  @Post('payments/:id/refund')
+  @Roles(...FINANCE)
+  refund(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ReasonDto) {
+    return this.billingService.refundPayment(user, id, dto.reason);
   }
 
   @Get('invoices/:id')

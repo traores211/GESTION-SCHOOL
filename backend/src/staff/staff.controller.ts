@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsNumber, IsPositive } from 'class-validator';
+import { IsIn, IsNumber, IsPositive } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
@@ -8,6 +8,11 @@ import { FINANCE, MANAGEMENT, OFFICE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { StaffService } from './staff.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
+
+class StaffStatusDto {
+  @IsIn(['ACTIVE', 'INACTIVE', 'ARCHIVED'])
+  status!: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+}
 
 class UpdateSalaryDto {
   @IsNumber()
@@ -30,8 +35,14 @@ export class StaffController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query('role') role?: string) {
-    return this.staffService.findAll(user, role);
+  findAll(@CurrentUser() user: AuthUser, @Query('role') role?: string, @Query('archived') archived?: string) {
+    return this.staffService.findAll(user, role, archived === 'true');
+  }
+
+  @Roles(...MANAGEMENT)
+  @Patch(':id/status')
+  setStatus(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: StaffStatusDto) {
+    return this.staffService.setStatus(user, id, dto.status);
   }
 
   @Get(':id')

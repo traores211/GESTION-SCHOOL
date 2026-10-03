@@ -3,21 +3,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
+import { Prisma } from '@prisma/client';
+import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
+import { SequenceService } from '../infra/sequence.service';
 
 @Injectable()
 export class StudentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sequences: SequenceService,
+  ) {}
 
-  private async generateMatricule(schoolId: string): Promise<string> {
-    // Matricules are globally unique; count+1 collides after a deletion, so probe upwards.
-    const year = new Date().getFullYear();
-    let next = (await this.prisma.student.count({ where: { schoolId } })) + 1;
-    for (;;) {
-      const candidate = `${year}-${String(next).padStart(4, '0')}`;
-      const taken = await this.prisma.student.findUnique({ where: { matricule: candidate }, select: { id: true } });
-      if (!taken) return candidate;
-      next += 1;
-    }
+  /** Platform-wide unique student number from an atomic counter (safe with simultaneous entries). */
+  private generateMatricule(): Promise<string> {
+    return this.sequences.matricule();
   }
 
   async create(user: AuthUser, dto: CreateStudentDto) {
@@ -25,7 +24,7 @@ export class StudentsService {
       throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
     }
     const { classId, ...data } = dto;
-    const matricule = await this.generateMatricule(user.schoolId);
+    const matricule = await this.generateMatricule();
 
     return this.prisma.student.create({
       data: {
@@ -43,33 +42,37 @@ export class StudentsService {
     });
   }
 
-  async findAll(user: AuthUser, search?: string, classId?: string) {
+  /**
+   * Students of the school. Archived students are hidden unless `archived` is true. Paged when
+   * `page.page` is given ({ items, total, … }), otherwise a capped array (former response shape).
+   */
+  async findAll(user: AuthUser, search?: string, classId?: string, page?: PageQueryDto, archived = false) {
     if (!user.schoolId) return [];
-
-    return this.prisma.student.findMany({
-      where: {
-        schoolId: user.schoolId,
-        ...(search
-          ? {
-              OR: [
-                { firstName: { contains: search, mode: 'insensitive' } },
-                { lastName: { contains: search, mode: 'insensitive' } },
-                { matricule: { contains: search, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-        ...(classId ? { enrollments: { some: { classId, withdrawalDate: null } } } : {}),
-      },
-      include: {
-        enrollments: {
-          where: { withdrawalDate: null },
-          include: { class: true },
-          orderBy: { enrollmentDate: 'desc' },
-          take: 1,
-        },
-      },
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
+    const text = page?.q ?? search;
+    const where: Prisma.StudentWhereInput = {
+      schoolId: user.schoolId,
+      archivedAt: archived ? { not: null } : null,
+      ...(text
+        ? {
+            OR: [
+              { firstName: { contains: text, mode: 'insensitive' } },
+              { lastName: { contains: text, mode: 'insensitive' } },
+              { matricule: { contains: text, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(classId ? { enrollments: { some: { classId, withdrawalDate: null } } } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.student.findMany({
+        where,
+        include: { enrollments: { where: { withdrawalDate: null }, include: { class: true }, orderBy: { enrollmentDate: 'desc' }, take: 1 } },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        ...pageArgs(page),
+      }),
+      page?.page ? this.prisma.student.count({ where }) : Promise.resolve(0),
+    ]);
+    return pageResult(page, items, total);
   }
 
   async findOne(user: AuthUser, id: string) {
@@ -118,12 +121,27 @@ export class StudentsService {
     });
   }
 
-  async remove(user: AuthUser, id: string) {
+  /**
+   * "Delete" archives: the student leaves the lists and their class, but grades, invoices, payments
+   * and attendance are kept (school records and accounts must not disappear).
+   */
+  async remove(user: AuthUser, id: string, reason?: string) {
     const existing = await this.prisma.student.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Élève introuvable');
     if (existing.schoolId !== user.schoolId) throw new ForbiddenException();
+    if (existing.archivedAt) return { success: true, archived: true };
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.enrollment.updateMany({ where: { studentId: id, withdrawalDate: null }, data: { withdrawalDate: now } }),
+      this.prisma.student.update({ where: { id }, data: { archivedAt: now, archiveReason: reason?.trim() || null, status: 'RETIRE' } }),
+    ]);
+    return { success: true, archived: true };
+  }
 
-    await this.prisma.student.delete({ where: { id } });
-    return { success: true };
+  async restore(user: AuthUser, id: string) {
+    const existing = await this.prisma.student.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Élève introuvable');
+    if (existing.schoolId !== user.schoolId) throw new ForbiddenException();
+    return this.prisma.student.update({ where: { id }, data: { archivedAt: null, archiveReason: null, status: 'INSCRIT' } });
   }
 }

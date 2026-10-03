@@ -1,13 +1,16 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsDateString, IsNumber, IsPositive, IsString, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsDateString, IsInt, IsPositive, IsString, Max, MaxLength, MinLength, ValidateNested } from 'class-validator';
 
 class InvoiceItemDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(120)
   label!: string;
 
-  @IsNumber()
+  /** Whole francs CFA. */
+  @IsInt({ message: 'Montant en francs CFA entiers' })
   @IsPositive()
+  @Max(100_000_000)
   amount!: number;
 }
 
@@ -17,6 +20,7 @@ export class CreateInvoiceDto {
 
   @IsString()
   @MinLength(1)
+  @MaxLength(120)
   label!: string;
 
   @IsDateString()
@@ -24,6 +28,7 @@ export class CreateInvoiceDto {
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(30)
   @ValidateNested({ each: true })
   @Type(() => InvoiceItemDto)
   items!: InvoiceItemDto[];

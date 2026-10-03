@@ -56,6 +56,15 @@ services:
       COOKIE_SAMESITE: lax
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       UPLOAD_DIR: /app/uploads
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      CLAMAV_HOST: ${CLAMAV_HOST:-}
+      CLAMAV_REQUIRED: ${CLAMAV_REQUIRED:-false}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USER: ${MAIL_USER:-}
@@ -111,6 +120,13 @@ services:
       - ./deploy/certs:/etc/nginx/certs:ro
       - certbot_www:/var/www/certbot:ro
     depends_on: [frontend, backend]
+    networks: [internal]
+
+  # Optional antivirus for uploaded documents: start with --profile antivirus and set CLAMAV_HOST=clamav.
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    profiles: [antivirus]
     networks: [internal]
 
   backup:

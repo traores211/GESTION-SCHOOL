@@ -22,6 +22,10 @@ export function validateEnv(env: NodeJS.ProcessEnv = process.env): string[] {
   if (env.DATA_ENCRYPTION_KEY !== undefined && Buffer.from(env.DATA_ENCRYPTION_KEY, 'base64').length !== 32) {
     problems.push('DATA_ENCRYPTION_KEY doit faire exactement 32 octets encodés en base64 (openssl rand -base64 32)');
   }
+  if (env.STORAGE_DRIVER === 's3') {
+    const missing = ['S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'].filter((key) => !env[key]);
+    if (missing.length) problems.push(`STORAGE_DRIVER=s3 demande aussi ${missing.join(', ')}`);
+  }
   return problems;
 }
 

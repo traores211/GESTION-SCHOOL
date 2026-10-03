@@ -1,11 +1,10 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { promises as fs } from 'fs';
-import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
-import { UPLOAD_DIR } from '../showcase/showcase.service';
+import { SequenceService } from '../infra/sequence.service';
+import { StorageService } from '../infra/storage.service';
 import { AddPieceDto, AssignClassDto, CreateAdmissionDto, InterviewDto, NoteDto, PieceUpdateDto, TestDto, UpdateAdmissionDto } from './dto/create-admission.dto';
 import {
   ADMISSION_STATUSES,
@@ -23,8 +22,8 @@ import {
 /** Kept for callers of the former API (list filters). */
 export const ADMISSION_WORKFLOW = ADMISSION_STATUSES;
 
-/** Application files live in a dot-folder of the uploads volume: express.static never serves dotfiles. */
-export const ADMISSION_FILES_DIR = join(UPLOAD_DIR, '.admissions');
+/** Storage prefix of application files. Locally a dot-folder of the uploads volume: express.static never serves dotfiles. */
+const ADMISSION_FILES_PREFIX = '.admissions';
 export const MAX_PIECE_BYTES = 5 * 1024 * 1024;
 
 type Tx = Prisma.TransactionClient | PrismaService;
@@ -67,7 +66,11 @@ const FIELD_LABELS: Record<string, string> = {
 
 @Injectable()
 export class AdmissionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sequences: SequenceService,
+    private readonly storage: StorageService,
+  ) {}
 
   // ---------------------------------------------------------------- helpers
 
@@ -108,12 +111,9 @@ export class AdmissionsService {
     return { status: a.status as AdmissionStatusName, pieces: a.pieces, testScore: a.testScore, interviewDone: a.interviewDone, classId: a.classId, studentId: a.studentId };
   }
 
-  /** "ADM-2025-0042": year of the academic year, sequence within the school. */
-  private async nextReference(db: Tx, schoolId: string, yearName: string) {
-    const prefix = `ADM-${yearName.slice(0, 4)}-`;
-    const last = await db.admission.findFirst({ where: { schoolId, reference: { startsWith: prefix } }, orderBy: { reference: 'desc' }, select: { reference: true } });
-    const n = last?.reference ? Number(last.reference.slice(prefix.length)) + 1 : 1;
-    return `${prefix}${String(n).padStart(4, '0')}`;
+  /** "ADM-2025-0042": year of the academic year, atomic counter within the school. */
+  private nextReference(db: Tx, schoolId: string, yearName: string) {
+    return this.sequences.admissionReference(schoolId, yearName, db);
   }
 
   /**
@@ -327,10 +327,7 @@ export class AdmissionsService {
     let studentId = admission.studentId;
     let matricule: string | null = null;
     if (!studentId) {
-      const year = new Date().getFullYear();
-      const last = await tx.student.findFirst({ where: { matricule: { startsWith: `${year}-` } }, orderBy: { matricule: 'desc' }, select: { matricule: true } });
-      const next = last ? Number(last.matricule.split('-')[1]) + 1 : 1;
-      matricule = `${year}-${String(Number.isFinite(next) ? next : 1).padStart(4, '0')}`;
+      matricule = await this.sequences.matricule(tx);
       const student = await tx.student.create({
         data: {
           schoolId: admission.schoolId,
@@ -413,10 +410,9 @@ export class AdmissionsService {
     if (file.size > MAX_PIECE_BYTES) throw new BadRequestException('Fichier trop lourd (5 Mo maximum)');
     const type = detectDocument(file.buffer);
     if (!type) throw new BadRequestException('Format non accepté : PDF, JPEG ou PNG uniquement');
-    await fs.mkdir(ADMISSION_FILES_DIR, { recursive: true });
     const stored = `${randomUUID()}.${type.ext}`;
-    await fs.writeFile(join(ADMISSION_FILES_DIR, stored), file.buffer);
-    if (piece.filePath) await fs.unlink(join(ADMISSION_FILES_DIR, piece.filePath)).catch(() => undefined);
+    await this.storage.put(`${ADMISSION_FILES_PREFIX}/${stored}`, file.buffer, type.mime, { scan: true });
+    if (piece.filePath) await this.storage.remove(`${ADMISSION_FILES_PREFIX}/${piece.filePath}`);
     const actor = await this.actor(user);
     const fileName = file.originalname.replace(/[^\w.\- ()À-ÿ]/g, '_').slice(0, 120) || `piece.${type.ext}`;
     await this.prisma.$transaction(async (tx) => {
@@ -434,7 +430,7 @@ export class AdmissionsService {
     const admission = await this.owned(user, id);
     const piece = admission.pieces.find((p) => p.id === pieceId);
     if (!piece?.filePath) throw new NotFoundException('Aucun document pour cette pièce');
-    const buffer = await fs.readFile(join(ADMISSION_FILES_DIR, piece.filePath)).catch(() => {
+    const buffer = await this.storage.get(`${ADMISSION_FILES_PREFIX}/${piece.filePath}`).catch(() => {
       throw new NotFoundException('Le fichier est introuvable sur le serveur');
     });
     return { buffer, mime: piece.fileMime ?? 'application/octet-stream', fileName: piece.fileName ?? piece.filePath };

@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { passwordProblem } from '../auth/password-policy';
+import { TokenService } from '../auth/token.service';
 
 /** 14-character temporary password that satisfies the password policy (letters and digits). */
 function randomPassword() {
@@ -16,7 +17,10 @@ function randomPassword() {
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokens: TokenService,
+  ) {}
 
   async create(user: AuthUser, dto: CreateStaffDto) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
@@ -55,13 +59,14 @@ export class StaffService {
     return { ...created, temporaryPassword: dto.password ? undefined : plainPassword, password: undefined };
   }
 
-  async findAll(user: AuthUser, role?: string) {
+  async findAll(user: AuthUser, role?: string, archived = false) {
     if (!user.schoolId) return [];
     const users = await this.prisma.user.findMany({
       where: {
         schoolId: user.schoolId,
         staffMember: { isNot: null },
-        ...(role ? { role: role as any } : {}),
+        status: archived ? 'ARCHIVED' : { not: 'ARCHIVED' },
+        ...(role ? { role: role as never } : {}),
       },
       include: {
         staffMember: { include: { classes: true } },
@@ -91,10 +96,22 @@ export class StaffService {
     return this.prisma.staffMember.update({ where: { id: found.staffMember.id }, data: { baseSalary } });
   }
 
+  /**
+   * "Delete" archives the account (status ARCHIVED): it can no longer sign in, its sessions are cut
+   * at once, and its history (marks entered, payslips, timetable) stays.
+   */
   async remove(user: AuthUser, id: string) {
+    return this.setStatus(user, id, 'ARCHIVED');
+  }
+
+  /** Activate, deactivate or archive a staff account; leaving ACTIVE cuts every session. */
+  async setStatus(user: AuthUser, id: string, status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED') {
     const found = await this.prisma.user.findUnique({ where: { id } });
     if (!found || found.schoolId !== user.schoolId) throw new NotFoundException('Membre du personnel introuvable');
-    await this.prisma.user.delete({ where: { id } });
-    return { success: true };
+    if (found.id === user.userId && status !== 'ACTIVE') throw new BadRequestException('Vous ne pouvez pas désactiver votre propre compte');
+    await this.prisma.user.update({ where: { id }, data: { status } });
+    if (status !== 'ACTIVE') await this.tokens.revokeAll(id);
+    else await this.tokens.forget(id);
+    return { success: true, status };
   }
 }

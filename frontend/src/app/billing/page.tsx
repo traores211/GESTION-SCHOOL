@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CreditCard, LoaderCircle, Plus, Receipt, Wallet } from "lucide-react";
+import { Ban, CreditCard, Eye, LoaderCircle, Plus, Receipt, Undo2, Wallet } from "lucide-react";
 import Shell from "../../components/Shell";
 import { EmptyState, FormError, Modal, PageHeader, Pagination, SearchInput, SortHeader, TableSkeleton, useFeedback } from "../../components/ui";
 import { KpiCard } from "../../components/dashboard/ui";
 import { api, errorMessage } from "../../lib/api";
 import { useTable } from "../../lib/useTable";
 import { INVOICE_STATUS as STATUS } from "../../lib/labels";
+import { getStoredUser } from "../../lib/auth";
 
 interface StudentOption {
   id: string;
@@ -24,7 +25,11 @@ interface InvoiceRow {
   status: string;
   dueDate: string;
   student: StudentOption;
-  payments: { amount: number; method: string }[];
+  payments: { id: string; amount: number; method: string; status: string; paidAt: string; reference: string | null; refundReason: string | null }[];
+  /** Computed by the API from successful payments only. */
+  paidAmount?: number;
+  remainingAmount?: number;
+  cancelReason?: string | null;
 }
 
 const PAYMENT_METHODS = [
@@ -43,7 +48,9 @@ function formatFCFA(amount: number) {
   return new Intl.NumberFormat("fr-FR").format(Math.round(amount)) + " FCFA";
 }
 
-const paidOf = (inv: InvoiceRow) => inv.payments.reduce((s, p) => s + p.amount, 0);
+/** Successful payments only (failed and refunded lines do not count). */
+const paidOf = (inv: InvoiceRow) => inv.paidAmount ?? inv.payments.filter((p) => !p.status || p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0);
+const FINANCE_ROLES = ["SUPER_ADMIN", "ADMIN_ORGANISATION", "DIRECTOR", "COMPTABLE"];
 const isLate = (inv: InvoiceRow) => inv.status !== "PAID" && inv.status !== "CANCELLED" && new Date(inv.dueDate) < new Date(new Date().toDateString());
 
 export default function BillingPage() {
@@ -54,6 +61,7 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [payingInvoice, setPayingInvoice] = useState<InvoiceRow | null>(null);
+  const [viewing, setViewing] = useState<InvoiceRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [invoiceForm, setInvoiceForm] = useState({ studentId: "", label: "Scolarité", dueDate: new Date().toISOString().slice(0, 10), amount: 150000 });
@@ -117,6 +125,26 @@ export default function BillingPage() {
   };
 
   const remaining = payingInvoice ? payingInvoice.totalAmount - paidOf(payingInvoice) : 0;
+  const canManageMoney = FINANCE_ROLES.includes(getStoredUser()?.role ?? "");
+
+  /** Cancel an invoice or refund a payment: both need a reason, kept in the accounts and the journal. */
+  const withReason = async (kind: "cancel" | "refund", id: string, label: string) => {
+    const reason = await feedback.prompt({
+      title: kind === "cancel" ? `Annuler la facture ${label} ?` : `Rembourser ce paiement (${label}) ?`,
+      message: kind === "cancel" ? "La facture reste visible avec le statut « Annulée » ; elle ne peut plus recevoir de paiement." : "Le paiement reste dans l'historique avec le statut « Remboursé » et le reste à payer est recalculé.",
+      label: "Motif",
+      confirmLabel: kind === "cancel" ? "Annuler la facture" : "Rembourser",
+    });
+    if (!reason) return;
+    try {
+      const updated = await api.post<InvoiceRow>(kind === "cancel" ? `/billing/invoices/${id}/cancel` : `/billing/payments/${id}/refund`, { reason });
+      feedback.success(kind === "cancel" ? "Facture annulée" : "Paiement remboursé");
+      setViewing(updated);
+      load();
+    } catch (err) {
+      feedback.error("Action impossible", errorMessage(err));
+    }
+  };
 
   const recordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,6 +254,9 @@ export default function BillingPage() {
                         <span className={`badge ${late ? "badge-danger" : STATUS[inv.status]?.badge ?? "badge-neutral"}`}>{late ? "En retard" : STATUS[inv.status]?.label ?? inv.status}</span>
                       </td>
                       <td className="actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => setViewing(inv)} aria-label={`Détail de la facture ${inv.reference}`}>
+                          <Eye size={14} /> Détail
+                        </button>
                         {inv.status !== "PAID" && inv.status !== "CANCELLED" && (
                           <button
                             className="btn btn-secondary btn-sm"
@@ -353,6 +384,101 @@ export default function BillingPage() {
             </div>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={!!viewing}
+        onClose={() => setViewing(null)}
+        size="lg"
+        title={viewing ? `Facture ${viewing.reference}` : ""}
+        description={viewing ? `${viewing.student.lastName} ${viewing.student.firstName} · ${viewing.label} · échéance ${new Date(viewing.dueDate).toLocaleDateString("fr-FR")}` : undefined}
+        footer={
+          viewing && (
+            <>
+              {canManageMoney && viewing.status !== "CANCELLED" && paidOf(viewing) === 0 && (
+                <button type="button" className="btn btn-danger-ghost" onClick={() => withReason("cancel", viewing.id, viewing.reference)}>
+                  <Ban size={16} /> Annuler la facture
+                </button>
+              )}
+              <span className="spacer" />
+              <button type="button" className="btn btn-outline" onClick={() => setViewing(null)}>
+                Fermer
+              </button>
+            </>
+          )
+        }
+      >
+        {viewing && (
+          <>
+            <div className="gen-stats" style={{ marginTop: 0 }}>
+              <div className="gen-stat">
+                <strong>{formatFCFA(viewing.totalAmount)}</strong>
+                <span>montant facturé</span>
+              </div>
+              <div className="gen-stat is-good">
+                <strong>{formatFCFA(paidOf(viewing))}</strong>
+                <span>encaissé</span>
+              </div>
+              <div className={`gen-stat ${viewing.totalAmount - paidOf(viewing) > 0 ? "is-bad" : ""}`}>
+                <strong>{formatFCFA(Math.max(0, viewing.totalAmount - paidOf(viewing)))}</strong>
+                <span>reste à payer</span>
+              </div>
+            </div>
+            {viewing.status === "CANCELLED" && (
+              <div className="alert alert-warning" style={{ marginBottom: 12 }}>
+                <Ban size={16} />
+                <div className="alert-body">Facture annulée{viewing.cancelReason ? ` : ${viewing.cancelReason}` : ""}</div>
+              </div>
+            )}
+            <h3 className="card-title" style={{ fontSize: 15 }}>
+              Paiements
+            </h3>
+            {viewing.payments.length === 0 ? (
+              <p className="muted">Aucun paiement enregistré.</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Mode</th>
+                      <th className="num">Montant</th>
+                      <th>Statut</th>
+                      <th className="actions">
+                        <span className="visually-hidden">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewing.payments.map((p) => (
+                      <tr key={p.id}>
+                        <td className="nowrap">{new Date(p.paidAt).toLocaleDateString("fr-FR")}</td>
+                        <td>
+                          {PAYMENT_METHODS.find((m) => m.value === p.method)?.label ?? p.method}
+                          {p.reference && <div className="cell-sub">{p.reference}</div>}
+                        </td>
+                        <td className="num">{formatFCFA(p.amount)}</td>
+                        <td>
+                          <span className={`badge ${p.status === "SUCCESS" ? "badge-green" : p.status === "REFUNDED" ? "badge-warning" : "badge-danger"}`}>
+                            {p.status === "SUCCESS" ? "Encaissé" : p.status === "REFUNDED" ? "Remboursé" : p.status === "FAILED" ? "Échoué" : p.status}
+                          </span>
+                          {p.refundReason && <div className="cell-sub">{p.refundReason}</div>}
+                        </td>
+                        <td className="actions">
+                          {canManageMoney && p.status === "SUCCESS" && (
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => withReason("refund", p.id, formatFCFA(p.amount))}>
+                              <Undo2 size={14} /> Rembourser
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
       </Modal>
     </Shell>
   );

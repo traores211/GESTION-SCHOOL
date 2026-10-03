@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { UpdatePayslipDto } from './dto/update-payslip.dto';
+import { PERIOD_PATTERN, netSalary, payslipProblem } from './payroll-math';
 
 @Injectable()
 export class PayrollService {
@@ -9,6 +10,7 @@ export class PayrollService {
 
   async generate(user: AuthUser, period: string) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
+    if (!PERIOD_PATTERN.test(period)) throw new BadRequestException('Période attendue au format AAAA-MM (ex. 2026-10)');
 
     const staff = await this.prisma.staffMember.findMany({
       where: { user: { schoolId: user.schoolId, status: 'ACTIVE' }, baseSalary: { not: null } },
@@ -61,27 +63,32 @@ export class PayrollService {
 
   async update(user: AuthUser, id: string, dto: UpdatePayslipDto) {
     const payslip = await this.findOne(user, id);
-    if (payslip.status === 'PAID') throw new BadRequestException('Ce bulletin a déjà été payé et ne peut plus être modifié');
+    const problem = payslipProblem(payslip.status, 'edit');
+    if (problem) throw new BadRequestException(problem);
 
     const bonuses = dto.bonuses ?? payslip.bonuses;
     const deductions = dto.deductions ?? payslip.deductions;
-    const netSalary = payslip.baseSalary + bonuses - deductions;
+    const result = netSalary(payslip.baseSalary, bonuses, deductions);
+    if ('error' in result) throw new BadRequestException(result.error);
 
+    // A validated slip that changes goes back to draft: it must be validated again before payment.
     return this.prisma.payslip.update({
       where: { id },
-      data: { bonuses, deductions, netSalary },
+      data: { bonuses, deductions, netSalary: result.net, ...(payslip.status === 'VALIDATED' ? { status: 'DRAFT' } : {}) },
     });
   }
 
   async validate(user: AuthUser, id: string) {
     const payslip = await this.findOne(user, id);
-    if (payslip.status !== 'DRAFT') throw new BadRequestException('Seul un bulletin en brouillon peut être validé');
+    const problem = payslipProblem(payslip.status, 'validate');
+    if (problem) throw new BadRequestException(problem);
     return this.prisma.payslip.update({ where: { id }, data: { status: 'VALIDATED' } });
   }
 
   async pay(user: AuthUser, id: string) {
     const payslip = await this.findOne(user, id);
-    if (payslip.status === 'PAID') throw new BadRequestException('Ce bulletin a déjà été payé');
+    const problem = payslipProblem(payslip.status, 'pay');
+    if (problem) throw new BadRequestException(problem);
     return this.prisma.payslip.update({ where: { id }, data: { status: 'PAID', paidAt: new Date() } });
   }
 

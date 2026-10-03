@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateParentDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
+import { MAX_LIST } from '../common/pagination';
 
 @Injectable()
 export class ParentsService {
@@ -33,8 +34,10 @@ export class ParentsService {
   findAll(user: AuthUser, search?: string) {
     if (!user.schoolId) return [];
     return this.prisma.parent.findMany({
+      take: MAX_LIST,
       where: {
         students: { some: { schoolId: user.schoolId } },
+        archivedAt: null,
         ...(search
           ? {
               OR: [
@@ -77,9 +80,10 @@ export class ParentsService {
     });
   }
 
+  /** Archives the parent record (kept for the history of the pupils). */
   async remove(user: AuthUser, id: string) {
     await this.findOne(user, id);
-    await this.prisma.parent.delete({ where: { id } });
-    return { success: true };
+    await this.prisma.parent.update({ where: { id }, data: { archivedAt: new Date() } });
+    return { success: true, archived: true };
   }
 }

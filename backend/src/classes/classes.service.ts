@@ -85,6 +85,18 @@ export class ClassesService {
     const existing = await this.prisma.class.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Classe introuvable');
     if (existing.schoolId !== user.schoolId) throw new ForbiddenException();
+    // Deleting a class would cascade to enrolments, marks, attendance and lessons: refused once used.
+    const [enrollments, grades, attendance, sessions] = await Promise.all([
+      this.prisma.enrollment.count({ where: { classId: id } }),
+      this.prisma.grade.count({ where: { classId: id } }),
+      this.prisma.attendance.count({ where: { classId: id } }),
+      this.prisma.timetableSession.count({ where: { classId: id } }),
+    ]);
+    if (enrollments + grades + attendance + sessions > 0) {
+      throw new BadRequestException(
+        `Cette classe a un historique (${enrollments} inscription(s), ${grades} note(s), ${attendance} appel(s), ${sessions} cours) : elle ne peut pas être supprimée.`,
+      );
+    }
     await this.prisma.class.delete({ where: { id } });
     return { success: true };
   }

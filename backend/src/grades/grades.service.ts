@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { EnterGradesDto } from './dto/enter-grades.dto';
+import { classAverages, generalAverage, rankLabel, ranks, subjectAverage } from './grade-math';
 
 @Injectable()
 export class GradesService {
@@ -12,6 +13,21 @@ export class GradesService {
     if (!klass || klass.schoolId !== user.schoolId) throw new NotFoundException('Classe introuvable');
 
     const maxScore = dto.maxScore ?? 20;
+    // Every reference must belong to this class and school: no mark for a pupil of another class,
+    // a subject of another school or a term of another year.
+    const [term, subject, enrolled] = await Promise.all([
+      this.prisma.term.findFirst({ where: { id: dto.termId, academicYearId: klass.academicYearId } }),
+      this.prisma.subject.findFirst({ where: { id: dto.subjectId, schoolId: klass.schoolId } }),
+      this.prisma.enrollment.findMany({ where: { classId: klass.id, withdrawalDate: null }, select: { studentId: true } }),
+    ]);
+    if (!term) throw new BadRequestException("Cette période n'appartient pas à l'année scolaire de la classe");
+    if (!subject) throw new NotFoundException('Matière introuvable');
+    const inClass = new Set(enrolled.map((e) => e.studentId));
+    const outsiders = dto.records.filter((r) => !inClass.has(r.studentId));
+    if (outsiders.length) throw new BadRequestException(`${outsiders.length} élève(s) ne sont pas inscrits dans ${klass.name}`);
+    const overScale = dto.records.find((r) => r.score > maxScore);
+    if (overScale) throw new BadRequestException(`Une note (${overScale.score}) dépasse le barème (${maxScore})`);
+    if (new Set(dto.records.map((r) => r.studentId)).size !== dto.records.length) throw new BadRequestException('Un élève apparaît deux fois dans la saisie');
 
     const results = await this.prisma.$transaction(
       dto.records.map((record) =>
@@ -67,7 +83,7 @@ export class GradesService {
     const enrollment = student.enrollments[0];
     if (!enrollment) throw new BadRequestException("L'élève n'est inscrit dans aucune classe");
 
-    const term = await this.prisma.term.findUnique({ where: { id: termId } });
+    const term = await this.prisma.term.findFirst({ where: { id: termId, academicYearId: enrollment.class.academicYearId } });
     if (!term) throw new NotFoundException('Période introuvable');
 
     const classSubjects = await this.prisma.classSubject.findMany({
@@ -82,38 +98,21 @@ export class GradesService {
 
     const subjectRows = classSubjects.map((cs) => {
       const subjectGrades = allGrades.filter((g) => g.subjectId === cs.subjectId && g.studentId === studentId);
-      const weightedSum = subjectGrades.reduce((sum, g) => sum + (g.score / g.maxScore) * 20 * g.coefficient, 0);
-      const weightTotal = subjectGrades.reduce((sum, g) => sum + g.coefficient, 0);
-      const average = weightTotal > 0 ? weightedSum / weightTotal : null;
       return {
         subject: cs.subject.name,
         coefficient: cs.coefficient,
         teacher: cs.teacher ? `${cs.teacher.user.firstName} ${cs.teacher.user.lastName}` : null,
-        average,
+        average: subjectAverage(subjectGrades),
         gradeCount: subjectGrades.length,
       };
     });
+    const overallAverage = generalAverage(subjectRows);
 
-    const gradedSubjects = subjectRows.filter((r) => r.average !== null);
-    const overallWeightedSum = gradedSubjects.reduce((sum, r) => sum + (r.average as number) * r.coefficient, 0);
-    const overallCoeffTotal = gradedSubjects.reduce((sum, r) => sum + r.coefficient, 0);
-    const overallAverage = overallCoeffTotal > 0 ? overallWeightedSum / overallCoeffTotal : null;
-
-    // Class rank
-    const studentIds = [...new Set(allGrades.map((g) => g.studentId))];
-    const classAverages = studentIds.map((sid) => {
-      const rows = classSubjects.map((cs) => {
-        const grades = allGrades.filter((g) => g.subjectId === cs.subjectId && g.studentId === sid);
-        const weightedSum = grades.reduce((sum, g) => sum + (g.score / g.maxScore) * 20 * g.coefficient, 0);
-        const weightTotal = grades.reduce((sum, g) => sum + g.coefficient, 0);
-        return weightTotal > 0 ? { average: weightedSum / weightTotal, coefficient: cs.coefficient } : null;
-      }).filter((r): r is { average: number; coefficient: number } => r !== null);
-      const sum = rows.reduce((s, r) => s + r.average * r.coefficient, 0);
-      const coeff = rows.reduce((s, r) => s + r.coefficient, 0);
-      return { studentId: sid, average: coeff > 0 ? sum / coeff : 0 };
-    });
-    classAverages.sort((a, b) => b.average - a.average);
-    const rank = classAverages.findIndex((r) => r.studentId === studentId) + 1;
+    // Class rank with ties ("2e ex æquo"); pupils without any mark are not ranked.
+    const averages = classAverages(allGrades, new Map(classSubjects.map((cs) => [cs.subjectId, cs.coefficient])));
+    const classRanks = ranks(averages);
+    const mine = classRanks.get(studentId);
+    const ranked = [...averages.values()].filter((a): a is number => a !== null);
 
     return {
       student: { id: student.id, firstName: student.firstName, lastName: student.lastName, matricule: student.matricule },
@@ -122,8 +121,12 @@ export class GradesService {
       term: term.name,
       subjects: subjectRows,
       overallAverage,
-      rank: rank || null,
-      classSize: classAverages.length,
+      rank: mine?.rank ?? null,
+      rankLabel: rankLabel(mine),
+      classSize: classRanks.size,
+      classAverage: ranked.length ? ranked.reduce((s, a) => s + a, 0) / ranked.length : null,
+      bestAverage: ranked.length ? Math.max(...ranked) : null,
+      lowestAverage: ranked.length ? Math.min(...ranked) : null,
     };
   }
 }

@@ -45,6 +45,9 @@ export class SubjectsService {
   async remove(user: AuthUser, id: string) {
     const subject = await this.prisma.subject.findUnique({ where: { id } });
     if (!subject || subject.schoolId !== user.schoolId) throw new NotFoundException('Matière introuvable');
+    // Deleting a subject would cascade to its marks: refused once marks exist.
+    const grades = await this.prisma.grade.count({ where: { subjectId: id } });
+    if (grades > 0) throw new BadRequestException(`Cette matière a ${grades} note(s) enregistrée(s) : elle ne peut pas être supprimée.`);
     await this.prisma.subject.delete({ where: { id } });
     return { success: true };
   }

@@ -2124,3 +2124,11 @@ html:has(.save-bar) { scroll-padding-bottom: 104px; }
 .status-card p { margin: 0; color: var(--text-secondary); }
 .status-code { font-family: var(--font-serif); font-size: 54px; line-height: 1; color: var(--clay-ink) !important; margin-top: 8px !important; }
 .status-ref { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-muted) !important; }
+
+/* ---------- Figure tiles (generation, compliance, billing detail, imports) ---------- */
+.gen-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
+.gen-stat { padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--radius-lg); background: var(--paper-raised); }
+.gen-stat strong { display: block; font-family: var(--font-serif, inherit); font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.gen-stat span { font-size: var(--fs-xs); color: var(--text-muted); }
+.gen-stat.is-good strong { color: var(--success); }
+.gen-stat.is-bad strong { color: var(--danger); }

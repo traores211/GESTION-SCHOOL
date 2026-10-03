@@ -331,12 +331,16 @@ model Student {
   invoices          Invoice[]
   payments          Payment[]
   transportSubscriptions TransportSubscription[]
+  /// Archived students leave the lists but keep their history (grades, invoices, attendance).
+  archivedAt        DateTime?
+  archiveReason     String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
   @@index([status])
+  @@index([archivedAt])
 }
 
 model Parent {
@@ -351,10 +355,18 @@ model Parent {
   profession        String?
   address           String?
   students          Student[]
+  archivedAt        DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([email])
+}
+
+/// Gap-free counters (invoice references, student numbers…) incremented atomically.
+model Sequence {
+  key               String   @id
+  value             Int
+  updatedAt         DateTime @updatedAt
 }
 
 // ==================== Academic ====================
@@ -618,6 +630,9 @@ model Invoice {
   status            InvoiceStatus @default(PENDING)
   items             InvoiceItem[]
   payments          Payment[]
+  /// Invoices are cancelled (with a reason), never deleted.
+  cancelledAt       DateTime?
+  cancelReason      String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -649,6 +664,10 @@ model Payment {
   method            PaymentMethod
   status            PaymentStatus @default(SUCCESS)
   receivedById      String?
+  /// A refund keeps the payment line (status REFUNDED) for the accounts.
+  refundedAt        DateTime?
+  refundReason      String?
+  refundedById      String?
   paidAt            DateTime @default(now())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

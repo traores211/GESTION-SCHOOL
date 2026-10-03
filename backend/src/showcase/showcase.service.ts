@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import { promises as fs } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../infra/storage.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { UpdateShowcaseSettingsDto } from './dto/showcase.dto';
 
@@ -44,7 +44,10 @@ const SETTINGS_SELECT = {
 
 @Injectable()
 export class ShowcaseService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   private schoolId(user: AuthUser) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
@@ -110,9 +113,8 @@ export class ShowcaseService {
     const extension = detectImageExtension(file.buffer);
     if (!extension) throw new BadRequestException('Format non accepté : JPEG, PNG, WebP ou GIF uniquement');
 
-    await fs.mkdir(UPLOAD_DIR, { recursive: true });
     const filename = `${Date.now()}-${randomBytes(8).toString('hex')}.${extension}`;
-    await fs.writeFile(join(UPLOAD_DIR, filename), file.buffer);
-    return { url: `/uploads/${filename}` };
+    await this.storage.put(filename, file.buffer, `image/${extension === 'jpg' ? 'jpeg' : extension}`, { scan: true });
+    return { url: this.storage.publicUrl(filename) };
   }
 }

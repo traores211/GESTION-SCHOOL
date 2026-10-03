@@ -307,12 +307,6 @@
 
 .tt-nav { margin-bottom: 16px; }
 .gen-scope { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
-.gen-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
-.gen-stat { padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--radius-lg); background: var(--paper-raised); }
-.gen-stat strong { display: block; font-family: var(--font-serif, inherit); font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.15; }
-.gen-stat span { font-size: var(--fs-xs); color: var(--text-muted); }
-.gen-stat.is-good strong { color: var(--success); }
-.gen-stat.is-bad strong { color: var(--danger); }
 .unplaced-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .unplaced-list li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; padding: 10px 12px; border-radius: var(--radius); background: var(--danger-light); color: var(--danger); font-size: var(--fs-sm); }
 

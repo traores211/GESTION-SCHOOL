@@ -82,6 +82,8 @@ jobs:
         run: node test/e2e-planning.js
       - name: End-to-end — tenant isolation
         run: node test/e2e-tenancy.js
+      - name: End-to-end — billing, numbering, archiving
+        run: node test/e2e-records.js
       - name: API log
         if: failure()
         run: tail -200 /tmp/api.log
