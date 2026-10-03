@@ -20,7 +20,9 @@ Repères chiffrés relevés dans le code :
 
 Mis à jour le 3 octobre 2026, branche `feature/robustness`. « Fait » signifie : codé et vérifié par des tests automatiques. Ce qui dépend d'un compte externe ou d'une démarche légale est indiqué à part, car le code ne peut pas le faire à votre place.
 
-Vérifications en place : 186 tests unitaires côté API, 27 côté web, 14 scénarios de bout en bout sur l'API (298 vérifications), 26 tests dans un vrai navigateur dont un audit d'accessibilité.
+Vérifications en place : 188 tests unitaires côté API, 27 côté web, 15 scénarios de bout en bout sur l'API (302 vérifications), 27 tests dans un vrai navigateur dont un audit d'accessibilité.
+
+Un défaut de sécurité antérieur à ce chantier a été trouvé et corrigé en cours de route : plusieurs listes (classes, personnel, paie) renvoyaient la fiche complète des enseignants, empreinte du mot de passe et secret de double authentification compris. Ces champs ne sortent plus de l'API, et un test le vérifie sur 51 réponses pour quatre rôles.
 
 | N° | Point | État | Ce qui reste |
 |---|---|---|---|
