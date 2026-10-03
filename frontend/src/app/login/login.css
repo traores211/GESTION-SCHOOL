@@ -87,3 +87,10 @@
 /* Password pages: the form card alone, centred. */
 .login.login-single { grid-template-columns: 1fr; }
 
+/* Public payment page (/pay/[tx]) */
+.pay-summary { display: grid; gap: 8px; margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius, 10px); }
+.pay-summary > div { display: flex; justify-content: space-between; gap: 16px; }
+.pay-summary dt { color: var(--text-muted, var(--muted)); }
+.pay-summary dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.pay-wait { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
+.login-card .alert { margin-bottom: 16px; }

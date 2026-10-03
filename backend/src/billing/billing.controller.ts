@@ -8,8 +8,17 @@ import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { BillingService } from './billing.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsPositive, IsString, MaxLength, MinLength } from 'class-validator';
 import { PageQueryDto } from '../common/pagination';
+import { OnlinePaymentService } from './online/online-payment.service';
+
+export class PayLinkDto {
+  /** Whole francs CFA; the remaining amount when omitted. */
+  @IsOptional()
+  @IsInt({ message: 'Montant en francs CFA entiers' })
+  @IsPositive()
+  amount?: number;
+}
 
 class InvoiceQueryDto extends PageQueryDto {
   @IsOptional()
@@ -34,7 +43,10 @@ class ReasonDto {
 @Roles(...FINANCE, 'SECRETARY')
 @ApiBearerAuth()
 export class BillingController {
-  constructor(private readonly billingService: BillingService) {}
+  constructor(
+    private readonly billingService: BillingService,
+    private readonly onlinePayments: OnlinePaymentService,
+  ) {}
 
   @Post('invoices')
   createInvoice(@CurrentUser() user: AuthUser, @Body() dto: CreateInvoiceDto) {
@@ -66,6 +78,12 @@ export class BillingController {
   @Post('invoices/:id/payments')
   recordPayment(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: RecordPaymentDto) {
     return this.billingService.recordPayment(user, id, dto);
+  }
+
+  /** Payment link (Mobile Money, card) to send to the family; the amount defaults to what is left to pay. */
+  @Post('invoices/:id/pay-link')
+  payLink(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: PayLinkDto) {
+    return this.onlinePayments.linkForStaff(user, id, dto.amount);
   }
 
   @Get('students/:studentId/balance')

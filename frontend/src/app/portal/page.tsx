@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Shell from "../../components/Shell";
-import { api, ApiError } from "../../lib/api";
+import { Smartphone } from "lucide-react";
+import { api, ApiError, errorMessage } from "../../lib/api";
 import { EmptyState, PageHeader } from "../../components/ui";
 import { ATTENDANCE_STATUS, INVOICE_STATUS, statusBadge } from "../../lib/labels";
 
@@ -18,7 +19,7 @@ interface Child {
 interface ChildDetail extends Child {
   attendance: { date: string; status: string }[];
   grades: { score: number; maxScore: number; subject: { name: string }; term: { name: string } }[];
-  invoices: { reference: string; label: string; totalAmount: number; status: string; payments: { amount: number }[] }[];
+  invoices: { id: string; reference: string; label: string; totalAmount: number; status: string; payments: { amount: number; status: string }[] }[];
 }
 
 function formatFCFA(amount: number) {
@@ -29,6 +30,9 @@ export default function ParentPortalPage() {
   const [children, setChildren] = useState<Child[]>([]);
   const [selected, setSelected] = useState<ChildDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [paying, setPaying] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -38,11 +42,25 @@ export default function ParentPortalPage() {
         if (list[0]) loadChild(list[0].id);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Erreur de chargement"));
+    api.get<{ enabled: boolean }>("/payments/config").then((c) => setOnlineEnabled(c.enabled)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadChild = (id: string) => {
     api.get<ChildDetail>(`/parent-portal/children/${id}`).then(setSelected).catch(() => {});
+  };
+
+  /** Opens the online payment page (Mobile Money, card) for what is left to pay on an invoice. */
+  const pay = async (invoiceId: string) => {
+    setPaying(invoiceId);
+    setPayError(null);
+    try {
+      const link = await api.post<{ shareUrl: string }>(`/parent-portal/invoices/${invoiceId}/pay`, {});
+      window.location.href = link.shareUrl;
+    } catch (err) {
+      setPayError(errorMessage(err));
+      setPaying(null);
+    }
   };
 
   return (
@@ -112,6 +130,11 @@ export default function ParentPortalPage() {
 
           <div className="card" style={{ marginTop: 16 }}>
             <h3 className="card-title" style={{ marginBottom: 12 }}>Scolarité</h3>
+            {payError && (
+              <div className="alert alert-danger" role="alert" style={{ marginBottom: 12 }}>
+                <div className="alert-body">{payError}</div>
+              </div>
+            )}
             <div className="table-wrap">
               <table>
                 <thead>
@@ -121,11 +144,15 @@ export default function ParentPortalPage() {
                     <th>Montant</th>
                     <th>Payé</th>
                     <th>Statut</th>
+                    <th className="actions">
+                      <span className="visually-hidden">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {selected.invoices.map((inv) => {
-                    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+                    const paid = inv.payments.filter((p) => p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0);
+                    const payable = onlineEnabled && inv.status !== "PAID" && inv.status !== "CANCELLED" && inv.status !== "DRAFT" && paid < inv.totalAmount;
                     return (
                       <tr key={inv.reference}>
                         <td>{inv.reference}</td>
@@ -134,6 +161,13 @@ export default function ParentPortalPage() {
                         <td>{formatFCFA(paid)}</td>
                         <td>
                           <span className={`badge ${statusBadge(INVOICE_STATUS, inv.status).badge}`}>{statusBadge(INVOICE_STATUS, inv.status).label}</span>
+                        </td>
+                        <td className="actions">
+                          {payable && (
+                            <button className="btn btn-primary btn-sm" onClick={() => pay(inv.id)} disabled={paying !== null}>
+                              <Smartphone size={14} /> {paying === inv.id ? "Ouverture…" : "Payer"}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

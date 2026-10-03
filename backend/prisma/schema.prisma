@@ -664,6 +664,10 @@ model Payment {
   method            PaymentMethod
   status            PaymentStatus @default(SUCCESS)
   receivedById      String?
+  /// Online payment (payment link): gateway name, checkout page and paying phone number.
+  provider          String?
+  checkoutUrl       String?
+  payerPhone        String?
   /// A refund keeps the payment line (status REFUNDED) for the accounts.
   refundedAt        DateTime?
   refundReason      String?

@@ -84,6 +84,8 @@ jobs:
         run: node test/e2e-tenancy.js
       - name: End-to-end — billing, numbering, archiving
         run: node test/e2e-records.js
+      - name: End-to-end — online payments (simulated gateway)
+        run: node test/e2e-payments.js
       - name: API log
         if: failure()
         run: tail -200 /tmp/api.log

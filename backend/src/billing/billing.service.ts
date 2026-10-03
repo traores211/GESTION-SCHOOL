@@ -123,17 +123,21 @@ export class BillingService {
       return created;
     });
 
-    if (result.status === 'SUCCESS') {
-      const parents = await this.prisma.parent.findMany({ where: { students: { some: { id: invoice.studentId } }, userId: { not: null } } });
-      for (const parent of parents) {
-        await this.notifications.notify(
-          parent.userId,
-          'Paiement reçu',
-          `Paiement de ${formatFCFA(dto.amount)} reçu pour la facture ${invoice.reference} (${invoice.student.firstName} ${invoice.student.lastName}).`,
-        );
-      }
-    }
+    if (result.status === 'SUCCESS') await this.notifyPaymentReceived(invoiceId, dto.amount);
     return payment;
+  }
+
+  /** Tells the parents (with an account) that a payment was received. */
+  async notifyPaymentReceived(invoiceId: string, amount: number) {
+    const invoice = await this.prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId }, include: { student: true } });
+    const parents = await this.prisma.parent.findMany({ where: { students: { some: { id: invoice.studentId } }, userId: { not: null } } });
+    for (const parent of parents) {
+      await this.notifications.notify(
+        parent.userId,
+        'Paiement reçu',
+        `Paiement de ${formatFCFA(amount)} reçu pour la facture ${invoice.reference} (${invoice.student.firstName} ${invoice.student.lastName}).`,
+      );
+    }
   }
 
   /** Recomputes and stores the status of an invoice from its payments and due date. */

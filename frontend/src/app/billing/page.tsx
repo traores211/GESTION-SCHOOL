@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Ban, CreditCard, Eye, LoaderCircle, Plus, Receipt, Undo2, Wallet } from "lucide-react";
+import { Ban, Copy, CreditCard, Eye, Link2, LoaderCircle, Plus, Receipt, Undo2, Wallet } from "lucide-react";
 import Shell from "../../components/Shell";
 import { EmptyState, FormError, Modal, PageHeader, Pagination, SearchInput, SortHeader, TableSkeleton, useFeedback } from "../../components/ui";
 import { KpiCard } from "../../components/dashboard/ui";
@@ -25,7 +25,7 @@ interface InvoiceRow {
   status: string;
   dueDate: string;
   student: StudentOption;
-  payments: { id: string; amount: number; method: string; status: string; paidAt: string; reference: string | null; refundReason: string | null }[];
+  payments: { id: string; amount: number; method: string; status: string; paidAt: string; reference: string | null; refundReason: string | null; provider?: string | null; transactionId?: string }[];
   /** Computed by the API from successful payments only. */
   paidAmount?: number;
   remainingAmount?: number;
@@ -63,6 +63,9 @@ export default function BillingPage() {
   const [payingInvoice, setPayingInvoice] = useState<InvoiceRow | null>(null);
   const [viewing, setViewing] = useState<InvoiceRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [payLink, setPayLink] = useState<{ invoiceId: string; url: string; amount: number } | null>(null);
+  const [linking, setLinking] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [invoiceForm, setInvoiceForm] = useState({ studentId: "", label: "Scolarité", dueDate: new Date().toISOString().slice(0, 10), amount: 150000 });
   const [paymentForm, setPaymentForm] = useState({ amount: 0, method: "CASH", reference: "" });
@@ -80,6 +83,7 @@ export default function BillingPage() {
   useEffect(() => {
     load();
     api.get<StudentOption[]>("/students").then(setStudents).catch(() => {});
+    api.get<{ enabled: boolean }>("/payments/config").then((c) => setOnlineEnabled(c.enabled)).catch(() => {});
   }, [load]);
 
   const totals = useMemo(() => {
@@ -143,6 +147,30 @@ export default function BillingPage() {
       load();
     } catch (err) {
       feedback.error("Action impossible", errorMessage(err));
+    }
+  };
+
+  /** Online payment link (Mobile Money, card) for what is left to pay, ready to send to the family. */
+  const createPayLink = async (inv: InvoiceRow) => {
+    setLinking(true);
+    try {
+      const link = await api.post<{ shareUrl: string; amount: number }>(`/billing/invoices/${inv.id}/pay-link`, {});
+      setPayLink({ invoiceId: inv.id, url: link.shareUrl, amount: link.amount });
+      load();
+    } catch (err) {
+      feedback.error("Lien de paiement impossible", errorMessage(err));
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const copyPayLink = async () => {
+    if (!payLink) return;
+    try {
+      await navigator.clipboard.writeText(payLink.url);
+      feedback.success("Lien copié", "Envoyez-le à la famille par SMS, WhatsApp ou e-mail.");
+    } catch {
+      feedback.error("Copie impossible", "Sélectionnez le lien et copiez-le à la main.");
     }
   };
 
@@ -388,7 +416,10 @@ export default function BillingPage() {
 
       <Modal
         open={!!viewing}
-        onClose={() => setViewing(null)}
+        onClose={() => {
+          setViewing(null);
+          setPayLink(null);
+        }}
         size="lg"
         title={viewing ? `Facture ${viewing.reference}` : ""}
         description={viewing ? `${viewing.student.lastName} ${viewing.student.firstName} · ${viewing.label} · échéance ${new Date(viewing.dueDate).toLocaleDateString("fr-FR")}` : undefined}
@@ -401,6 +432,11 @@ export default function BillingPage() {
                 </button>
               )}
               <span className="spacer" />
+              {onlineEnabled && viewing.status !== "CANCELLED" && viewing.status !== "PAID" && (
+                <button type="button" className="btn btn-secondary" onClick={() => createPayLink(viewing)} disabled={linking}>
+                  {linking ? <LoaderCircle size={16} className="spin" /> : <Link2 size={16} />} Lien de paiement
+                </button>
+              )}
               <button type="button" className="btn btn-outline" onClick={() => setViewing(null)}>
                 Fermer
               </button>
@@ -430,6 +466,18 @@ export default function BillingPage() {
                 <div className="alert-body">Facture annulée{viewing.cancelReason ? ` : ${viewing.cancelReason}` : ""}</div>
               </div>
             )}
+            {payLink && payLink.invoiceId === viewing.id && (
+              <div className="field" style={{ marginBottom: 16 }}>
+                <label htmlFor="pay-link">Lien de paiement en ligne · {formatFCFA(payLink.amount)}</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input id="pay-link" className="input" readOnly value={payLink.url} onFocus={(e) => e.currentTarget.select()} />
+                  <button type="button" className="btn btn-outline" onClick={copyPayLink}>
+                    <Copy size={16} /> Copier
+                  </button>
+                </div>
+                <span className="field-hint">La famille paie par Mobile Money ou carte ; la facture se met à jour dès la confirmation du paiement.</span>
+              </div>
+            )}
             <h3 className="card-title" style={{ fontSize: 15 }}>
               Paiements
             </h3>
@@ -454,13 +502,13 @@ export default function BillingPage() {
                       <tr key={p.id}>
                         <td className="nowrap">{new Date(p.paidAt).toLocaleDateString("fr-FR")}</td>
                         <td>
-                          {PAYMENT_METHODS.find((m) => m.value === p.method)?.label ?? p.method}
-                          {p.reference && <div className="cell-sub">{p.reference}</div>}
+                          {p.provider && p.status !== "SUCCESS" ? "Paiement en ligne" : PAYMENT_METHODS.find((m) => m.value === p.method)?.label ?? p.method}
+                          {p.provider ? <div className="cell-sub">En ligne · {p.transactionId}</div> : p.reference && <div className="cell-sub">{p.reference}</div>}
                         </td>
                         <td className="num">{formatFCFA(p.amount)}</td>
                         <td>
-                          <span className={`badge ${p.status === "SUCCESS" ? "badge-green" : p.status === "REFUNDED" ? "badge-warning" : "badge-danger"}`}>
-                            {p.status === "SUCCESS" ? "Encaissé" : p.status === "REFUNDED" ? "Remboursé" : p.status === "FAILED" ? "Échoué" : p.status}
+                          <span className={`badge ${p.status === "SUCCESS" ? "badge-green" : p.status === "REFUNDED" ? "badge-warning" : p.status === "PENDING" ? "badge-neutral" : "badge-danger"}`}>
+                            {p.status === "SUCCESS" ? "Encaissé" : p.status === "REFUNDED" ? "Remboursé" : p.status === "FAILED" ? "Échoué" : p.status === "PENDING" ? "En attente" : p.status}
                           </span>
                           {p.refundReason && <div className="cell-sub">{p.refundReason}</div>}
                         </td>
