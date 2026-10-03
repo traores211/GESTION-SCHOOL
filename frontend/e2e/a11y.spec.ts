@@ -8,8 +8,22 @@ import { expect, signIn, test } from "./fixtures";
  * need a human check.
  */
 async function audit(page: Page, name: string) {
-  // Entrance animations fade content in: measured mid-way they look like low contrast.
-  await page.waitForTimeout(400);
+  // Charts load after the page: without them the dashboard would be audited half-empty.
+  if (name.startsWith("/dashboard")) await page.locator(".recharts-surface").first().waitFor({ timeout: 20_000 }).catch(() => undefined);
+  // Entrance animations fade content in: measured mid-way they look like low contrast. Wait for
+  // the finite ones to end (spinners and other endless animations are left alone).
+  await page.waitForTimeout(300);
+  await page.evaluate(() =>
+    Promise.race([
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+          .map((a) => a.finished.catch(() => undefined)),
+      ),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]),
+  );
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("nextjs-portal").analyze();
   const problems = results.violations.map((v) => `${v.id} (${v.impact}) ×${v.nodes.length}: ${v.help}\n    ${v.nodes.slice(0, 3).map((n) => `${n.target.join(" ")}${n.any[0]?.message ? ` — ${n.any[0].message}` : ""}`).join("\n    ")}`);
   // Soft: one run lists the problems of every screen instead of stopping at the first one.
@@ -17,7 +31,7 @@ async function audit(page: Page, name: string) {
 }
 
 const PUBLIC_PAGES = ["/login", "/forgot-password", "/confidentialite"];
-const STAFF_PAGES = ["/dashboard", "/insights", "/students", "/attendance", "/grades", "/grades/council", "/admissions", "/billing", "/messaging", "/imports", "/privacy", "/audit", "/account"];
+const STAFF_PAGES = ["/dashboard", "/insights", "/students", "/attendance", "/grades", "/grades/council", "/discipline", "/admissions", "/billing", "/messaging", "/imports", "/privacy", "/audit", "/account"];
 
 test.describe("accessibility", () => {
   for (const path of PUBLIC_PAGES) {

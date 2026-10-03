@@ -20,7 +20,6 @@ import {
   RadarChart,
   ReferenceArea,
   ReferenceLine,
-  ResponsiveContainer,
   Scatter,
   ScatterChart,
   Tooltip,
@@ -29,6 +28,7 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
+import { ChartFrame } from "./chart-context";
 
 /** Chart colors, read from the CSS design tokens so globals.css stays the single source of truth. */
 const TOKEN_FALLBACKS = {
@@ -150,7 +150,7 @@ export function TrendLine<T extends Record<string, any>>({
   const c = useChartColors();
   const motion = useMotionOK();
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ChartFrame height={height}>
       <LineChart data={data} margin={{ top: 12, right: 16, bottom: 4, left: 0 }}>
         <CartesianGrid stroke={c["--chart-grid"]} vertical={false} />
         <XAxis
@@ -193,7 +193,7 @@ export function TrendLine<T extends Record<string, any>>({
           isAnimationActive={motion} animationDuration={700} animationEasing="ease-out"
         />
       </LineChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
@@ -222,7 +222,7 @@ export function ColumnChart<T extends Record<string, any>>({
   const c = useChartColors();
   const motion = useMotionOK();
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ChartFrame height={height}>
       <BarChart data={data} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} barCategoryGap="28%">
         <CartesianGrid stroke={c["--chart-grid"]} vertical={false} />
         <XAxis
@@ -249,7 +249,7 @@ export function ColumnChart<T extends Record<string, any>>({
           ))}
         </Bar>
       </BarChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
@@ -291,7 +291,7 @@ export function RankBars<T extends Record<string, any>>({
   const top = reference !== undefined ? 20 : 4;
   const height = Math.max(data.length * rowHeight + 36 + top, 120);
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ChartFrame height={height}>
       <BarChart data={data} layout="vertical" margin={{ top, right: 56, bottom: 4, left: 0 }} barCategoryGap="30%">
         <CartesianGrid stroke={c["--chart-grid"]} horizontal={false} />
         <XAxis
@@ -332,7 +332,7 @@ export function RankBars<T extends Record<string, any>>({
           />
         </Bar>
       </BarChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
@@ -382,7 +382,7 @@ export function StackedShareArea<T extends Record<string, any>>({
   const motion = useMotionOK();
   return (
     <>
-      <ResponsiveContainer width="100%" height={height}>
+      <ChartFrame height={height}>
         <AreaChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: 0 }} stackOffset="expand">
           <CartesianGrid stroke={c["--chart-grid"]} vertical={false} />
           <XAxis dataKey={xKey} tickFormatter={xFormat} tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={{ stroke: c["--chart-axis"] }} tickLine={false} minTickGap={24} />
@@ -402,7 +402,7 @@ export function StackedShareArea<T extends Record<string, any>>({
             />
           ))}
         </AreaChart>
-      </ResponsiveContainer>
+      </ChartFrame>
       <ChartLegend items={series.map((s) => ({ label: s.label, color: c[s.token] }))} />
     </>
   );
@@ -428,9 +428,10 @@ export function DonutChart({
   return (
     <div className="donut">
       <div className="donut-plot" style={{ height }}>
-        <ResponsiveContainer width="100%" height={height}>
+        <ChartFrame height={height}>
           <PieChart>
             <Pie
+              rootTabIndex={-1}
               data={data}
               dataKey="value"
               nameKey="label"
@@ -459,7 +460,7 @@ export function DonutChart({
               }
             />
           </PieChart>
-        </ResponsiveContainer>
+        </ChartFrame>
         <div className="donut-center" aria-hidden="true">
           <strong>{centerValue}</strong>
           <span>{centerLabel}</span>
@@ -508,7 +509,7 @@ export function MultiBars<T extends Record<string, any>>({
   const motion = useMotionOK();
   return (
     <>
-      <ResponsiveContainer width="100%" height={height}>
+      <ChartFrame height={height}>
         <BarChart data={data} margin={{ top: 12, right: 8, bottom: 4, left: 0 }} barCategoryGap="22%" barGap={2}>
           <CartesianGrid stroke={c["--chart-grid"]} vertical={false} />
           <XAxis dataKey={xKey} tickFormatter={xFormat} tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={{ stroke: c["--chart-axis"] }} tickLine={false} interval={data.length > 9 ? 1 : 0} />
@@ -531,7 +532,7 @@ export function MultiBars<T extends Record<string, any>>({
             />
           ))}
         </BarChart>
-      </ResponsiveContainer>
+      </ChartFrame>
       <ChartLegend items={series.map((s) => ({ label: s.label, color: c[s.token] }))} />
     </>
   );
@@ -562,7 +563,7 @@ export function StackedBarsH<T extends Record<string, any>>({
   const height = Math.max(data.length * rowHeight + 36, 120);
   return (
     <>
-      <ResponsiveContainer width="100%" height={height}>
+      <ChartFrame height={height}>
         <BarChart data={data} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 0 }} barCategoryGap="24%">
           <CartesianGrid stroke={c["--chart-grid"]} horizontal={false} />
           <XAxis type="number" tickFormatter={valueFormat} tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -585,7 +586,7 @@ export function StackedBarsH<T extends Record<string, any>>({
             </Bar>
           ))}
         </BarChart>
-      </ResponsiveContainer>
+      </ChartFrame>
       <ChartLegend items={series.map((s) => ({ label: s.label, color: c[s.token] }))} />
     </>
   );
@@ -607,7 +608,7 @@ export function Histogram({
   const motion = useMotionOK();
   const data = bins.map((b) => ({ ...b, label: `${b.from}` }));
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ChartFrame height={height}>
       <BarChart data={data} margin={{ top: 18, right: 8, bottom: 4, left: 0 }} barCategoryGap={2}>
         <CartesianGrid stroke={c["--chart-grid"]} vertical={false} />
         <XAxis dataKey="label" tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={{ stroke: c["--chart-axis"] }} tickLine={false} interval={1} />
@@ -631,7 +632,7 @@ export function Histogram({
           ))}
         </Bar>
       </BarChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
@@ -645,7 +646,7 @@ export function SubjectRadar({ data, height = 280 }: { data: { subject: string; 
   const motion = useMotionOK();
   const withRef = data.map((d) => ({ ...d, pass: 10 }));
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ChartFrame height={height}>
       <RadarChart data={withRef} outerRadius="66%" margin={{ top: 8, right: 32, bottom: 8, left: 32 }}>
         <PolarGrid stroke={c["--chart-grid"]} />
         <PolarAngleAxis dataKey="subject" tickFormatter={shortSubject} tick={{ fontSize: 11, fill: c["--chart-label"] }} />
@@ -664,7 +665,7 @@ export function SubjectRadar({ data, height = 280 }: { data: { subject: string; 
           }
         />
       </RadarChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
@@ -696,7 +697,7 @@ export function RiskScatter({
   );
   return (
     <>
-      <ResponsiveContainer width="100%" height={height}>
+      <ChartFrame height={height}>
         <ScatterChart margin={{ top: 12, right: 16, bottom: 8, left: 0 }}>
           <CartesianGrid stroke={c["--chart-grid"]} />
           <XAxis type="number" dataKey="attendance" name="Présence" domain={[minX, 100]} ticks={Array.from({ length: (100 - minX) / 5 + 1 }, (_, i) => minX + i * 5)} tickFormatter={(v) => `${v} %`} tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={{ stroke: c["--chart-axis"] }} tickLine={false} />
@@ -709,7 +710,7 @@ export function RiskScatter({
           <Scatter data={others} fill={c["--series-2"]} fillOpacity={0.45} stroke={c["--surface"]} strokeWidth={1} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out" />
           <Scatter data={atRisk} fill={c["--status-critical"]} stroke={c["--surface"]} strokeWidth={1.5} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out" />
         </ScatterChart>
-      </ResponsiveContainer>
+      </ChartFrame>
       <ChartLegend
         items={[
           { label: "Élèves", color: c["--series-2"] },
@@ -743,7 +744,7 @@ export function AreaTrend<T extends Record<string, any>>({
   const c = useChartColors();
   const motion = useMotionOK();
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ChartFrame height={height}>
       <AreaChart data={data} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
         <CartesianGrid stroke={c["--chart-grid"]} vertical={false} />
         <XAxis dataKey={xKey} tickFormatter={xFormat} tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={{ stroke: c["--chart-axis"] }} tickLine={false} />
@@ -751,7 +752,7 @@ export function AreaTrend<T extends Record<string, any>>({
         <Tooltip cursor={{ stroke: c["--chart-axis"] }} content={<ChartTooltip title={tooltipTitle} rows={tooltipRows} />} />
         <Area type="monotone" dataKey={yKey} stroke={c["--series-2"]} strokeWidth={2} fill={c["--series-2"]} fillOpacity={0.12} isAnimationActive={motion} animationDuration={700} animationEasing="ease-out" dot={{ r: 3, fill: c["--series-2"], stroke: c["--surface"], strokeWidth: 2 }} />
       </AreaChart>
-    </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 /** Change from a baseline per category: gains to the right in one hue, losses to the left in the other, zero in grey. */
@@ -781,7 +782,7 @@ export function DivergingBars<T extends Record<string, any>>({
   const height = Math.max(data.length * rowHeight + 36, 120);
   return (
     <>
-      <ResponsiveContainer width="100%" height={height}>
+      <ChartFrame height={height}>
         <BarChart data={data} layout="vertical" margin={{ top: 4, right: 48, bottom: 4, left: 0 }} barCategoryGap="28%">
           <CartesianGrid stroke={c["--chart-grid"]} horizontal={false} />
           <XAxis type="number" domain={[-bound, bound]} tickFormatter={valueFormat} tick={{ ...AXIS_TICK, fill: c["--chart-label"] }} axisLine={false} tickLine={false} />
@@ -796,7 +797,7 @@ export function DivergingBars<T extends Record<string, any>>({
             <LabelList dataKey={valueKey} position="right" formatter={(v: number) => valueFormat(v)} style={{ fontSize: 12, fill: "var(--text-secondary)", fontWeight: 600 }} />
           </Bar>
         </BarChart>
-      </ResponsiveContainer>
+      </ChartFrame>
       <ChartLegend items={[{ label: "Progression", color: c["--series-2"] }, { label: "Recul", color: c["--series-1"] }]} />
     </>
   );

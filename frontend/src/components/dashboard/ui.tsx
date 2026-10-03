@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useRef, useState } from "react";
+import { ChartTitleContext } from "./chart-context";
 import { ArrowDownRight, ArrowUpRight, Inbox, Minus } from "lucide-react";
 
 type Accent = "green" | "orange" | "danger" | "warning";
@@ -203,7 +204,7 @@ export function ChartCard({
             {emptyText || "Aucune donnée pour les filtres sélectionnés."}
           </StateMessage>
         ) : (
-          children
+          <ChartTitleContext.Provider value={subtitle ? `${title} — ${subtitle}` : title}>{children}</ChartTitleContext.Provider>
         )}
       </div>
       {footer && !loading && !empty && <div className="chart-foot">{footer}</div>}
