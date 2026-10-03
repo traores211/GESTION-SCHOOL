@@ -41,6 +41,9 @@ interface JustificationRequest {
   class: { name: string };
 }
 
+import { OFFLINE_QUEUE_EVENT } from "../../components/OfflineSync";
+import { isNetworkFailure, queueRollCall, recall, remember } from "../../lib/offline";
+
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export default function AttendancePage() {
@@ -75,10 +78,17 @@ export default function AttendancePage() {
     api
       .get<ClassOption[]>("/classes")
       .then((cls) => {
+        remember("classes", cls);
         setClasses(cls);
         if (cls[0]) setClassId(cls[0].id);
       })
-      .catch((err) => setError(errorMessage(err)));
+      .catch((err) => {
+        // No network: the classes seen last time are enough to take the roll call.
+        const cached = isNetworkFailure(err) ? recall<ClassOption[]>("classes") : null;
+        if (!cached) return setError(errorMessage(err));
+        setClasses(cached.value);
+        if (cached.value[0]) setClassId(cached.value[0].id);
+      });
   }, []);
 
   useEffect(() => {
@@ -86,6 +96,7 @@ export default function AttendancePage() {
     setStudents(null);
     Promise.all([api.get<ClassDetail>(`/classes/${classId}`), api.get<AttendanceRecord[]>(`/attendance?classId=${classId}&date=${date}`).catch(() => [])])
       .then(([c, records]) => {
+        remember(`class:${classId}`, c);
         setStudents(c.enrollments);
         const initial: Record<string, string> = {};
         records.forEach((r) => (initial[r.studentId] = r.status));
@@ -94,7 +105,15 @@ export default function AttendancePage() {
         setAlreadyTaken(records.length > 0);
         setError(null);
       })
-      .catch((err) => setError(errorMessage(err)));
+      .catch((err) => {
+        const cached = isNetworkFailure(err) ? recall<ClassDetail>(`class:${classId}`) : null;
+        if (!cached) return setError(errorMessage(err));
+        setStudents(cached.value.enrollments);
+        setMarks({});
+        setSavedMarks({});
+        setAlreadyTaken(false);
+        setError(null);
+      });
   }, [classId, date]);
 
   const statusOf = (id: string) => marks[id] || "PRESENT";
@@ -104,6 +123,8 @@ export default function AttendancePage() {
     (students ?? []).forEach((e) => (counts[statusOf(e.student.id)] += 1));
     return counts;
   }, [students, marks]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const className = classes?.find((c) => c.id === classId)?.name ?? "";
 
   const save = async () => {
     if (!students) return;
@@ -118,14 +139,23 @@ export default function AttendancePage() {
       const absents = summary.ABSENT + summary.RETARD;
       feedback.success("Appel enregistré", absents ? `${summary.ABSENT} absent(s), ${summary.RETARD} retard(s)` : "Tous les élèves sont présents");
     } catch (err) {
-      feedback.error("Enregistrement impossible", errorMessage(err));
+      if (isNetworkFailure(err)) {
+        // No network in the classroom: the roll call is kept on the device and sent later.
+        const records = students.map((e) => ({ studentId: e.student.id, status: statusOf(e.student.id) }));
+        queueRollCall({ classId, className, date, records });
+        window.dispatchEvent(new Event(OFFLINE_QUEUE_EVENT));
+        const snapshot = Object.fromEntries(records.map((r) => [r.studentId, r.status]));
+        setSavedMarks(snapshot);
+        setMarks(snapshot);
+        setAlreadyTaken(true);
+        feedback.toast({ kind: "warning", title: "Appel conservé sur cet appareil", message: "Pas de réseau : il sera envoyé automatiquement au retour de la connexion." });
+      } else feedback.error("Enregistrement impossible", errorMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
   const markAll = (status: string) => setMarks(Object.fromEntries((students ?? []).map((e) => [e.student.id, status])));
-  const className = classes?.find((c) => c.id === classId)?.name ?? "";
 
   return (
     <Shell title="Présence">

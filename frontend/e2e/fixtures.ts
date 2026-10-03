@@ -8,6 +8,16 @@ export const ADMIN = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
+/** Pages whose network is cut by `setOffline` (the API forwarder below does not go through the browser). */
+const offlinePages = new WeakSet<Page>();
+
+/** Cuts or restores the network of a page, like a phone losing its signal in a classroom. */
+export async function setOffline(page: Page, offline: boolean) {
+  if (offline) offlinePages.add(page);
+  else offlinePages.delete(page);
+  await page.context().setOffline(offline);
+}
+
 export const test = base.extend({
   page: async ({ page }, use) => {
     const proxy = process.env.E2E_API_PROXY;
@@ -16,6 +26,7 @@ export const test = base.extend({
       // The page origin differs from the one the API allows, so CORS headers are rewritten as well.
       await page.route(`${origin}/**`, async (route) => {
         const request = route.request();
+        if (offlinePages.has(page)) return route.abort("internetdisconnected");
         const pageOrigin = new URL(page.url() || "http://localhost").origin;
         const cors = {
           "access-control-allow-origin": pageOrigin,

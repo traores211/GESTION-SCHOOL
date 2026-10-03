@@ -32,6 +32,7 @@ import { logout, refreshAccessToken } from "../lib/api";
 import NotificationBell from "./NotificationBell";
 import { BrandMark, FlagBand, ThemeToggle } from "./Brand";
 import AssistantPanel from "./assistant/AssistantPanel";
+import OfflineSync from "./OfflineSync";
 import { Avatar } from "./ui";
 
 interface NavItem {
@@ -299,6 +300,7 @@ export default function Shell({ title, children }: { title: string; children: Re
               </div>
             </div>
           )}
+          {user && user.role !== "PARENT" && <OfflineSync />}
           {children}
         </main>
         {user && user.role !== "PARENT" && <AssistantPanel />}
