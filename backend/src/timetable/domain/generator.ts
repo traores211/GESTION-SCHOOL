@@ -105,7 +105,6 @@ export function generateTimetable(data: PlanningData, fixed: StoredLesson[], opt
   const dayLoad = new Map<string, number>();
   const weekLoad = new Map<string, number>();
   const subjectDay = new Map<string, number>();
-  const entityDays = new Map<string, Interval[]>();
 
   const occupy = (classId: string, teacherId: string | null, roomId: string | null, subjectId: string | null, day: number, s: number, e: number, sign: 1 | -1) => {
     const keys = [`c:${classId}:${day}`, teacherId ? `t:${teacherId}:${day}` : null, roomId ? `r:${roomId}:${day}` : null].filter(Boolean) as string[];

@@ -17,12 +17,15 @@ import {
   Megaphone,
   Menu,
   School,
+  ScrollText,
+  ShieldCheck,
   UserRound,
   Users,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { AuthUser, ROLE_LABELS, clearSession, getStoredUser, getToken } from "../lib/auth";
+import { AuthUser, ROLE_LABELS, getStoredUser, getToken } from "../lib/auth";
+import { logout, refreshAccessToken } from "../lib/api";
 import NotificationBell from "./NotificationBell";
 import { BrandMark, FlagBand, ThemeToggle } from "./Brand";
 import AssistantPanel from "./assistant/AssistantPanel";
@@ -68,6 +71,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/payroll", label: "Paie", icon: Banknote, roles: [...ADMIN, "COMPTABLE"] },
       { href: "/transport", label: "Transport", icon: Bus, roles: OFFICE },
       { href: "/announcements", label: "Annonces & vitrine", icon: Megaphone, roles: ADMIN },
+      { href: "/audit", label: "Journal d'audit", icon: ScrollText, roles: ADMIN },
     ],
   },
   {
@@ -88,12 +92,21 @@ export default function Shell({ title, children }: { title: string; children: Re
   const [pill, setPill] = useState<{ top: number; height: number; animate: boolean } | null>(null);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
-      return;
-    }
-    setUser(getStoredUser());
-    setChecked(true);
+    let cancelled = false;
+    const ready = () => {
+      if (cancelled) return;
+      setUser(getStoredUser());
+      setChecked(true);
+    };
+    if (getToken()) return ready();
+    // No access token in this tab: the HttpOnly refresh cookie may still hold a session.
+    refreshAccessToken().then((token) => {
+      if (token) ready();
+      else if (!cancelled) router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [router, pathname]);
 
   useEffect(() => {
@@ -164,8 +177,8 @@ export default function Shell({ title, children }: { title: string; children: Re
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter((item) => !user || item.roles.includes(user.role)) })).filter((g) => g.items.length);
   const fullName = user ? `${user.firstName} ${user.lastName}` : "";
 
-  const logout = () => {
-    clearSession();
+  const signOut = async () => {
+    await logout();
     router.push("/login");
   };
 
@@ -257,7 +270,11 @@ export default function Shell({ title, children }: { title: string; children: Re
                       <div className="menu-email">{user.email}</div>
                       <span className="badge badge-neutral">{ROLE_LABELS[user.role] || user.role}</span>
                     </div>
-                    <button type="button" role="menuitem" className="menu-item danger" onClick={logout}>
+                    <Link href="/account" role="menuitem" className="menu-item">
+                      <ShieldCheck size={16} /> Sécurité du compte
+                      {user.totpRecommended && <span className="badge badge-warning">2FA</span>}
+                    </Link>
+                    <button type="button" role="menuitem" className="menu-item danger" onClick={signOut}>
                       <LogOut size={16} /> Se déconnecter
                     </button>
                   </div>
@@ -267,6 +284,15 @@ export default function Shell({ title, children }: { title: string; children: Re
           </div>
         </header>
         <main id="main" className="page-content page-enter" key={pathname} tabIndex={-1}>
+          {user?.totpRecommended && pathname !== "/account" && (
+            <div className="alert alert-warning" role="status" style={{ marginBottom: 16 }}>
+              <ShieldCheck size={17} />
+              <div className="alert-body">
+                <span className="alert-title">Protégez votre compte.</span> Votre rôle donne accès à des données sensibles : activez la double authentification.{" "}
+                <Link href="/account">Activer maintenant</Link>
+              </div>
+            </div>
+          )}
           {children}
         </main>
         {user && user.role !== "PARENT" && <AssistantPanel />}

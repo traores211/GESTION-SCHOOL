@@ -26,8 +26,7 @@ import Shell from "../../../components/Shell";
 import { EmptyState, FormError, Modal, PageHeader, useFeedback } from "../../../components/ui";
 import Timeline from "../../../components/admissions/Timeline";
 import AdmissionForm, { AdmissionFormValues, admissionPayload } from "../../../components/admissions/AdmissionForm";
-import { api, ApiError, errorMessage } from "../../../lib/api";
-import { getToken } from "../../../lib/auth";
+import { api, ApiError, authorizedFetch, errorMessage } from "../../../lib/api";
 import {
   ClassOption,
   Dossier,
@@ -141,7 +140,7 @@ function DossierContent() {
 
   const openFile = async (piece: Piece) => {
     try {
-      const res = await fetch(api.fileUrl(`/admissions/${id}/pieces/${piece.id}/file`), { headers: { Authorization: `Bearer ${getToken() ?? ""}` } });
+      const res = await authorizedFetch(api.fileUrl(`/admissions/${id}/pieces/${piece.id}/file`));
       if (!res.ok) throw new ApiError(`Erreur ${res.status}`, res.status);
       const url = URL.createObjectURL(await res.blob());
       window.open(url, "_blank", "noopener");

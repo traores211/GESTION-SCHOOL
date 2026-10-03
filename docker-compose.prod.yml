@@ -1,0 +1,145 @@
+# Production stack: built images, no source mounts, secrets required (the stack refuses to start
+# without them), HTTPS reverse proxy, daily encrypted backups with a monthly restore test.
+#   cp deploy/.env.production.example .env.production   # then fill it in
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# See docs/DEPLOIEMENT.md.
+name: school-erp
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:?DB_USER requis}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requis}
+      POSTGRES_DB: ${DB_NAME:?DB_NAME requis}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD requis}"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    image: school-erp-api:${APP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      APP_VERSION: ${APP_VERSION:-latest}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis (32 caractères minimum)}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}
+      REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-30}
+      TOTP_REQUIRED_ROLES: ${TOTP_REQUIRED_ROLES:-SUPER_ADMIN,ADMIN_ORGANISATION,DIRECTOR,COMPTABLE}
+      FRONTEND_URL: ${PUBLIC_URL:?PUBLIC_URL requis (https://…)}
+      API_URL: ${PUBLIC_URL}/api
+      TRUST_PROXY: "true"
+      COOKIE_SAMESITE: lax
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      UPLOAD_DIR: /app/uploads
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASS: ${MAIL_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-School ERP <no-reply@example.ci>}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SMS_PROVIDER: ${SMS_PROVIDER:-log}
+      ORANGE_SMS_CLIENT_ID: ${ORANGE_SMS_CLIENT_ID:-}
+      ORANGE_SMS_CLIENT_SECRET: ${ORANGE_SMS_CLIENT_SECRET:-}
+      ORANGE_SMS_SENDER: ${ORANGE_SMS_SENDER:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+      CINETPAY_API_KEY: ${CINETPAY_API_KEY:-}
+      CINETPAY_SITE_ID: ${CINETPAY_SITE_ID:-}
+      CINETPAY_SECRET_KEY: ${CINETPAY_SECRET_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DIFY_API_URL: ${DIFY_API_URL:-https://api.dify.ai/v1}
+      DIFY_CHATBOT_API_KEY: ${DIFY_CHATBOT_API_KEY:-}
+      DIFY_AGENT_API_KEY: ${DIFY_AGENT_API_KEY:-}
+      ASSISTANT_TOOLS_PUBLIC_URL: ${PUBLIC_URL}/api
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?DATA_ENCRYPTION_KEY requis (32 octets en base64)}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [internal]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_URL}/api
+        NEXT_PUBLIC_DEMO_ACCOUNTS: "false"
+    image: school-erp-web:${APP_VERSION:-latest}
+    restart: unless-stopped
+    depends_on: [backend]
+    networks: [internal]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/proxy_params.conf:/etc/nginx/proxy_params.conf:ro
+      - ./deploy/certs:/etc/nginx/certs:ro
+      - certbot_www:/var/www/certbot:ro
+    depends_on: [frontend, backend]
+    networks: [internal]
+
+  backup:
+    build: ./deploy/backup
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:?BACKUP_PASSPHRASE requis}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-}
+      TZ: ${TZ:-Africa/Abidjan}
+    volumes:
+      - backups:/backups
+      - uploads_data:/data/uploads:ro
+      - ./deploy/rclone:/root/.config/rclone:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [internal]
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+  backups:
+  certbot_www:
+
+networks:
+  internal:
+    driver: bridge

@@ -34,26 +34,7 @@ services:
     networks:
       - school-network
 
-  # OpenLDAP (Authentication)
-  openldap:
-    image: osixia/openldap:1.5.0
-    container_name: school-ldap
-    environment:
-      LDAP_ORGANISATION: "School Network"
-      LDAP_DOMAIN: school.local
-      LDAP_ADMIN_PASSWORD: ${LDAP_PASSWORD:-LdapAdmin123!}
-    volumes:
-      - ldap_data:/var/lib/ldap
-      - ldap_config:/etc/ldap/slapd.d
-    healthcheck:
-      test: ["CMD", "ldapwhoami", "-H", "ldap://localhost", "-D", "cn=admin,dc=school,dc=local", "-w", "${LDAP_PASSWORD:-LdapAdmin123!}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - school-network
-
-  # MailHog (Email testing)
+  # MailHog: captures outgoing e-mails in development (password reset, notifications) — http://localhost:8025
   mailhog:
     image: mailhog/mailhog:latest
     container_name: school-mailhog
@@ -72,16 +53,16 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       DATABASE_URL: postgresql://${DB_USER:-schooladmin}:${DB_PASSWORD:-SchoolAdmin123!}@postgres:5432/${DB_NAME:-school_erp}
       REDIS_URL: redis://redis:6379
-      LDAP_URL: ldap://openldap:389
-      LDAP_BASE_DN: dc=school,dc=local
-      LDAP_ADMIN_DN: cn=admin,dc=school,dc=local
-      LDAP_ADMIN_PASSWORD: ${LDAP_PASSWORD:-LdapAdmin123!}
-      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
+      # Development only: production (docker-compose.prod.yml) requires real secrets.
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-not-for-production}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
       MAIL_USER: ""
       MAIL_PASS: ""
+      MAIL_FROM: School ERP <no-reply@school.local>
+      SMS_PROVIDER: ${SMS_PROVIDER:-log}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-ZGV2LW9ubHktZGF0YS1lbmNyeXB0aW9uLWtleS0zMiE=}
       API_URL: http://localhost:4000
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:1300}
       CHOKIDAR_USEPOLLING: "true"
@@ -130,6 +111,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      NEXT_PUBLIC_DEMO_ACCOUNTS: "true"
       WATCHPACK_POLLING: "true"
     ports:
       - "${FRONTEND_PORT:-1300}:3000"   # host port 1300 -> next dev listens on 3000 in the container
@@ -148,32 +130,12 @@ services:
     networks:
       - school-network
 
-  # NGINX Reverse Proxy (Optional - for production-like setup)
-  # Disabled by default due to Windows file mount issues
-  # Enable with: docker-compose --profile nginx up -d
-  nginx:
-    image: nginx:alpine
-    container_name: school-nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs:/etc/nginx/certs:ro
-    depends_on:
-      - backend
-      - frontend
-    networks:
-      - school-network
-    profiles:
-      - nginx
+  # Production-like stack: see docker-compose.prod.yml (nginx + HTTPS, backups, built images).
 
 volumes:
   postgres_data:
   redis_data:
   uploads_data:
-  ldap_data:
-  ldap_config:
   backend_node_modules:
   frontend_node_modules:
   frontend_next:

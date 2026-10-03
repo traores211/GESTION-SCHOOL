@@ -4,9 +4,14 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateStaffDto } from './dto/create-staff.dto';
+import { passwordProblem } from '../auth/password-policy';
 
+/** 14-character temporary password that satisfies the password policy (letters and digits). */
 function randomPassword() {
-  return randomBytes(9).toString('base64url');
+  const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+  const bytes = randomBytes(14);
+  const chars = [...bytes].map((b, i) => (i % 4 === 3 ? String(b % 10) : alphabet[b % alphabet.length]));
+  return chars.join('');
 }
 
 @Injectable()
@@ -19,8 +24,12 @@ export class StaffService {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Un compte existe déjà avec cet email');
 
+    if (dto.password) {
+      const problem = passwordProblem(dto.password, dto);
+      if (problem) throw new BadRequestException(problem);
+    }
     const plainPassword = dto.password || randomPassword();
-    const passwordHash = await bcrypt.hash(plainPassword, 10);
+    const passwordHash = await bcrypt.hash(plainPassword, 12);
 
     const created = await this.prisma.user.create({
       data: {

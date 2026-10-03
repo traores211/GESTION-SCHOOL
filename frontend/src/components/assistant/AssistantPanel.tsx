@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, ChevronDown, LoaderCircle, MessageCircle, RotateCcw, Send, Sparkles, Square, Wrench, X } from "lucide-react";
-import { api } from "../../lib/api";
-import { getToken } from "../../lib/auth";
+import { api, authorizedFetch } from "../../lib/api";
 
 type Mode = "chatbot" | "agent";
 
@@ -165,9 +164,9 @@ export default function AssistantPanel() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const res = await fetch(`${api.apiUrl}/assistant/chat`, {
+      const res = await authorizedFetch(`${api.apiUrl}/assistant/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken() ?? ""}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: m, message, conversationId: state.conv[m] }),
         signal: controller.signal,
       });

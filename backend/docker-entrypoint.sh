@@ -1,14 +1,14 @@
 #!/bin/sh
-# Development entrypoint: sync dependencies, prepare the database, then start Nest in watch mode.
+# Development entrypoint: sync dependencies, migrate the database, then start Nest in watch mode.
+# Production uses Dockerfile.prod (built code, `prisma migrate deploy`, no seed, no watcher).
 set -e
 
 # node_modules lives in a named volume that outlives image rebuilds: resync it with package.json.
 npm install --no-audit --no-fund --loglevel=error
 
-# The project has no Prisma migrations (prisma/migrations is git-ignored), so the schema is applied
-# with `db push`. Without --accept-data-loss it refuses any destructive change instead of dropping data.
+# Versioned migrations (prisma/migrations). A database created earlier with `db push` is baselined.
 npx prisma generate
-npx prisma db push --skip-generate
+sh ./scripts/migrate.sh
 
 # Demo data only on an empty database (the seed also creates attendance for recent days,
 # so it must not run on every start).

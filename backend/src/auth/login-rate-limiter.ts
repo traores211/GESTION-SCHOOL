@@ -1,40 +1,43 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { RedisService } from '../infra/redis.service';
 
-const WINDOW_MS = 15 * 60 * 1000;
-const MAX_FAILURES = 10;
+const WINDOW_SECONDS = 15 * 60;
+const MAX_FAILURES_PER_ACCOUNT = 10;
+const MAX_FAILURES_PER_IP = 50;
 
 /**
- * Brute-force guard for /auth/login: after MAX_FAILURES failed attempts on the same email within
- * WINDOW_MS, further attempts are refused until the window expires. In-memory (single instance).
+ * Brute-force guard for sign-in and password reset: failed attempts are counted per account and per
+ * IP address over 15 minutes. Counters live in Redis (shared between instances, survive restarts),
+ * with an in-memory fallback.
  */
 @Injectable()
 export class LoginRateLimiter {
-  private readonly failures = new Map<string, { count: number; firstAt: number }>();
+  constructor(private readonly store: RedisService) {}
 
-  assertAllowed(email: string, now = Date.now()) {
-    const entry = this.failures.get(email.toLowerCase());
-    if (!entry) return;
-    if (now - entry.firstAt > WINDOW_MS) {
-      this.failures.delete(email.toLowerCase());
-      return;
-    }
-    if (entry.count >= MAX_FAILURES) {
-      const minutes = Math.ceil((WINDOW_MS - (now - entry.firstAt)) / 60000);
-      throw new HttpException(
-        `Trop de tentatives de connexion. Réessayez dans ${minutes} minute(s).`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+  private keys(email: string, ip?: string) {
+    return { account: `auth:fail:${email.toLowerCase()}`, ip: ip ? `auth:fail-ip:${ip}` : null };
+  }
+
+  async assertAllowed(email: string, ip?: string) {
+    const k = this.keys(email, ip);
+    const [account, byIp] = await Promise.all([this.store.get(k.account), k.ip ? this.store.get(k.ip) : Promise.resolve(null)]);
+    if (Number(account ?? 0) >= MAX_FAILURES_PER_ACCOUNT || Number(byIp ?? 0) >= MAX_FAILURES_PER_IP) {
+      throw new HttpException('Trop de tentatives. Réessayez dans 15 minutes.', HttpStatus.TOO_MANY_REQUESTS);
     }
   }
 
-  recordFailure(email: string, now = Date.now()) {
-    const key = email.toLowerCase();
-    const entry = this.failures.get(key);
-    if (!entry || now - entry.firstAt > WINDOW_MS) this.failures.set(key, { count: 1, firstAt: now });
-    else entry.count += 1;
+  async recordFailure(email: string, ip?: string) {
+    const k = this.keys(email, ip);
+    await this.store.incr(k.account, WINDOW_SECONDS);
+    if (k.ip) await this.store.incr(k.ip, WINDOW_SECONDS);
   }
 
-  reset(email: string) {
-    this.failures.delete(email.toLowerCase());
+  async reset(email: string) {
+    await this.store.del(this.keys(email).account);
+  }
+
+  /** Generic throttle (e.g. password reset requests): true while under the limit. */
+  async hit(key: string, max: number, windowSeconds: number) {
+    return (await this.store.incr(`throttle:${key}`, windowSeconds)) <= max;
   }
 }

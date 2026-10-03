@@ -27,6 +27,8 @@ import { ShowcaseModule } from './showcase/showcase.module';
 import { TimetableModule } from './timetable/timetable.module';
 import { AssistantModule } from './assistant/assistant.module';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
+import { InfraModule } from './infra/infra.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
       envFilePath: '.env.local',
     }),
     PrismaModule,
+    InfraModule,
     AuthModule,
     UsersModule,
     StudentsModule,
@@ -58,6 +61,7 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
     ShowcaseModule,
     TimetableModule,
     AssistantModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],

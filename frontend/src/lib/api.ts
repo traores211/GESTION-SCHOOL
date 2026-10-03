@@ -1,4 +1,4 @@
-import { clearSession, getToken } from "./auth";
+import { AuthUser, clearSession, getToken, setSession } from "./auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
@@ -20,26 +20,80 @@ export function errorMessage(err: unknown, fallback = "Une erreur est survenue")
   return fallback;
 }
 
+let refreshing: Promise<string | null> | null = null;
+
+/**
+ * Exchanges the HttpOnly refresh cookie for a new short-lived access token. Concurrent callers share
+ * the same request, so a burst of 401s triggers a single refresh.
+ */
+export function refreshAccessToken(): Promise<string | null> {
+  if (!refreshing) {
+    refreshing = fetch(`${API_URL}/auth/refresh`, { method: "POST", credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const body = (await res.json()) as { accessToken: string; user: AuthUser };
+        setSession(body.accessToken, body.user);
+        return body.accessToken;
+      })
+      .catch(() => null)
+      .finally(() => {
+        setTimeout(() => (refreshing = null), 0);
+      });
+  }
+  return refreshing;
+}
+
+function sessionExpired(): never {
+  clearSession();
+  if (typeof window !== "undefined") {
+    const next = encodeURIComponent(window.location.pathname);
+    window.location.href = `/login?expired=1&next=${next}`;
+  }
+  throw new ApiError("Session expirée", 401);
+}
+
+/**
+ * fetch() with the access token, the refresh cookie and one transparent retry after a refresh.
+ * Used by `api` and by downloads and streams that need the raw Response.
+ */
+export async function authorizedFetch(url: string, init: RequestInit = {}, { redirectOn401 = true } = {}): Promise<Response> {
+  const send = (token: string | null) =>
+    fetch(url, {
+      ...init,
+      credentials: "include",
+      headers: { ...((init.headers as Record<string, string>) || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+  let response = await send(getToken());
+  if (response.status === 401) {
+    const token = await refreshAccessToken();
+    if (token) response = await send(token);
+    if (response.status === 401 && redirectOn401) sessionExpired();
+  }
+  return response;
+}
+
+/** Signs out on the server (refresh token revoked) and locally. */
+export async function logout() {
+  try {
+    await fetch(`${API_URL}/auth/logout`, { method: "POST", credentials: "include" });
+  } catch {
+    // offline: the local session is cleared anyway
+  }
+  clearSession();
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {
     ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
-
-  // An expired session sends the user back to the login page, except for the login call itself
-  // (a wrong password must stay on the page with its error message).
-  if (response.status === 401 && !path.startsWith("/auth/")) {
-    clearSession();
-    if (typeof window !== "undefined") {
-      const next = encodeURIComponent(window.location.pathname);
-      window.location.href = `/login?expired=1&next=${next}`;
-    }
-    throw new ApiError("Session expirée", 401);
-  }
+  // Public auth routes keep their own 401 (wrong password, code required…): no token, no refresh, no
+  // redirect. Signed-in routes (/auth/me, 2FA, password change) go through the normal path.
+  const isPublicAuth = /^\/auth\/(login|refresh|logout|forgot-password|reset-password)\b/.test(path);
+  const response = isPublicAuth
+    ? await fetch(`${API_URL}${path}`, { ...options, headers, credentials: "include" })
+    : await authorizedFetch(`${API_URL}${path}`, { ...options, headers });
 
   if (!response.ok) {
     let message: unknown = `Erreur ${response.status}`;

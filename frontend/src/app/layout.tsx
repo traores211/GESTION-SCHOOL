@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { FeedbackProvider } from "../components/ui/Feedback";
+import ErrorReporter from "../components/ErrorReporter";
 
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 const serif = Source_Serif_4({ subsets: ["latin"], display: "swap", variable: "--font-serif-face", axes: ["opsz"] });
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
+        <ErrorReporter />
         <FeedbackProvider>{children}</FeedbackProvider>
       </body>
     </html>

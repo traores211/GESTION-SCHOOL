@@ -7,6 +7,9 @@ import { ALL_STAFF, FINANCE, MANAGEMENT, OFFICE, TEACHING } from './roles';
 import { PrismaExceptionFilter } from './prisma-exception.filter';
 import { LoginRateLimiter } from '../auth/login-rate-limiter';
 import { jwtSecret } from '../auth/jwt-secret';
+import { passwordProblem } from '../auth/password-policy';
+import { RedisService } from '../infra/redis.service';
+import { validateEnv } from '../infra/env';
 
 function context(role: string | undefined, required?: readonly string[]): [RolesGuard, ExecutionContext] {
   const reflector = new Reflector();
@@ -51,19 +54,51 @@ describe('RolesGuard', () => {
 });
 
 describe('LoginRateLimiter', () => {
-  it('blocks an email after 10 failures and releases it after the window', () => {
-    const limiter = new LoginRateLimiter();
-    const t0 = 1_000_000;
-    for (let i = 0; i < 10; i++) limiter.recordFailure('A@school.local', t0);
-    expect(() => limiter.assertAllowed('a@school.local', t0 + 1000)).toThrow(HttpException);
-    expect(() => limiter.assertAllowed('a@school.local', t0 + 16 * 60 * 1000)).not.toThrow();
+  afterEach(() => jest.useRealTimers());
+
+  it('blocks an email after 10 failures and releases it after the window', async () => {
+    jest.useFakeTimers({ now: 1_000_000 });
+    const limiter = new LoginRateLimiter(new RedisService());
+    for (let i = 0; i < 10; i++) await limiter.recordFailure('A@school.local');
+    await expect(limiter.assertAllowed('a@school.local')).rejects.toThrow(HttpException);
+    jest.setSystemTime(1_000_000 + 16 * 60 * 1000);
+    await expect(limiter.assertAllowed('a@school.local')).resolves.toBeUndefined();
   });
 
-  it('resets on success', () => {
-    const limiter = new LoginRateLimiter();
-    for (let i = 0; i < 10; i++) limiter.recordFailure('b@school.local');
-    limiter.reset('b@school.local');
-    expect(() => limiter.assertAllowed('b@school.local')).not.toThrow();
+  it('also limits by IP address, across accounts', async () => {
+    const limiter = new LoginRateLimiter(new RedisService());
+    for (let i = 0; i < 50; i++) await limiter.recordFailure(`user${i}@school.local`, '10.0.0.1');
+    await expect(limiter.assertAllowed('new@school.local', '10.0.0.1')).rejects.toThrow(/Trop de tentatives/);
+    await expect(limiter.assertAllowed('new@school.local', '10.0.0.2')).resolves.toBeUndefined();
+  });
+
+  it('resets on success', async () => {
+    const limiter = new LoginRateLimiter(new RedisService());
+    for (let i = 0; i < 10; i++) await limiter.recordFailure('b@school.local');
+    await limiter.reset('b@school.local');
+    await expect(limiter.assertAllowed('b@school.local')).resolves.toBeUndefined();
+  });
+});
+
+describe('password policy', () => {
+  it('requires 10 characters with letters and digits, refuses common and personal passwords', () => {
+    expect(passwordProblem('court1')).toMatch(/trop court/);
+    expect(passwordProblem('seulementdeslettres')).toMatch(/trop simple/);
+    expect(passwordProblem('1234567890')).toMatch(/trop simple|courant/);
+    expect(passwordProblem('Password123')).toMatch(/courant/);
+    expect(passwordProblem('kouassi2026!', { lastName: 'Kouassi' })).toMatch(/votre nom/);
+    expect(passwordProblem('Mangue-Bleue-2026')).toBeNull();
+  });
+});
+
+describe('production configuration', () => {
+  it('refuses defaults and weak secrets, accepts a real configuration', () => {
+    const bad = validateEnv({ NODE_ENV: 'production', JWT_SECRET: 'your-secret-key-change-in-production', DATABASE_URL: 'postgresql://u:SchoolAdmin123!@db/x', FRONTEND_URL: 'http://localhost:1300' });
+    expect(bad.join(' ')).toMatch(/JWT_SECRET/);
+    expect(bad.join(' ')).toMatch(/mot de passe de la base/);
+    expect(bad.join(' ')).toMatch(/FRONTEND_URL/);
+    expect(validateEnv({ NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), DATABASE_URL: 'postgresql://u:Str0ng-Unique-Pass@db/x', FRONTEND_URL: 'https://ecole.example.ci' })).toEqual([]);
+    expect(validateEnv({ NODE_ENV: 'development' })).toEqual([]);
   });
 });
 

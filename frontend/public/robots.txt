@@ -1,0 +1,5 @@
+# Public school showcases are indexed; the management application is not.
+User-agent: *
+Allow: /$
+Allow: /ecole/
+Disallow: /

@@ -4,6 +4,9 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   role: string;
+  totpEnabled?: boolean;
+  /** Role exposed to sensitive data without two-factor authentication yet. */
+  totpRecommended?: boolean;
 }
 
 const TOKEN_KEY = "schoolerp_token";

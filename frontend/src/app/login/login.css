@@ -83,3 +83,7 @@
 @media (prefers-reduced-motion: reduce) {
   .login-stubs .stub, .login-card { animation-name: fade-in; }
 }
+
+/* Password pages: the form card alone, centred. */
+.login.login-single { grid-template-columns: 1fr; }
+
