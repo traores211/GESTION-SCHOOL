@@ -2143,3 +2143,10 @@ html:has(.save-bar) { scroll-padding-bottom: 104px; }
 .msg-quota .field { flex: 1 1 260px; max-width: 420px; }
 .msg-quota .field-hint { flex: 1 1 100%; margin: 0; }
 .msg-body { min-width: 260px; max-width: 520px; white-space: normal; overflow-wrap: anywhere; }
+
+/* Imports page */
+.import-columns { display: flex; flex-wrap: wrap; gap: 6px; }
+.import-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+label.btn { cursor: pointer; }
+label.btn.is-disabled { opacity: 0.6; pointer-events: none; }
+label.btn:focus-within { outline: 2px solid var(--accent-strong); outline-offset: 2px; }

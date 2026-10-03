@@ -31,6 +31,7 @@ import { InfraModule } from './infra/infra.module';
 import { AuditModule } from './audit/audit.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { PrivacyModule } from './privacy/privacy.module';
+import { ImportsModule } from './imports/imports.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { PrivacyModule } from './privacy/privacy.module';
     AuditModule,
     MessagingModule,
     PrivacyModule,
+    ImportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
