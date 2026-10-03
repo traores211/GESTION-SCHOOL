@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
+import { PUBLIC_USER } from '../common/sensitive-fields.interceptor';
 
 @Injectable()
 export class ClassesService {
@@ -33,7 +34,7 @@ export class ClassesService {
         capacity: dto.capacity ?? 50,
         teacherId: dto.teacherId,
       },
-      include: { teacher: { include: { user: true } }, academicYear: true },
+      include: { teacher: { include: { user: PUBLIC_USER } }, academicYear: true },
     });
   }
 
@@ -47,7 +48,7 @@ export class ClassesService {
         ...(resolvedYearId ? { academicYearId: resolvedYearId } : {}),
       },
       include: {
-        teacher: { include: { user: true } },
+        teacher: { include: { user: PUBLIC_USER } },
         academicYear: true,
         _count: { select: { enrollments: true } },
       },
@@ -59,14 +60,14 @@ export class ClassesService {
     const klass = await this.prisma.class.findUnique({
       where: { id },
       include: {
-        teacher: { include: { user: true } },
+        teacher: { include: { user: PUBLIC_USER } },
         academicYear: true,
         enrollments: {
           where: { withdrawalDate: null },
           include: { student: true },
           orderBy: { student: { lastName: 'asc' } },
         },
-        classSubjects: { include: { subject: true, teacher: { include: { user: true } } } },
+        classSubjects: { include: { subject: true, teacher: { include: { user: PUBLIC_USER } } } },
       },
     });
     if (!klass) throw new NotFoundException('Classe introuvable');

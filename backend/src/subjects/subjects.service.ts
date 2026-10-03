@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateSubjectDto } from './dto/create-subject.dto';
+import { PUBLIC_USER } from '../common/sensitive-fields.interceptor';
 
 @Injectable()
 export class SubjectsService {
@@ -38,7 +39,7 @@ export class SubjectsService {
       where: { classId_subjectId: { classId, subjectId } },
       update: { teacherId, coefficient: coefficient ?? subject.coefficient },
       create: { classId, subjectId, teacherId, coefficient: coefficient ?? subject.coefficient },
-      include: { subject: true, teacher: { include: { user: true } } },
+      include: { subject: true, teacher: { include: { user: PUBLIC_USER } } },
     });
   }
 

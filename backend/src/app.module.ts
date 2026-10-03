@@ -1,5 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { SensitiveFieldsInterceptor } from './common/sensitive-fields.interceptor';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -74,7 +76,8 @@ import { DisciplineModule } from './discipline/discipline.module';
     DisciplineModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  // Credentials are stripped from every JSON response, whatever a service returns.
+  providers: [AppService, { provide: APP_INTERCEPTOR, useClass: SensitiveFieldsInterceptor }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

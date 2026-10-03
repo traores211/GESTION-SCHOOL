@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { EnterGradesDto } from './dto/enter-grades.dto';
 import { classAverages, generalAverage, rankLabel, ranks, subjectAverage } from './grade-math';
+import { PUBLIC_USER } from '../common/sensitive-fields.interceptor';
 
 @Injectable()
 export class GradesService {
@@ -88,7 +89,7 @@ export class GradesService {
 
     const classSubjects = await this.prisma.classSubject.findMany({
       where: { classId: enrollment.classId },
-      include: { subject: true, teacher: { include: { user: true } } },
+      include: { subject: true, teacher: { include: { user: PUBLIC_USER } } },
     });
 
     const allGrades = await this.prisma.grade.findMany({

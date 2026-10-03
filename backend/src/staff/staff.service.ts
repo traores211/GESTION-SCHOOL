@@ -56,7 +56,7 @@ export class StaffService {
       include: { staffMember: true },
     });
 
-    return { ...created, temporaryPassword: dto.password ? undefined : plainPassword, password: undefined };
+    return { ...created, temporaryPassword: dto.password ? undefined : plainPassword, password: undefined, totpSecret: undefined };
   }
 
   async findAll(user: AuthUser, role?: string, archived = false) {
@@ -73,7 +73,7 @@ export class StaffService {
       },
       orderBy: [{ lastName: 'asc' }],
     });
-    return users.map(({ password, ...rest }) => rest);
+    return users.map(({ password, totpSecret, ...rest }) => rest);
   }
 
   async findOne(user: AuthUser, id: string) {
@@ -84,7 +84,7 @@ export class StaffService {
     if (!found || found.schoolId !== user.schoolId || !found.staffMember) {
       throw new NotFoundException('Membre du personnel introuvable');
     }
-    const { password, ...rest } = found;
+    const { password, totpSecret, ...rest } = found;
     return rest;
   }
 
