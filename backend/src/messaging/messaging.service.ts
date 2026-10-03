@@ -6,7 +6,8 @@ import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
 import { Channel, SmsProvider, normalizePhone, providerFromEnv, smsSegments, toGsm } from '../infra/sms';
 import { remaining } from '../billing/billing-math';
 
-export const MESSAGE_EVENTS = ['ABSENCE', 'OVERDUE', 'ADMISSION', 'PAYMENT'] as const;
+/** DISCIPLINE (exclusions, convocations) is off until a school switches it on in the messaging page. */
+export const MESSAGE_EVENTS = ['ABSENCE', 'OVERDUE', 'ADMISSION', 'PAYMENT', 'DISCIPLINE'] as const;
 export type MessageEvent = (typeof MESSAGE_EVENTS)[number] | 'TEST';
 
 export interface OutgoingMessage {

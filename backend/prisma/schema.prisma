@@ -73,6 +73,7 @@ model School {
   smsMonthlyQuota       Int      @default(1000)
   smsEvents             String   @default("ABSENCE,OVERDUE,ADMISSION,PAYMENT")
   messageLogs           MessageLog[]
+  disciplineRecords     DisciplineRecord[]
   highlights            SchoolHighlight[]
   photos                SchoolPhoto[]
   partners              SchoolPartner[]
@@ -336,6 +337,7 @@ model Student {
   admissions        Admission[] @relation("AdmissionStudent")
   grades            Grade[]
   reportCards       ReportCard[]
+  disciplineRecords DisciplineRecord[]
   invoices          Invoice[]
   payments          Payment[]
   transportSubscriptions TransportSubscription[]
@@ -570,6 +572,31 @@ model Attendance {
   @@index([schoolId])
   @@index([date])
   @@index([status])
+}
+
+/// Discipline: what happened, who reported it and the sanction decided (school life record of a pupil).
+model DisciplineRecord {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date              DateTime
+  /// OBSERVATION | AVERTISSEMENT | RETENUE | EXCLUSION | CONVOCATION | ENCOURAGEMENT
+  kind              String
+  reason            String
+  description       String?
+  /// What was decided ("2 heures de retenue samedi", "exclusion de 3 jours"…)
+  sanction          String?
+  reportedById      String?
+  reportedByName    String?
+  /// Hidden from the family until the school decides to share it
+  visibleToParents  Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([schoolId, date])
+  @@index([studentId])
 }
 
 // ==================== Academic: Subjects, Terms, Grades ====================

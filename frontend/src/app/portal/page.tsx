@@ -51,10 +51,19 @@ const TABS = [
   { id: "summary", label: "Résumé" },
   { id: "bulletins", label: "Bulletins" },
   { id: "absences", label: "Absences" },
+  { id: "discipline", label: "Vie scolaire" },
   { id: "timetable", label: "Emploi du temps" },
   { id: "fees", label: "Scolarité" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
+const DISCIPLINE: Record<string, { label: string; badge: string }> = {
+  OBSERVATION: { label: "Observation", badge: "badge-neutral" },
+  AVERTISSEMENT: { label: "Avertissement", badge: "badge-warning" },
+  RETENUE: { label: "Retenue", badge: "badge-warning" },
+  EXCLUSION: { label: "Exclusion temporaire", badge: "badge-danger" },
+  CONVOCATION: { label: "Convocation des parents", badge: "badge-danger" },
+  ENCOURAGEMENT: { label: "Encouragement", badge: "badge-green" },
+};
 const DAYS = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 const fcfa = (amount: number) => new Intl.NumberFormat("fr-FR").format(Math.round(amount)) + " FCFA";
@@ -68,6 +77,7 @@ function PortalContent() {
   const [child, setChild] = useState<ChildDetail | null>(null);
   const [bulletins, setBulletins] = useState<Bulletin[] | null>(null);
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
+  const [records, setRecords] = useState<{ id: string; date: string; kind: string; reason: string; sanction: string | null }[] | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
   const [error, setError] = useState<string | null>(null);
   const [onlineEnabled, setOnlineEnabled] = useState(false);
@@ -93,6 +103,7 @@ function PortalContent() {
     setChild(null);
     setBulletins(null);
     setLessons(null);
+    setRecords(null);
     loadChild();
   }, [loadChild]);
 
@@ -101,7 +112,8 @@ function PortalContent() {
     if (!childId) return;
     if (tab === "bulletins" && !bulletins) api.get<Bulletin[]>(`/parent-portal/children/${childId}/bulletins`).then(setBulletins).catch(() => setBulletins([]));
     if (tab === "timetable" && !lessons) api.get<{ sessions: Lesson[] }>(`/parent-portal/children/${childId}/timetable`).then((t) => setLessons(t.sessions)).catch(() => setLessons([]));
-  }, [tab, childId, bulletins, lessons]);
+    if (tab === "discipline" && !records) api.get<NonNullable<typeof records>>(`/parent-portal/children/${childId}/discipline`).then(setRecords).catch(() => setRecords([]));
+  }, [tab, childId, bulletins, lessons, records]);
 
   const pay = async (invoiceId: string) => {
     setBusy(invoiceId);
@@ -312,6 +324,26 @@ function PortalContent() {
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
+          )}
+
+          {tab === "discipline" && (
+            <div className="card">
+              {!records ? (
+                <div className="skeleton" style={{ height: 100 }} />
+              ) : records.length === 0 ? (
+                <EmptyState title="Rien à signaler">Aucune observation ni sanction n&apos;a été enregistrée pour votre enfant.</EmptyState>
+              ) : (
+                records.map((r) => (
+                  <div key={r.id} className="portal-line" style={{ alignItems: "flex-start" }}>
+                    <span>
+                      <span className="muted">{shortDate(r.date)}</span> · {r.reason}
+                      {r.sanction && <span className="muted"> — Décision : {r.sanction}</span>}
+                    </span>
+                    <span className={`badge ${DISCIPLINE[r.kind]?.badge ?? "badge-neutral"}`}>{DISCIPLINE[r.kind]?.label ?? r.kind}</span>
+                  </div>
+                ))
               )}
             </div>
           )}

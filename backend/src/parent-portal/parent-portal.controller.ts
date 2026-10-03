@@ -56,6 +56,11 @@ export class ParentPortalController {
     sendBulletins(res, [card], `bulletin-${card.student.matricule}-${card.term.name}.pdf`);
   }
 
+  @Get('children/:studentId/discipline')
+  discipline(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
+    return this.parentPortalService.discipline(user, studentId);
+  }
+
   @Get('children/:studentId/timetable')
   timetable(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
     return this.parentPortalService.timetable(user, studentId);

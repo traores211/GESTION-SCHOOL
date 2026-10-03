@@ -35,6 +35,7 @@ const EVENTS: Record<string, { label: string; hint: string }> = {
   OVERDUE: { label: "Relance d'impayé", hint: "Chaque matin, une relance par facture en retard et par semaine." },
   PAYMENT: { label: "Reçu de paiement", hint: "À chaque paiement encaissé, au guichet ou en ligne." },
   ADMISSION: { label: "Convocation d'admission", hint: "Quand un test ou un entretien reçoit une date." },
+  DISCIPLINE: { label: "Exclusion ou convocation des parents", hint: "Quand une exclusion temporaire ou une convocation est enregistrée en vie scolaire." },
 };
 const EVENT_LABELS: Record<string, string> = { ...Object.fromEntries(Object.entries(EVENTS).map(([k, v]) => [k, v.label])), TEST: "Test" };
 const STATUS: Record<Message["status"], { label: string; badge: string }> = {

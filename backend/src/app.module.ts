@@ -33,6 +33,7 @@ import { MessagingModule } from './messaging/messaging.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { ImportsModule } from './imports/imports.module';
 import { InsightsModule } from './insights/insights.module';
+import { DisciplineModule } from './discipline/discipline.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { InsightsModule } from './insights/insights.module';
     PrivacyModule,
     ImportsModule,
     InsightsModule,
+    DisciplineModule,
   ],
   controllers: [AppController],
   providers: [AppService],

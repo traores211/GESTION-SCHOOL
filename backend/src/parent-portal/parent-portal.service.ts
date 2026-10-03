@@ -127,6 +127,17 @@ export class ParentPortalService {
     };
   }
 
+  /** School life record of the child (what the school chose to share with the family). */
+  async discipline(user: AuthUser, studentId: string) {
+    await this.child(user, studentId);
+    return this.prisma.disciplineRecord.findMany({
+      where: { studentId, visibleToParents: true },
+      select: { id: true, date: true, kind: true, reason: true, sanction: true },
+      orderBy: { date: 'desc' },
+      take: 50,
+    });
+  }
+
   /** A parent explains an absence; the office then accepts or refuses the reason. */
   async requestJustification(user: AuthUser, studentId: string, attendanceId: string, reason: string) {
     const { student, parent } = await this.child(user, studentId);

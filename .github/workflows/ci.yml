@@ -98,6 +98,8 @@ jobs:
         run: node test/e2e-portal.js
       - name: End-to-end — weekly summary, forecast, suggestions
         run: node test/e2e-insights.js
+      - name: End-to-end — discipline (school life records)
+        run: node test/e2e-discipline.js
       - name: API log
         if: failure()
         run: tail -200 /tmp/api.log

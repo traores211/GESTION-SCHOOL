@@ -85,6 +85,8 @@ export class PrivacyService {
         grades: { select: { score: true, maxScore: true, createdAt: true, subject: { select: { name: true } }, term: { select: { name: true } } }, orderBy: { createdAt: 'asc' } },
         invoices: { select: { reference: true, label: true, totalAmount: true, status: true, dueDate: true, payments: { select: { amount: true, method: true, status: true, paidAt: true, payerPhone: true } } }, orderBy: { createdAt: 'asc' } },
         documents: { select: { name: true, type: true } },
+        disciplineRecords: { select: { date: true, kind: true, reason: true, description: true, sanction: true, reportedByName: true }, orderBy: { date: 'asc' } },
+        reportCards: { select: { councilAppreciation: true, decision: true, term: { select: { name: true } } } },
         transportSubscriptions: true,
         admissions: {
           select: {
@@ -164,6 +166,9 @@ export class PrivacyService {
         });
       }
       await tx.document.deleteMany({ where: { studentId } });
+      // Free text about the pupil's behaviour has no accounting or statistical use once anonymised.
+      await tx.disciplineRecord.deleteMany({ where: { studentId } });
+      await tx.reportCard.updateMany({ where: { studentId }, data: { councilAppreciation: null, appreciations: {} } });
       await tx.messageLog.updateMany({ where: { studentId }, data: { to: '—', body: '[message supprimé]' } });
       await tx.payment.updateMany({ where: { studentId }, data: { payerPhone: null } });
       await tx.attendance.updateMany({ where: { studentId }, data: { reason: null, justification: null } });
