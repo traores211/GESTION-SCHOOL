@@ -17,6 +17,7 @@ import {
   Megaphone,
   Menu,
   School,
+  LockKeyhole,
   MessageSquareText,
   ScrollText,
   ShieldCheck,
@@ -74,6 +75,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/messaging", label: "Messages aux familles", icon: MessageSquareText, roles: [...OFFICE, "COMPTABLE"] },
       { href: "/announcements", label: "Annonces & vitrine", icon: Megaphone, roles: ADMIN },
       { href: "/audit", label: "Journal d'audit", icon: ScrollText, roles: ADMIN },
+      { href: "/privacy", label: "Données personnelles", icon: LockKeyhole, roles: ADMIN },
     ],
   },
   {

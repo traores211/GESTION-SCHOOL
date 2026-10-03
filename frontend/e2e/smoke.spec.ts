@@ -22,6 +22,13 @@ test.describe("public pages", () => {
     await expect(page.getByRole("heading", { name: "Cette page n'existe pas" })).toBeVisible();
   });
 
+  test("the privacy notice is public and linked from the login page", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("link", { name: "Protection des données personnelles" }).click();
+    await expect(page.getByRole("heading", { name: "Protection des données personnelles" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Vos droits" })).toBeVisible();
+  });
+
   test("protected pages send visitors to the login page", async ({ page }) => {
     await page.goto("/students");
     await expect(page).toHaveURL(/\/login/);

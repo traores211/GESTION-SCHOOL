@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import Shell from "../../../components/Shell";
 import { EmptyState, PageHeader, TableSkeleton } from "../../../components/ui";
 import { api, ApiError } from "../../../lib/api";
+import { getStoredUser } from "../../../lib/auth";
+import { downloadFile } from "../../../lib/download";
 import { ATTENDANCE_STATUS, INVOICE_STATUS, STUDENT_STATUS, statusBadge } from "../../../lib/labels";
 
 interface StudentDetail {
@@ -80,7 +82,17 @@ export default function StudentDetailPage() {
             breadcrumbs={[{ label: "Élèves", href: "/students" }, { label: `${student.firstName} ${student.lastName}` }]}
             title={`${student.firstName} ${student.lastName}`}
             description={`Matricule ${student.matricule} — ${student.enrollments[0]?.class?.name || "Non affecté"}`}
-            actions={<span className={`badge ${statusBadge(STUDENT_STATUS, student.status).badge}`}>{statusBadge(STUDENT_STATUS, student.status).label}</span>}
+            actions={
+              <>
+                <span className={`badge ${statusBadge(STUDENT_STATUS, student.status).badge}`}>{statusBadge(STUDENT_STATUS, student.status).label}</span>
+                {["SUPER_ADMIN", "ADMIN_ORGANISATION", "DIRECTOR"].includes(getStoredUser()?.role ?? "") && (
+                  // Right of access: everything held on the pupil and the guardians, to hand to the family.
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => downloadFile(`/privacy/students/${student.id}/export`, `donnees-${student.matricule}.json`).catch(() => undefined)}>
+                    Exporter les données
+                  </button>
+                )}
+              </>
+            }
           />
 
           <div className="tabs" role="tablist">

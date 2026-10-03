@@ -19,7 +19,7 @@ export function validateEnv(env: NodeJS.ProcessEnv = process.env): string[] {
   for (const key of ['JWT_SECRET', 'DATABASE_URL', 'DATA_ENCRYPTION_KEY', 'REDIS_URL']) {
     if (/remplacer/i.test(env[key] ?? '')) problems.push(`${key} contient encore la valeur d'exemple de .env.production.example`);
   }
-  if (env.DATA_ENCRYPTION_KEY !== undefined && Buffer.from(env.DATA_ENCRYPTION_KEY, 'base64').length !== 32) {
+  if (Buffer.from(env.DATA_ENCRYPTION_KEY ?? '', 'base64').length !== 32) {
     problems.push('DATA_ENCRYPTION_KEY doit faire exactement 32 octets encodés en base64 (openssl rand -base64 32)');
   }
   if (env.STORAGE_DRIVER === 's3') {

@@ -3,8 +3,8 @@ import { Observable, from, throwError } from 'rxjs';
 import { catchError, mergeMap, tap } from 'rxjs/operators';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Request bodies never keep secrets in the journal. */
-const SECRET_KEYS = /pass(word)?|token|totp|secret|code$|refresh|authorization|cookie/i;
+/** Request bodies never keep secrets, nor health information, in the journal. */
+const SECRET_KEYS = /pass(word)?|token|totp|secret|code$|refresh|authorization|cookie|^allergies$|^specialNeeds$|^interviewNotes$/i;
 const MAX_JSON = 4000;
 
 /** Writes that change nothing (checks, previews, analyses, chat, read receipts) are not journaled. */

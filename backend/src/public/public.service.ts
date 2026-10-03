@@ -92,7 +92,10 @@ export class PublicService {
     if (!year) throw new BadRequestException("Les candidatures ne sont pas ouvertes pour le moment");
 
     // Same dossier as an office entry: reference number, pieces to provide, first timeline entry.
-    const admission = await this.admissions.createDossier(school.id, dto, 'EN_LIGNE', { userId: null, userName: 'Famille (en ligne)' });
+    const { consent: _consent, ...application } = dto;
+    void _consent;
+    const admission = await this.admissions.createDossier(school.id, application, 'EN_LIGNE', { userId: null, userName: 'Famille (en ligne)' });
+    await this.prisma.admission.update({ where: { id: admission.id }, data: { consentAt: new Date() } });
     return { success: true, reference: admission.reference ?? admission.id };
   }
 

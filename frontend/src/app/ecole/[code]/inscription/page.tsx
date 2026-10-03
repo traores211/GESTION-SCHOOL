@@ -55,7 +55,7 @@ export default function PublicAdmissionPage() {
   const submit = async () => {
     setSubmitting(true);
     try {
-      const res = await api.post<{ reference: string }>(`/public/schools/${params?.code}/admissions`, form);
+      const res = await api.post<{ reference: string }>(`/public/schools/${params?.code}/admissions`, { ...form, consent });
       setReference(res.reference.startsWith("ADM-") ? res.reference : res.reference.slice(-6).toUpperCase());
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Une erreur est survenue");
@@ -202,7 +202,12 @@ export default function PublicAdmissionPage() {
                       </dl>
                       <label className="checkbox sc-apply-consent">
                         <input type="checkbox" required checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-                        J&apos;accepte que l&apos;établissement utilise ces informations pour étudier la candidature et me recontacter.
+                        <span>
+                          J&apos;accepte que l&apos;établissement utilise ces informations pour étudier la candidature et me recontacter.{" "}
+                          <a href="/confidentialite" target="_blank" rel="noopener">
+                            En savoir plus sur vos données
+                          </a>
+                        </span>
                       </label>
                     </div>
                   )}

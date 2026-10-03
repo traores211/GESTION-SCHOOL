@@ -30,6 +30,7 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 import { InfraModule } from './infra/infra.module';
 import { AuditModule } from './audit/audit.module';
 import { MessagingModule } from './messaging/messaging.module';
+import { PrivacyModule } from './privacy/privacy.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { MessagingModule } from './messaging/messaging.module';
     AssistantModule,
     AuditModule,
     MessagingModule,
+    PrivacyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

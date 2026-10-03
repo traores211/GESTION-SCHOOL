@@ -1,4 +1,4 @@
-import { IsDateString, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { Equals, IsDateString, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class PublicAdmissionDto {
   @IsString()
@@ -51,4 +51,8 @@ export class PublicAdmissionDto {
   @IsString()
   @MaxLength(40)
   guardianRelation?: string;
+
+  /** The family accepts that the school uses these data to study the application. */
+  @Equals(true, { message: "Vous devez accepter l'utilisation de vos informations pour envoyer la candidature" })
+  consent!: boolean;
 }

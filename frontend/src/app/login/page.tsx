@@ -137,6 +137,11 @@ function LoginForm() {
       <p style={{ textAlign: "center", margin: "4px 0 0", fontSize: 13 }}>
         <Link href="/forgot-password">Mot de passe oublié ?</Link>
       </p>
+      <p style={{ textAlign: "center", margin: 0, fontSize: 12 }}>
+        <Link href="/confidentialite" className="muted">
+          Protection des données personnelles
+        </Link>
+      </p>
 
       {SHOW_DEMO && (
       <div className="login-demo">

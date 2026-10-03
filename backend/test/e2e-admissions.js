@@ -132,7 +132,7 @@ const PDF = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Roo
   ok(reopened.status === 'ETUDE' && !reopened.decisionReason, 'reopened for a new review');
 
   console.log('Online application and roles');
-  const pub = await anonymous.post('/public/schools/DEMO-001/admissions', { firstName: 'Koffi', lastName: 'Test-En-Ligne', email: 'famille@example.com', requestedLevel: '6ème', guardianName: 'Ama Test' });
+  const pub = await anonymous.post('/public/schools/DEMO-001/admissions', { firstName: 'Koffi', lastName: 'Test-En-Ligne', email: 'famille@example.com', requestedLevel: '6ème', guardianName: 'Ama Test', consent: true });
   ok(pub.status === 201 && /^ADM-/.test(pub.body.reference), `online application: ${pub.body.reference}`);
   const list = (await office.get('/admissions')).body;
   const online = list.find((a) => a.reference === pub.body.reference);

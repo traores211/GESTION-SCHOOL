@@ -88,6 +88,8 @@ jobs:
         run: node test/e2e-payments.js
       - name: End-to-end — SMS notifications (journal provider)
         run: node test/e2e-messaging.js
+      - name: End-to-end — personal data (encryption, export, anonymisation, consent)
+        run: node test/e2e-privacy.js
       - name: API log
         if: failure()
         run: tail -200 /tmp/api.log

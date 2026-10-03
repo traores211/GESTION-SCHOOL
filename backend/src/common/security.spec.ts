@@ -97,7 +97,11 @@ describe('production configuration', () => {
     expect(bad.join(' ')).toMatch(/JWT_SECRET/);
     expect(bad.join(' ')).toMatch(/mot de passe de la base/);
     expect(bad.join(' ')).toMatch(/FRONTEND_URL/);
-    expect(validateEnv({ NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), DATABASE_URL: 'postgresql://u:Str0ng-Unique-Pass@db/x', FRONTEND_URL: 'https://ecole.example.ci' })).toEqual([]);
+    const good = { NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), DATABASE_URL: 'postgresql://u:Str0ng-Unique-Pass@db/x', FRONTEND_URL: 'https://ecole.example.ci', DATA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64') };
+    expect(validateEnv(good)).toEqual([]);
+    // Health data and two-factor secrets must be encrypted in production: the key is mandatory.
+    expect(validateEnv({ ...good, DATA_ENCRYPTION_KEY: undefined }).join(' ')).toMatch(/DATA_ENCRYPTION_KEY/);
+    expect(validateEnv({ ...good, DATA_ENCRYPTION_KEY: 'trop-court' }).join(' ')).toMatch(/DATA_ENCRYPTION_KEY/);
     expect(validateEnv({ NODE_ENV: 'development' })).toEqual([]);
   });
 });
