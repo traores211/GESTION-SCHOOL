@@ -88,7 +88,13 @@ const get = (path, token) => fetch(`${BASE}${path}`, { headers: { Authorization:
     const withCode = await post('/auth/login', { email: 'admin@school.local', password: 'admin123', totp: await generate({ secret: setup.secret, epoch: now + 30 }) });
     ok(withCode.status === 200, 'sign-in with the code');
     const admin2 = await withCode.json();
-    const disable = await post('/auth/2fa/disable', { password: 'admin123', code: await generate({ secret: setup.secret, epoch: now - 30 }) }, { token: admin2.accessToken });
+    // A code is accepted once, within one 30-second window of the current time. The two windows
+    // above are used: take a third one that is still valid now, even if the clock moved to the next window.
+    const window = (t) => Math.floor(t / 30);
+    const used = [window(now), window(now + 30)];
+    const current = Math.floor(Date.now() / 1000);
+    const epoch = [current - 30, current + 30, current].find((t) => !used.includes(window(t)));
+    const disable = await post('/auth/2fa/disable', { password: 'admin123', code: await generate({ secret: setup.secret, epoch }) }, { token: admin2.accessToken });
     ok(disable.status === 200, '2FA disabled with password + code');
 
     console.log('Sign out everywhere');
