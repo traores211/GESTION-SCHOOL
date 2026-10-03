@@ -74,6 +74,8 @@ model School {
   smsEvents             String   @default("ABSENCE,OVERDUE,ADMISSION,PAYMENT")
   messageLogs           MessageLog[]
   disciplineRecords     DisciplineRecord[]
+  homework              Homework[]
+  conversations         Conversation[]
   highlights            SchoolHighlight[]
   photos                SchoolPhoto[]
   partners              SchoolPartner[]
@@ -338,6 +340,7 @@ model Student {
   grades            Grade[]
   reportCards       ReportCard[]
   disciplineRecords DisciplineRecord[]
+  conversations     Conversation[]
   invoices          Invoice[]
   payments          Payment[]
   transportSubscriptions TransportSubscription[]
@@ -367,6 +370,7 @@ model Parent {
   profession        String?
   address           String?
   students          Student[]
+  conversations     Conversation[]
   /// The guardian asked not to receive SMS / WhatsApp messages.
   smsOptOut         Boolean  @default(false)
   archivedAt        DateTime?
@@ -426,6 +430,7 @@ model Class {
   attendance        Attendance[]
   classSubjects     ClassSubject[]
   grades            Grade[]
+  homework          Homework[]
   timetableSessions TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -574,6 +579,63 @@ model Attendance {
   @@index([status])
 }
 
+/// Homework diary (cahier de textes): what a class has to do, and for when.
+model Homework {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classId           String
+  class             Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId         String?
+  subject           Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  title             String
+  description       String?
+  dueDate           DateTime
+  createdById       String?
+  createdByName     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([classId, dueDate])
+  @@index([schoolId])
+}
+
+/// A discussion between a guardian and the school office.
+model Conversation {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  parentId          String
+  parent            Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId         String?
+  student           Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  subject           String
+  /// OPEN | CLOSED
+  status            String   @default("OPEN")
+  /// Who has something to read: the school, the parent, or nobody
+  unreadBySchool    Boolean  @default(true)
+  unreadByParent    Boolean  @default(false)
+  lastMessageAt     DateTime @default(now())
+  messages          ConversationMessage[]
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId, lastMessageAt])
+  @@index([parentId])
+}
+
+model ConversationMessage {
+  id                String   @id @default(cuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromParent        Boolean
+  authorId          String?
+  authorName        String
+  body              String
+  createdAt         DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
 /// Discipline: what happened, who reported it and the sanction decided (school life record of a pupil).
 model DisciplineRecord {
   id                String   @id @default(cuid())
@@ -611,6 +673,7 @@ model Subject {
   color             String?  // Timetable colour (hex); a stable colour is derived from the name when empty
   classSubjects     ClassSubject[]
   grades            Grade[]
+  homework          Homework[]
   timetableSessions TimetableSession[]
   rooms             Room[]   @relation("RoomSubjects")
   officialVolumes   OfficialVolume[]

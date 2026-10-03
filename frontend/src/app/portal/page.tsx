@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Download, LoaderCircle, Smartphone } from "lucide-react";
 import Shell from "../../components/Shell";
+import Thread, { ThreadMessage } from "../../components/Thread";
 import { api, errorMessage } from "../../lib/api";
 import { downloadFile } from "../../lib/download";
 import { EmptyState, PageHeader, useFeedback } from "../../components/ui";
@@ -52,7 +53,9 @@ const TABS = [
   { id: "bulletins", label: "Bulletins" },
   { id: "absences", label: "Absences" },
   { id: "discipline", label: "Vie scolaire" },
+  { id: "homework", label: "Devoirs" },
   { id: "timetable", label: "Emploi du temps" },
+  { id: "messages", label: "Messages" },
   { id: "fees", label: "Scolarité" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
@@ -70,6 +73,124 @@ const fcfa = (amount: number) => new Intl.NumberFormat("fr-FR").format(Math.roun
 const shortDate = (value: string) => new Date(value).toLocaleDateString("fr-FR");
 const paidOf = (inv: ChildDetail["invoices"][number]) => inv.payments.filter((p) => p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0);
 
+interface ConversationRow {
+  id: string;
+  subject: string;
+  status: "OPEN" | "CLOSED";
+  unreadByParent: boolean;
+  lastMessageAt: string;
+}
+
+/** Conversations of the parent with the school office: list, reading, reply, new message. */
+function ParentMessages({ childId, childName }: { childId: string; childName: string }) {
+  const feedback = useFeedback();
+  const [list, setList] = useState<ConversationRow[] | null>(null);
+  const [current, setCurrent] = useState<(ConversationRow & { messages: ThreadMessage[] }) | null>(null);
+  const [form, setForm] = useState({ subject: "", body: "" });
+  const [sending, setSending] = useState(false);
+
+  const load = useCallback(() => {
+    api.get<ConversationRow[]>("/parent-portal/conversations").then(setList).catch(() => setList([]));
+  }, []);
+  useEffect(load, [load]);
+
+  const open = (id: string) =>
+    api
+      .get<NonNullable<typeof current>>(`/parent-portal/conversations/${id}`)
+      .then((c) => {
+        setCurrent(c);
+        load();
+      })
+      .catch((err) => feedback.error("Conversation indisponible", errorMessage(err)));
+
+  const create = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+      setCurrent(await api.post<NonNullable<typeof current>>("/parent-portal/conversations", { studentId: childId, ...form }));
+      setForm({ subject: "", body: "" });
+      feedback.success("Message envoyé", "L'établissement vous répondra ici.");
+      load();
+    } catch (err) {
+      feedback.error("Envoi impossible", errorMessage(err));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (current) {
+    return (
+      <div className="card">
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCurrent(null)}>
+          ← Tous les messages
+        </button>
+        <h3 className="card-title" style={{ margin: "8px 0 12px" }}>
+          {current.subject}
+        </h3>
+        <Thread
+          messages={current.messages}
+          mine="parent"
+          closed={current.status === "CLOSED"}
+          onSend={async (body) => {
+            try {
+              setCurrent(await api.post<NonNullable<typeof current>>(`/parent-portal/conversations/${current.id}/messages`, { body }));
+            } catch (err) {
+              feedback.error("Envoi impossible", errorMessage(err));
+              throw err;
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid-2">
+      <div className="card">
+        <h3 className="card-title">Mes messages</h3>
+        {!list ? (
+          <div className="skeleton" style={{ height: 80 }} />
+        ) : list.length === 0 ? (
+          <p className="muted">Aucun message pour l&apos;instant.</p>
+        ) : (
+          list.map((c) => (
+            <div key={c.id} className="portal-line">
+              <button type="button" className="link-button" onClick={() => open(c.id)}>
+                {c.subject}
+              </button>
+              <span>
+                {c.unreadByParent && <span className="badge badge-green">Réponse</span>} {c.status === "CLOSED" && <span className="badge badge-neutral">Close</span>}{" "}
+                <span className="muted">{shortDate(c.lastMessageAt)}</span>
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+      <form className="card" onSubmit={create}>
+        <h3 className="card-title">Écrire à l&apos;établissement</h3>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          Au sujet de {childName}. Le secrétariat vous répond ici.
+        </p>
+        <div className="field">
+          <label htmlFor="pm-subject" className="required">
+            Objet
+          </label>
+          <input id="pm-subject" className="input" required minLength={3} maxLength={120} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
+        </div>
+        <div className="field">
+          <label htmlFor="pm-body" className="required">
+            Message
+          </label>
+          <textarea id="pm-body" className="input" rows={4} required minLength={2} maxLength={4000} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+        </div>
+        <button type="submit" className="btn btn-primary" disabled={sending}>
+          {sending ? <LoaderCircle size={16} className="spin" /> : null} Envoyer
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function PortalContent() {
   const feedback = useFeedback();
   const [children, setChildren] = useState<Child[] | null>(null);
@@ -78,6 +199,7 @@ function PortalContent() {
   const [bulletins, setBulletins] = useState<Bulletin[] | null>(null);
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [records, setRecords] = useState<{ id: string; date: string; kind: string; reason: string; sanction: string | null }[] | null>(null);
+  const [homework, setHomework] = useState<{ id: string; title: string; description: string | null; dueDate: string; subject: string | null; createdByName: string | null }[] | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
   const [error, setError] = useState<string | null>(null);
   const [onlineEnabled, setOnlineEnabled] = useState(false);
@@ -104,6 +226,7 @@ function PortalContent() {
     setBulletins(null);
     setLessons(null);
     setRecords(null);
+    setHomework(null);
     loadChild();
   }, [loadChild]);
 
@@ -112,8 +235,9 @@ function PortalContent() {
     if (!childId) return;
     if (tab === "bulletins" && !bulletins) api.get<Bulletin[]>(`/parent-portal/children/${childId}/bulletins`).then(setBulletins).catch(() => setBulletins([]));
     if (tab === "timetable" && !lessons) api.get<{ sessions: Lesson[] }>(`/parent-portal/children/${childId}/timetable`).then((t) => setLessons(t.sessions)).catch(() => setLessons([]));
+    if (tab === "homework" && !homework) api.get<NonNullable<typeof homework>>(`/parent-portal/children/${childId}/homework`).then(setHomework).catch(() => setHomework([]));
     if (tab === "discipline" && !records) api.get<NonNullable<typeof records>>(`/parent-portal/children/${childId}/discipline`).then(setRecords).catch(() => setRecords([]));
-  }, [tab, childId, bulletins, lessons, records]);
+  }, [tab, childId, bulletins, lessons, records, homework]);
 
   const pay = async (invoiceId: string) => {
     setBusy(invoiceId);
@@ -347,6 +471,32 @@ function PortalContent() {
               )}
             </div>
           )}
+
+          {tab === "homework" && (
+            <div className="card">
+              {!homework ? (
+                <div className="skeleton" style={{ height: 100 }} />
+              ) : homework.length === 0 ? (
+                <EmptyState title="Aucun devoir à venir">Les devoirs donnés à la classe apparaissent ici avec leur date de remise.</EmptyState>
+              ) : (
+                homework.map((h) => (
+                  <div key={h.id} className="portal-lesson">
+                    <span className="tabular">{new Date(h.dueDate).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}</span>
+                    <span>
+                      <strong>
+                        {h.subject ? `${h.subject} : ` : ""}
+                        {h.title}
+                      </strong>
+                      {h.description && <span>{h.description}</span>}
+                      {h.createdByName && <span className="muted">{h.createdByName}</span>}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === "messages" && <ParentMessages childId={childId} childName={child.firstName} />}
 
           {tab === "timetable" &&
             (!lessons ? (

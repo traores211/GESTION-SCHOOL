@@ -100,6 +100,8 @@ jobs:
         run: node test/e2e-insights.js
       - name: End-to-end — discipline (school life records)
         run: node test/e2e-discipline.js
+      - name: End-to-end — homework diary and parent conversations
+        run: node test/e2e-family.js
       - name: End-to-end — no credential in any response
         run: node test/e2e-leaks.js
       - name: API log

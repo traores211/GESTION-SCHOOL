@@ -168,6 +168,7 @@ export class PrivacyService {
       await tx.document.deleteMany({ where: { studentId } });
       // Free text about the pupil's behaviour has no accounting or statistical use once anonymised.
       await tx.disciplineRecord.deleteMany({ where: { studentId } });
+      await tx.conversation.deleteMany({ where: { OR: [{ studentId }, { parentId: { in: orphanParents.map((p) => p.id) } }] } });
       await tx.reportCard.updateMany({ where: { studentId }, data: { councilAppreciation: null, appreciations: {} } });
       await tx.messageLog.updateMany({ where: { studentId }, data: { to: '—', body: '[message supprimé]' } });
       await tx.payment.updateMany({ where: { studentId }, data: { payerPhone: null } });
