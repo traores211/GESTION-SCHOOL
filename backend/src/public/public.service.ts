@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicAdmissionDto } from './dto/public-admission.dto';
 import { AdmissionsService } from '../admissions/admissions.service';
+import { AdmissionStatusName, STATUS_LABELS } from '../admissions/workflow';
 
 @Injectable()
 export class PublicService {
@@ -81,6 +82,40 @@ export class PublicService {
         imageUrl: a.imageUrl,
         publishedAt: a.publishedAt,
       })),
+    };
+  }
+
+  /**
+   * State of an application for the family: step, pieces still expected, convocations. The dossier
+   * number alone is not enough (it is guessable): the e-mail given when applying must match. A wrong
+   * number and a wrong e-mail give the same answer.
+   */
+  async trackAdmission(code: string, reference: string, email: string) {
+    const school = await this.prisma.school.findUnique({ where: { code }, select: { id: true, name: true, phone: true, email: true } });
+    if (!school) throw new NotFoundException('Établissement introuvable');
+    const admission = await this.prisma.admission.findFirst({
+      where: { schoolId: school.id, reference: { equals: reference.trim(), mode: 'insensitive' } },
+      include: { pieces: { orderBy: { createdAt: 'asc' } } },
+    });
+    const given = email.trim().toLowerCase();
+    if (!admission || ![admission.email, admission.guardianEmail].some((e) => e?.toLowerCase() === given)) {
+      throw new NotFoundException('Aucun dossier ne correspond à ce numéro et à cette adresse e-mail');
+    }
+    const status = admission.status as AdmissionStatusName;
+    const future = (d: Date | null) => (d && d.getTime() > Date.now() - 86400000 ? d : null);
+    return {
+      reference: admission.reference,
+      candidate: `${admission.firstName} ${admission.lastName.charAt(0)}.`,
+      requestedLevel: admission.requestedLevel,
+      submittedAt: admission.submittedAt,
+      status,
+      statusLabel: STATUS_LABELS[status],
+      closed: status === 'CONFIRME' || status === 'REJETE',
+      pieces: admission.pieces.map((p) => ({ label: p.label, required: p.required, status: p.status })),
+      missingPieces: admission.pieces.filter((p) => p.required && (p.status === 'MANQUANT' || p.status === 'REFUSE')).map((p) => p.label),
+      testAt: status === 'TEST' ? future(admission.testScheduledAt) : null,
+      interviewAt: status === 'ENTRETIEN' ? future(admission.interviewAt) : null,
+      school: { name: school.name, phone: school.phone, email: school.email },
     };
   }
 

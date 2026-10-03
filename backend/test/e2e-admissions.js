@@ -139,6 +139,14 @@ const PDF = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Roo
   ok(online && online.source === 'EN_LIGNE' && online.piecesRequired === 4 && online.piecesReceived === 0, 'listed with its source and piece counts');
   ok((await teacher.get('/admissions')).status === 403, 'a teacher cannot open admissions');
 
+  console.log('Tracking by the family');
+  const track = await anonymous.post('/public/schools/DEMO-001/admissions/track', { reference: pub.body.reference.toLowerCase(), email: 'Famille@Example.com' });
+  ok(track.status === 200 && track.body.statusLabel === 'Candidature reçue' && track.body.missingPieces.length === 4 && track.body.candidate === 'Koffi T.' && track.body.school.name, `the family follows its dossier: ${track.body.statusLabel}, ${track.body.missingPieces?.length} pieces expected`, track.body);
+  ok(!JSON.stringify(track.body).includes('Test-En-Ligne') && !('id' in track.body) && !('interviewNotes' in track.body), 'without the full name, internal identifiers or interview notes');
+  const wrongMail = await anonymous.post('/public/schools/DEMO-001/admissions/track', { reference: pub.body.reference, email: 'autre@example.com' });
+  const wrongRef = await anonymous.post('/public/schools/DEMO-001/admissions/track', { reference: 'ADM-0000-0000', email: 'famille@example.com' });
+  ok(wrongMail.status === 404 && wrongRef.status === 404 && wrongMail.body.message === wrongRef.body.message, 'a wrong e-mail and a wrong number get the same answer');
+
   console.log(failures ? `\n${failures} échec(s)` : '\nTout est vert');
   process.exit(failures ? 1 : 0);
 })().catch((e) => {

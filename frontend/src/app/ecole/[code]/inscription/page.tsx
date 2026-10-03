@@ -100,6 +100,10 @@ export default function PublicAdmissionPage() {
                   <li>Étude du dossier, test ou entretien si besoin</li>
                   <li>Admission et inscription</li>
                 </ol>
+                <p>
+                  Vous pourrez suivre l&apos;avancement à tout moment avec ce numéro :{" "}
+                  <Link href={`/ecole/${params?.code}/suivi?ref=${encodeURIComponent(reference)}`}>suivre ma candidature</Link>.
+                </p>
                 <Link href={`/ecole/${params?.code}`} className="btn btn-outline">
                   Revenir à la vitrine
                 </Link>
