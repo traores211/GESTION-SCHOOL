@@ -21,6 +21,7 @@ import {
 import Shell from "../../../components/Shell";
 import { EmptyState, FormError, PageHeader, Pagination, useFeedback } from "../../../components/ui";
 import TimetableGrid, { GridSession } from "../../../components/timetable/TimetableGrid";
+import TimetableNav from "../../../components/timetable/TimetableNav";
 import { api, ApiError, errorMessage } from "../../../lib/api";
 import { useTable } from "../../../lib/useTable";
 import { Conflict, DAY_NAMES, Resources, gridBounds, hasBlocking, visibleDays } from "../../../lib/timetable";
@@ -399,6 +400,7 @@ export default function TimetableImportPage() {
         description="Déposez le fichier que vous utilisez déjà : rien n'est enregistré avant votre validation finale."
         breadcrumbs={[{ label: "Emplois du temps", href: "/timetable" }, { label: "Import" }]}
       />
+      <TimetableNav />
 
       <ol className="stepper" aria-label="Étapes de l'import">
         {STEPS.map((s, i) => (

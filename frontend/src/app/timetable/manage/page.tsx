@@ -7,7 +7,8 @@ import Shell from "../../../components/Shell";
 import { EmptyState, FormError, Modal, PageHeader, TableSkeleton, useFeedback } from "../../../components/ui";
 import { api, errorMessage } from "../../../lib/api";
 import { getStoredUser } from "../../../lib/auth";
-import { DAY_NAMES, TimetableSettings, subjectColor } from "../../../lib/timetable";
+import { DAY_NAMES, TimetableSettings, parseHalfDays, subjectColor } from "../../../lib/timetable";
+import TimetableNav from "../../../components/timetable/TimetableNav";
 import "../../../components/timetable/timetable.css";
 
 type Tab = "rooms" | "subjects" | "hours" | "imports";
@@ -18,6 +19,8 @@ interface Room {
   type: string | null;
   capacity: number | null;
   building: string | null;
+  subjectIds?: string[];
+  subjects?: { id: string; name: string }[];
   _count: { sessions: number };
 }
 
@@ -56,6 +59,7 @@ const MANAGEMENT = ["SUPER_ADMIN", "ADMIN_ORGANISATION", "DIRECTOR"];
 function RoomsTab() {
   const feedback = useFeedback();
   const [rooms, setRooms] = useState<Room[] | null>(null);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [editing, setEditing] = useState<Partial<Room> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +68,16 @@ function RoomsTab() {
     api.get<Room[]>("/timetable/rooms").then(setRooms).catch((err) => feedback.error("Chargement impossible", errorMessage(err)));
   }, [feedback]);
   useEffect(load, [load]);
+  useEffect(() => {
+    api.get<Subject[]>("/subjects").then(setSubjects).catch(() => setSubjects([]));
+  }, []);
+  const toggleSubject = (id: string) => {
+    if (!editing) return;
+    const current = new Set(editing.subjectIds ?? []);
+    if (current.has(id)) current.delete(id);
+    else current.add(id);
+    setEditing({ ...editing, subjectIds: [...current] });
+  };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +89,7 @@ function RoomsTab() {
       type: editing.type || null,
       capacity: editing.capacity ? Number(editing.capacity) : null,
       building: editing.building?.trim() || null,
+      subjectIds: editing.subjectIds ?? [],
     };
     try {
       if (editing.id) await api.patch(`/timetable/rooms/${editing.id}`, body);
@@ -130,6 +145,7 @@ function RoomsTab() {
               <tr>
                 <th>Salle</th>
                 <th>Type</th>
+                <th>Réservée à</th>
                 <th className="num">Capacité</th>
                 <th className="num">Séances / semaine</th>
                 <th className="actions">
@@ -145,6 +161,7 @@ function RoomsTab() {
                     {r.building && <div className="cell-sub">{r.building}</div>}
                   </td>
                   <td>{r.type ?? <span className="muted">—</span>}</td>
+                  <td>{r.subjects?.length ? r.subjects.map((s) => s.name).join(", ") : <span className="muted">Toutes matières</span>}</td>
                   <td className="num">{r.capacity ?? "—"}</td>
                   <td className="num">{r._count.sessions}</td>
                   <td className="actions">
@@ -204,6 +221,20 @@ function RoomsTab() {
               <div className="field full">
                 <label htmlFor="room-building">Bâtiment / emplacement</label>
                 <input id="room-building" className="input" maxLength={60} value={editing.building ?? ""} onChange={(e) => setEditing({ ...editing, building: e.target.value })} />
+              </div>
+              <div className="field full">
+                <span className="field-label">Salle spécialisée pour</span>
+                <div className="btn-row" role="group" aria-label="Matières de la salle spécialisée">
+                  {subjects.map((s) => {
+                    const on = (editing.subjectIds ?? []).includes(s.id);
+                    return (
+                      <button key={s.id} type="button" className={`chip${on ? " is-active" : ""}`} aria-pressed={on} onClick={() => toggleSubject(s.id)}>
+                        {s.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="field-hint">Laissez vide pour une salle ordinaire. Une salle spécialisée (labo, informatique, EPS) n&apos;accueille que ces matières, et ces matières doivent y avoir lieu.</span>
               </div>
             </div>
           </form>
@@ -383,32 +414,57 @@ function HoursTab() {
   const feedback = useFeedback();
   const [settings, setSettings] = useState<TimetableSettings | null>(null);
   const [breaks, setBreaks] = useState("");
+  const [halfDays, setHalfDays] = useState<Set<string>>(new Set());
+  const [yearName, setYearName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const applySettings = (s: TimetableSettings) => {
+    setSettings(s);
+    setBreaks(s.breaks.map((b) => `${b.start}-${b.end}`).join(", "));
+    setHalfDays(new Set(parseHalfDays(s.freeHalfDays).map((h) => `${h.day}:${h.half}`)));
+  };
 
   useEffect(() => {
     api
       .get<TimetableSettings>("/timetable/settings")
-      .then((s) => {
-        setSettings(s);
-        setBreaks(s.breaks.map((b) => `${b.start}-${b.end}`).join(", "));
-      })
+      .then(applySettings)
       .catch((err) => setError(errorMessage(err)));
+    api
+      .get<{ academicYear: { name: string } }>("/timetable/resources")
+      .then((r) => setYearName(r.academicYear.name))
+      .catch(() => {});
   }, []);
 
   if (!settings) return <div className="card"><TableSkeleton rows={3} columns={3} /></div>;
 
   const toggleDay = (d: number) => setSettings({ ...settings, days: settings.days.includes(d) ? settings.days.filter((x) => x !== d) : [...settings.days, d].sort() });
+  const toggleHalf = (key: string) =>
+    setHalfDays((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      const saved = await api.patch<TimetableSettings>("/timetable/settings", { days: settings.days, start: settings.start, end: settings.end, breaks, slotMinutes: settings.slotMinutes });
-      setSettings(saved);
-      setBreaks(saved.breaks.map((b) => `${b.start}-${b.end}`).join(", "));
-      feedback.success("Horaires enregistrés", "Ils s'appliquent à la grille et à la détection des conflits.");
+      const saved = await api.patch<TimetableSettings>("/timetable/settings", {
+        days: settings.days,
+        start: settings.start,
+        end: settings.end,
+        breaks,
+        slotMinutes: settings.slotMinutes,
+        halfDaySplit: settings.halfDaySplit,
+        freeHalfDays: [...halfDays].map((k) => ({ day: Number(k.split(":")[0]), half: k.split(":")[1] })),
+        maxClassHoursPerDay: settings.maxClassHoursPerDay ?? null,
+        maxTeacherHoursPerDay: settings.maxTeacherHoursPerDay ?? null,
+      });
+      applySettings(saved);
+      feedback.success("Grille horaire enregistrée", "Elle s'applique à la saisie, aux contrôles et à la génération.");
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -417,8 +473,13 @@ function HoursTab() {
   };
 
   return (
-    <form className="card" onSubmit={save} style={{ maxWidth: 720 }}>
+    <form className="card" onSubmit={save} style={{ maxWidth: 760 }}>
       <FormError message={error} />
+      {yearName && (
+        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+          Grille de l&apos;année <strong>{yearName}</strong> : elle sert à la saisie, aux contrôles de chaque cours et à la génération automatique.
+        </p>
+      )}
       <div className="field">
         <span className="field-label">Jours de cours</span>
         <div className="btn-row" role="group" aria-label="Jours de cours">
@@ -439,20 +500,70 @@ function HoursTab() {
           <input id="h-end" type="time" className="input" value={settings.end} onChange={(e) => setSettings({ ...settings, end: e.target.value })} required />
         </div>
         <div className="field">
-          <label htmlFor="h-slot">Pas de la grille</label>
+          <label htmlFor="h-slot">Durée d&apos;un créneau</label>
           <select id="h-slot" className="input" value={settings.slotMinutes} onChange={(e) => setSettings({ ...settings, slotMinutes: Number(e.target.value) })}>
-            {[5, 10, 15, 20, 30, 60].map((m) => (
+            {[15, 20, 30, 45, 50, 55, 60].map((m) => (
               <option key={m} value={m}>
-                {m} minutes
+                {m} min{m >= 45 ? " = 1 h de cours" : ""}
               </option>
             ))}
           </select>
-          <span className="field-hint">Précision du glisser-déposer.</span>
+          <span className="field-hint">Avec des créneaux de 45 à 60 min, un créneau compte pour une heure du volume officiel.</span>
+        </div>
+        <div className="field">
+          <label htmlFor="h-split">Fin de la matinée</label>
+          <input id="h-split" type="time" className="input" value={settings.halfDaySplit ?? "12:00"} onChange={(e) => setSettings({ ...settings, halfDaySplit: e.target.value })} />
+          <span className="field-hint">Sépare matin et après-midi (demi-journées libres, matières à fort coefficient le matin).</span>
         </div>
         <div className="field full">
-          <label htmlFor="h-breaks">Pauses</label>
-          <input id="h-breaks" className="input" value={breaks} placeholder="10:00-10:15, 12:00-14:00" onChange={(e) => setBreaks(e.target.value)} />
-          <span className="field-hint">Séparées par des virgules. Une séance posée sur une pause est signalée (avertissement) et le générateur n&apos;y place rien.</span>
+          <label htmlFor="h-breaks">Pauses, récréations et déjeuner</label>
+          <input id="h-breaks" className="input" value={breaks} placeholder="09:20-09:35, 12:20-14:30" onChange={(e) => setBreaks(e.target.value)} />
+          <span className="field-hint">Séparées par des virgules. Aucun cours ne peut y être placé.</span>
+        </div>
+        <div className="field full">
+          <span className="field-label">Demi-journées libres</span>
+          <div className="btn-row" role="group" aria-label="Demi-journées libres">
+            {settings.days.flatMap((d) =>
+              (["AM", "PM"] as const).map((h) => {
+                const key = `${d}:${h}`;
+                const on = halfDays.has(key);
+                return (
+                  <button key={key} type="button" className={`btn btn-sm ${on ? "btn-secondary" : "btn-outline"}`} aria-pressed={on} onClick={() => toggleHalf(key)}>
+                    {DAY_NAMES[d]} {h === "AM" ? "matin" : "après-midi"}
+                  </button>
+                );
+              }),
+            )}
+          </div>
+          <span className="field-hint">Exemple : mercredi après-midi. Aucun cours n&apos;y est accepté.</span>
+        </div>
+        <div className="field">
+          <label htmlFor="h-max-class">Maximum par jour pour une classe</label>
+          <input
+            id="h-max-class"
+            type="number"
+            min={1}
+            max={14}
+            className="input"
+            placeholder="Sans limite"
+            value={settings.maxClassHoursPerDay ?? ""}
+            onChange={(e) => setSettings({ ...settings, maxClassHoursPerDay: e.target.value ? Number(e.target.value) : null })}
+          />
+          <span className="field-hint">En heures de cours.</span>
+        </div>
+        <div className="field">
+          <label htmlFor="h-max-teacher">Maximum par jour pour un professeur</label>
+          <input
+            id="h-max-teacher"
+            type="number"
+            min={1}
+            max={14}
+            className="input"
+            placeholder="Sans limite"
+            value={settings.maxTeacherHoursPerDay ?? ""}
+            onChange={(e) => setSettings({ ...settings, maxTeacherHoursPerDay: e.target.value ? Number(e.target.value) : null })}
+          />
+          <span className="field-hint">En heures de cours.</span>
         </div>
       </div>
       <div className="btn-row end">
@@ -552,6 +663,7 @@ function ManageContent() {
         description="Les ressources utilisées par les emplois du temps et la détection des conflits."
         breadcrumbs={[{ label: "Emplois du temps", href: "/timetable" }, { label: "Paramètres" }]}
       />
+      <TimetableNav />
       <div className="tabs" role="tablist">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button key={id} type="button" role="tab" className="tab" aria-selected={tab === id} onClick={() => router.replace(`/timetable/manage?tab=${id}`, { scroll: false })}>

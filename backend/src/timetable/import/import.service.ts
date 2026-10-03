@@ -237,7 +237,7 @@ export class TimetableImportService {
     }
     const [vocab, settings, baseNames, existing] = await Promise.all([
       this.vocabulary(schoolId, yearId),
-      this.timetable.loadSettings(schoolId),
+      this.timetable.loadSettings(schoolId, yearId),
       this.timetable.nameLookup(schoolId),
       this.prisma.timetableSession.findMany({
         where: { schoolId, academicYearId: yearId },
