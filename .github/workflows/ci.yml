@@ -94,6 +94,8 @@ jobs:
         run: node test/e2e-imports.js
       - name: End-to-end — report cards and class council
         run: node test/e2e-bulletins.js
+      - name: End-to-end — parent portal
+        run: node test/e2e-portal.js
       - name: API log
         if: failure()
         run: tail -200 /tmp/api.log

@@ -558,6 +558,9 @@ model Attendance {
   reason            String?
   isJustified       Boolean  @default(false)
   justification     String?
+  /// Reason sent by a parent from the portal, waiting for the office to accept or refuse it
+  justificationRequest     String?
+  justificationRequestedAt DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

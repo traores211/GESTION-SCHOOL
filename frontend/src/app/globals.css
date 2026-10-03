@@ -2150,3 +2150,8 @@ html:has(.save-bar) { scroll-padding-bottom: 104px; }
 label.btn { cursor: pointer; }
 label.btn.is-disabled { opacity: 0.6; pointer-events: none; }
 label.btn:focus-within { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+
+/* Attendance: justification requests from parents */
+.att-request { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--rule); }
+.att-request > div:first-child { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.att-request-actions { display: flex; gap: 8px; }

@@ -45,6 +45,16 @@ export class AttendanceController {
     return this.attendanceService.findByStudent(user, studentId);
   }
 
+  @Get('justifications')
+  pendingJustifications(@CurrentUser() user: AuthUser) {
+    return this.attendanceService.pendingJustifications(user);
+  }
+
+  @Patch(':id/refuse-justification')
+  refuseJustification(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.attendanceService.refuseJustification(user, id);
+  }
+
   @Patch(':id/justify')
   justify(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: JustifyDto) {
     return this.attendanceService.justify(user, id, dto.justification);

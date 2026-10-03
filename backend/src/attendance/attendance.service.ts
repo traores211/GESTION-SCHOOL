@@ -93,8 +93,31 @@ export class AttendanceService {
 
     return this.prisma.attendance.update({
       where: { id },
-      data: { isJustified: true, justification, status: 'ABSENCE_JUSTIFIEE' },
+      data: { isJustified: true, justification, status: 'ABSENCE_JUSTIFIEE', justificationRequest: null, justificationRequestedAt: null },
     });
+  }
+
+  /** Reasons sent by parents from the portal, waiting for a decision of the office. */
+  pendingJustifications(user: AuthUser) {
+    if (!user.schoolId) return [];
+    return this.prisma.attendance.findMany({
+      where: { schoolId: user.schoolId, status: 'ABSENT', justificationRequest: { not: null } },
+      include: { student: { select: { id: true, firstName: true, lastName: true, matricule: true } }, class: { select: { name: true } } },
+      orderBy: { justificationRequestedAt: 'asc' },
+      take: 200,
+    });
+  }
+
+  /** Refuses the reason sent by a parent: the absence stays unjustified and the parents are told. */
+  async refuseJustification(user: AuthUser, id: string) {
+    const record = await this.prisma.attendance.findUnique({ where: { id }, include: { student: { include: { parents: { where: { userId: { not: null } } } } } } });
+    if (!record || record.schoolId !== user.schoolId) throw new NotFoundException('Enregistrement introuvable');
+    if (!record.justificationRequest) throw new BadRequestException('Aucun justificatif en attente pour cette absence');
+    await this.prisma.attendance.update({ where: { id }, data: { justificationRequest: null, justificationRequestedAt: null } });
+    for (const parent of record.student.parents) {
+      await this.notifications.notify(parent.userId, 'Justificatif refusé', `Le justificatif de l'absence de ${record.student.firstName} du ${record.date.toLocaleDateString('fr-FR')} n'a pas été retenu. Contactez l'établissement pour plus de précisions.`);
+    }
+    return { success: true };
   }
 
   async todayStats(user: AuthUser) {

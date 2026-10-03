@@ -33,6 +33,14 @@ const STATUS_OPTIONS = [
   { value: "ABSENCE_JUSTIFIEE", label: "Justifiée", short: "J", badge: "badge-info" },
 ];
 
+interface JustificationRequest {
+  id: string;
+  date: string;
+  justificationRequest: string;
+  student: { firstName: string; lastName: string; matricule: string };
+  class: { name: string };
+}
+
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export default function AttendancePage() {
@@ -46,8 +54,24 @@ export default function AttendancePage() {
   const [alreadyTaken, setAlreadyTaken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requests, setRequests] = useState<JustificationRequest[]>([]);
+
+  const loadRequests = () => api.get<JustificationRequest[]>("/attendance/justifications").then(setRequests).catch(() => setRequests([]));
+
+  /** Accepts (the absence becomes justified) or refuses the reason a parent sent from the portal. */
+  const decide = async (r: JustificationRequest, accept: boolean) => {
+    try {
+      if (accept) await api.patch(`/attendance/${r.id}/justify`, { justification: r.justificationRequest });
+      else await api.patch(`/attendance/${r.id}/refuse-justification`);
+      feedback.success(accept ? "Absence justifiée" : "Justificatif refusé", `${r.student.firstName} ${r.student.lastName} · ${new Date(r.date).toLocaleDateString("fr-FR")}`);
+      loadRequests();
+    } catch (err) {
+      feedback.error("Action impossible", errorMessage(err));
+    }
+  };
 
   useEffect(() => {
+    loadRequests();
     api
       .get<ClassOption[]>("/classes")
       .then((cls) => {
@@ -109,6 +133,38 @@ export default function AttendancePage() {
         title="Appel"
         description="Tous les élèves sont présents par défaut : ne cochez que les absences et les retards."
       />
+
+      {requests.length > 0 && (
+        <section className="card" style={{ marginBottom: 20 }} aria-label="Justificatifs à traiter">
+          <h2 className="card-title" style={{ marginBottom: 4 }}>
+            Justificatifs envoyés par les parents ({requests.length})
+          </h2>
+          <p className="muted" style={{ marginBottom: 8 }}>
+            Acceptez un motif pour que l&apos;absence devienne « justifiée » ; un refus est notifié à la famille.
+          </p>
+          {requests.map((r) => (
+            <div key={r.id} className="att-request">
+              <div>
+                <strong>
+                  {r.student.lastName} {r.student.firstName}
+                </strong>{" "}
+                <span className="muted">
+                  {r.class.name} · absence du {new Date(r.date).toLocaleDateString("fr-FR")}
+                </span>
+                <div>{r.justificationRequest}</div>
+              </div>
+              <div className="att-request-actions">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => decide(r, true)}>
+                  Accepter
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => decide(r, false)}>
+                  Refuser
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       <div className="filter-bar">
         <div className="filter-item">
