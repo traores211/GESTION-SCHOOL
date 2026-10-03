@@ -12,6 +12,16 @@ test("the student list loads and filters by search", async ({ page }) => {
   await expect(page.getByText("Aucun élève ne correspond")).toBeVisible();
 });
 
+test("pupils can be archived, staff accounts deactivated: the actions are offered", async ({ page }) => {
+  await page.goto("/students");
+  await expect(page.getByRole("button", { name: /^Archiver / }).first()).toBeVisible();
+  await page.getByLabel("Élèves archivés").check();
+  await expect(page.getByRole("button", { name: /^Archiver / })).toHaveCount(0);
+  await page.goto("/staff");
+  await expect(page.getByRole("button", { name: /^Désactiver le compte de / }).first()).toBeVisible();
+  await expect(page.getByText("Actif").first()).toBeVisible();
+});
+
 test("the billing page lists invoices with their status", async ({ page }) => {
   await page.goto("/billing");
   await expect(page.locator("table tbody tr").first()).toBeVisible();
