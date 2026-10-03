@@ -54,6 +54,29 @@ const client = (token) => (method, path, body) =>
     detail = (await api('GET', `/billing/invoices/${invoices[1].body.id}`)).body;
     ok(pay2.status === 201 && detail.status === 'PAID', 'fully paid invoice');
 
+    console.log('Accounting exports');
+    const today = new Date();
+    const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const token = await login('admin@school.local', 'admin123');
+    const download = async (path, bearer = token) => {
+      const r = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${bearer}` } });
+      const bytes = Buffer.from(await r.arrayBuffer());
+      // Excel needs the UTF-8 byte-order mark to read accents; text() would silently strip it.
+      return { status: r.status, disposition: r.headers.get('content-disposition') || '', bom: bytes.subarray(0, 3).toString('hex') === 'efbbbf', text: bytes.toString('utf8') };
+    };
+    const journal = await download(`/billing/export/payments?from=${iso(today)}&to=${iso(today)}`);
+    const lines = journal.text.split('\r\n').filter((l) => l.includes(refs[0]) || l.includes(refs[1]));
+    // Invoice 0: 20 000 received then refunded the same day; invoice 1: 50 000 by Wave.
+    ok(journal.status === 200 && /journal-encaissements-.*\.csv/.test(journal.disposition) && journal.bom && journal.text.includes('Date;Pièce;Facture'), 'receipts journal downloadable as CSV for Excel');
+    ok(lines.length === 3 && lines.filter((l) => l.includes(refs[0])).some((l) => l.includes(';20000;;')) && lines.filter((l) => l.includes(refs[0])).some((l) => l.includes(';;20000;Double encaissement')) && lines.some((l) => l.includes(refs[1]) && l.includes('Wave;50000')), 'a payment, its refund as a separate line, and the Wave payment', lines);
+    const total = journal.text.split('\r\n').find((l) => l.includes('TOTAL'));
+    ok(/TOTAL;\d+;\d+;Net : \d+/.test(total), `totals line: ${total}`);
+    const issued = await download(`/billing/export/invoices?from=${iso(today)}&to=${iso(today)}`);
+    ok(issued.status === 200 && issued.text.includes(`${refs[0]};Frais 0`) && issued.text.includes('Annulée;Erreur de saisie') && issued.text.includes(`${refs[1]};Frais 1`) && /;50000;50000;0;Payée/.test(issued.text), 'invoices issued, with what was collected, what is left and the cancellation reason');
+    ok((await download('/billing/export/payments?from=2026-13-01&to=x')).status === 400 && (await download('/billing/export/payments?from=2020-01-01&to=2026-01-01')).status === 400, 'a valid period of at most 13 months is required');
+    const secretaryToken = await login('secretaire@school.local', 'secret123');
+    ok((await download(`/billing/export/payments?from=${iso(today)}&to=${iso(today)}`, secretaryToken)).status === 403, 'accounting exports are reserved to the management and the accountant');
+
     console.log('Archiving');
     const archive = await api('DELETE', `/students/${s1.id}?reason=D%C3%A9m%C3%A9nagement`);
     const row = await prisma.student.findUnique({ where: { id: s1.id }, include: { invoices: true } });

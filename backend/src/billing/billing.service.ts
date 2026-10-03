@@ -15,7 +15,19 @@ function formatFCFA(amount: number) {
   return new Intl.NumberFormat('fr-FR').format(Math.round(amount)) + ' FCFA';
 }
 
-const INVOICE_INCLUDE = { items: true, payments: { orderBy: { paidAt: 'asc' } }, student: true } satisfies Prisma.InvoiceInclude;
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  CASH: 'Espèces',
+  MOBILE_MONEY_ORANGE: 'Orange Money',
+  MOBILE_MONEY_MTN: 'MTN Mobile Money',
+  MOBILE_MONEY_MOOV: 'Moov Money',
+  WAVE: 'Wave',
+  BANK_TRANSFER: 'Virement',
+  CHEQUE: 'Chèque',
+  CARD: 'Carte',
+};
+const INVOICE_STATUS_LABELS: Record<string, string> = { DRAFT: 'Brouillon', PENDING: 'En attente', PARTIALLY_PAID: 'Partiellement payée', PAID: 'Payée', OVERDUE: 'En retard', CANCELLED: 'Annulée' };
+
+const INVOICE_INCLUDE ={ items: true, payments: { orderBy: { paidAt: 'asc' } }, student: true } satisfies Prisma.InvoiceInclude;
 
 @Injectable()
 export class BillingService {
@@ -182,6 +194,67 @@ export class BillingService {
       data: { status: 'OVERDUE' },
     });
     return result.count;
+  }
+
+  /**
+   * Accounting exports (CSV for Excel) over a period: the receipts journal (one line per payment,
+   * a refund being its own line at its own date) and the invoices issued. Whole francs, dd/mm/yyyy.
+   */
+  async accountingExport(user: AuthUser, kind: 'payments' | 'invoices', from: Date, to: Date) {
+    const schoolId = this.requireSchool(user);
+    const cell = (v: unknown) => {
+      const text = v === null || v === undefined ? '' : String(v);
+      return /[;"\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const day = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const end = new Date(to.getTime() + 86400000);
+    let header: string[];
+    let rows: unknown[][];
+
+    if (kind === 'payments') {
+      const payments = await this.prisma.payment.findMany({
+        where: { invoice: { schoolId }, status: { in: ['SUCCESS', 'REFUNDED'] }, OR: [{ paidAt: { gte: from, lt: end } }, { refundedAt: { gte: from, lt: end } }] },
+        include: { invoice: { select: { reference: true, label: true } }, student: { select: { matricule: true, firstName: true, lastName: true } } },
+        orderBy: { paidAt: 'asc' },
+        take: 20000,
+      });
+      header = ['Date', 'Pièce', 'Facture', 'Libellé', 'Matricule', 'Élève', 'Mode de paiement', 'Encaissement', 'Remboursement', 'Motif'];
+      rows = [];
+      for (const p of payments) {
+        const base = [p.transactionId, p.invoice.reference, p.invoice.label, p.student.matricule, `${p.student.lastName} ${p.student.firstName}`, PAYMENT_METHOD_LABELS[p.method] ?? p.method];
+        if (p.paidAt >= from && p.paidAt < end) rows.push([day(p.paidAt), ...base, Math.round(p.amount), '', '']);
+        if (p.status === 'REFUNDED' && p.refundedAt && p.refundedAt >= from && p.refundedAt < end) rows.push([day(p.refundedAt), ...base, '', Math.round(p.amount), p.refundReason ?? '']);
+      }
+      const received = rows.reduce((s: number, r) => s + (Number(r[7]) || 0), 0);
+      const refunded = rows.reduce((s: number, r) => s + (Number(r[8]) || 0), 0);
+      rows.push(['', '', '', '', '', '', 'TOTAL', received, refunded, `Net : ${received - refunded}`]);
+    } else {
+      const invoices = await this.prisma.invoice.findMany({
+        where: { schoolId, createdAt: { gte: from, lt: end } },
+        include: { payments: true, student: { select: { matricule: true, firstName: true, lastName: true } } },
+        orderBy: { createdAt: 'asc' },
+        take: 20000,
+      });
+      header = ['Date', 'Référence', 'Libellé', 'Matricule', 'Élève', 'Échéance', 'Montant', 'Encaissé', 'Reste dû', 'Statut', "Motif d'annulation"];
+      rows = invoices.map((i) => [
+        day(i.createdAt),
+        i.reference,
+        i.label,
+        i.student.matricule,
+        `${i.student.lastName} ${i.student.firstName}`,
+        day(i.dueDate),
+        Math.round(i.totalAmount),
+        paidAmount(i.payments),
+        i.status === 'CANCELLED' ? 0 : remaining(i.totalAmount, i.payments),
+        INVOICE_STATUS_LABELS[i.status] ?? i.status,
+        i.cancelReason ?? '',
+      ]);
+    }
+    const stamp = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return {
+      fileName: `${kind === 'payments' ? 'journal-encaissements' : 'factures'}-${stamp(from)}-${stamp(to)}.csv`,
+      content: `${String.fromCharCode(0xfeff)}${header.map(cell).join(';')}\r\n${rows.map((r) => r.map(cell).join(';')).join('\r\n')}\r\n`,
+    };
   }
 
   async studentBalance(user: AuthUser, studentId: string) {

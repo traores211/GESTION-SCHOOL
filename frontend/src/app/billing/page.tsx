@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Ban, Copy, CreditCard, Eye, Link2, LoaderCircle, Plus, Receipt, Undo2, Wallet } from "lucide-react";
+import { Ban, Copy, CreditCard, Download, Eye, Link2, LoaderCircle, Plus, Receipt, Undo2, Wallet } from "lucide-react";
+import { downloadFile } from "../../lib/download";
 import Shell from "../../components/Shell";
 import { EmptyState, FormError, Modal, PageHeader, Pagination, SearchInput, SortHeader, TableSkeleton, useFeedback } from "../../components/ui";
 import { KpiCard } from "../../components/dashboard/ui";
@@ -66,6 +67,13 @@ export default function BillingPage() {
   const [onlineEnabled, setOnlineEnabled] = useState(false);
   const [payLink, setPayLink] = useState<{ invoiceId: string; url: string; amount: number } | null>(null);
   const [linking, setLinking] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  // Default period: from the first day of the month to today.
+  const [period, setPeriod] = useState(() => {
+    const now = new Date();
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)), to: iso(now) };
+  });
   const [formError, setFormError] = useState<string | null>(null);
   const [invoiceForm, setInvoiceForm] = useState({ studentId: "", label: "Scolarité", dueDate: new Date().toISOString().slice(0, 10), amount: 150000 });
   const [paymentForm, setPaymentForm] = useState({ amount: 0, method: "CASH", reference: "" });
@@ -174,6 +182,9 @@ export default function BillingPage() {
     }
   };
 
+  const exportCsv = (kind: "payments" | "invoices") =>
+    downloadFile(`/billing/export/${kind}?from=${period.from}&to=${period.to}`, `${kind}.csv`).catch((err) => feedback.error("Export impossible", errorMessage(err)));
+
   const recordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingInvoice) return;
@@ -199,17 +210,58 @@ export default function BillingPage() {
         title="Facturation & paiements"
         description="Espèces, Mobile Money (Orange, MTN, Moov, Wave), virement, chèque ou carte."
         actions={
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setFormError(null);
-              setShowInvoiceForm(true);
-            }}
-          >
-            <Plus size={16} /> Nouvelle facture
-          </button>
+          <>
+            {canManageMoney && (
+              <button className="btn btn-outline" onClick={() => setExporting(true)}>
+                <Download size={16} /> Exports comptables
+              </button>
+            )}
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setFormError(null);
+                setShowInvoiceForm(true);
+              }}
+            >
+              <Plus size={16} /> Nouvelle facture
+            </button>
+          </>
         }
       />
+
+      <Modal
+        open={exporting}
+        onClose={() => setExporting(false)}
+        title="Exports comptables"
+        description="Fichiers CSV lisibles dans Excel, pour le comptable ou le logiciel de comptabilité."
+        footer={
+          <button type="button" className="btn btn-outline" onClick={() => setExporting(false)}>
+            Fermer
+          </button>
+        }
+      >
+        <div className="form-grid">
+          <div className="field">
+            <label htmlFor="exp-from">Du</label>
+            <input id="exp-from" type="date" className="input" value={period.from} max={period.to} onChange={(e) => setPeriod({ ...period, from: e.target.value })} />
+          </div>
+          <div className="field">
+            <label htmlFor="exp-to">Au</label>
+            <input id="exp-to" type="date" className="input" value={period.to} min={period.from} onChange={(e) => setPeriod({ ...period, to: e.target.value })} />
+          </div>
+        </div>
+        <div className="import-actions">
+          <button type="button" className="btn btn-secondary" onClick={() => exportCsv("payments")}>
+            <Download size={16} /> Journal des encaissements
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => exportCsv("invoices")}>
+            <Download size={16} /> Factures émises
+          </button>
+        </div>
+        <p className="field-hint" style={{ marginTop: 12 }}>
+          Le journal liste chaque paiement reçu sur la période ; un remboursement y figure sur sa propre ligne, à sa date. 13 mois au maximum par fichier.
+        </p>
+      </Modal>
 
       {invoices && (
         <div className="kpi-grid">
