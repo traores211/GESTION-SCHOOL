@@ -66,6 +66,10 @@ model School {
   timetableEnd          String   @default("18:00")
   timetableBreaks       String   @default("12:00-14:00")
   timetableSlotMinutes  Int      @default(30)
+  /// SMS / WhatsApp: monthly quota (message segments) and the events that send a message to families
+  smsMonthlyQuota       Int      @default(1000)
+  smsEvents             String   @default("ABSENCE,OVERDUE,ADMISSION,PAYMENT")
+  messageLogs           MessageLog[]
   highlights            SchoolHighlight[]
   photos                SchoolPhoto[]
   partners              SchoolPartner[]
@@ -355,11 +359,38 @@ model Parent {
   profession        String?
   address           String?
   students          Student[]
+  /// The guardian asked not to receive SMS / WhatsApp messages.
+  smsOptOut         Boolean  @default(false)
   archivedAt        DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([email])
+}
+
+/// Every SMS / WhatsApp message sent (or skipped) to a family: proof, cost follow-up and quota.
+model MessageLog {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  /// "sms" | "whatsapp"
+  channel           String   @default("sms")
+  to                String
+  /// ABSENCE | OVERDUE | ADMISSION | PAYMENT | TEST
+  event             String
+  body              String
+  /// SENT | FAILED | SKIPPED
+  status            String
+  error             String?
+  provider          String
+  segments          Int      @default(1)
+  studentId         String?
+  /// Prevents sending the same message twice (e.g. one absence message per pupil, day and guardian).
+  dedupeKey         String?  @unique
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+  @@index([schoolId, status])
 }
 
 /// Gap-free counters (invoice references, student numbers…) incremented atomically.

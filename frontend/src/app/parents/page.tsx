@@ -22,10 +22,11 @@ interface ParentRow {
   email: string;
   phone: string;
   relationship: string;
+  smsOptOut?: boolean;
   students: StudentOption[];
 }
 
-const EMPTY_FORM = { firstName: "", lastName: "", email: "", phone: "", relationship: "Père", studentIds: [] as string[] };
+const EMPTY_FORM = { firstName: "", lastName: "", email: "", phone: "", relationship: "Père", smsOptOut: false, studentIds: [] as string[] };
 
 export default function ParentsPage() {
   const feedback = useFeedback();
@@ -80,6 +81,17 @@ export default function ParentsPage() {
     }
   };
 
+  /** SMS consent of a guardian: switched from the list, effective for the next message. */
+  const toggleSms = async (p: ParentRow) => {
+    try {
+      await api.patch(`/parents/${p.id}`, { smsOptOut: !p.smsOptOut });
+      feedback.success(p.smsOptOut ? "SMS réactivés" : "SMS désactivés", `${p.firstName} ${p.lastName}`);
+      load();
+    } catch (err) {
+      feedback.error("Modification impossible", errorMessage(err));
+    }
+  };
+
   const filteredChildren = students.filter((s) => searchKey(`${s.firstName} ${s.lastName} ${s.matricule}`).includes(searchKey(childFilter)));
 
   return (
@@ -104,7 +116,7 @@ export default function ParentsPage() {
             {error}
           </EmptyState>
         ) : !parents ? (
-          <TableSkeleton columns={5} />
+          <TableSkeleton columns={6} />
         ) : table.total === 0 ? (
           <EmptyState icon={<Users size={22} />} title={table.query ? "Aucun résultat" : "Aucun parent enregistré"} />
         ) : (
@@ -115,6 +127,7 @@ export default function ParentsPage() {
                   <SortHeader label="Parent" column="name" sort={table.sort} onSort={table.toggleSort} />
                   <SortHeader label="Lien" column="relationship" sort={table.sort} onSort={table.toggleSort} />
                   <th>Contact</th>
+                  <th>Messages</th>
                   <th>Enfants</th>
                 </tr>
               </thead>
@@ -135,6 +148,11 @@ export default function ParentsPage() {
                         <Phone size={13} /> {p.phone}
                       </a>
                       <div className="cell-sub">{p.email}</div>
+                    </td>
+                    <td>
+                      <button type="button" className={`badge ${p.smsOptOut ? "badge-neutral" : "badge-green"}`} style={{ cursor: "pointer", border: 0 }} aria-pressed={!p.smsOptOut} title="Cliquer pour changer" onClick={() => toggleSms(p)}>
+                        {p.smsOptOut ? "SMS refusés" : "SMS acceptés"}
+                      </button>
                     </td>
                     <td>
                       {p.students.length ? (
@@ -212,6 +230,10 @@ export default function ParentsPage() {
               </select>
             </div>
           </div>
+          <label className="checkbox" style={{ display: "flex", marginBottom: 14 }}>
+            <input type="checkbox" checked={!form.smsOptOut} onChange={(e) => setForm({ ...form, smsOptOut: !e.target.checked })} />
+            Accepte de recevoir les SMS de l&apos;établissement (absences, paiements, convocations)
+          </label>
           <div className="field">
             <span className="field-label">Enfants rattachés ({form.studentIds.length})</span>
             <input className="input input-sm" type="search" placeholder="Filtrer les élèves…" aria-label="Filtrer les élèves" value={childFilter} onChange={(e) => setChildFilter(e.target.value)} />

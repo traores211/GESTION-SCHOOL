@@ -29,6 +29,7 @@ import { AssistantModule } from './assistant/assistant.module';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 import { InfraModule } from './infra/infra.module';
 import { AuditModule } from './audit/audit.module';
+import { MessagingModule } from './messaging/messaging.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AuditModule } from './audit/audit.module';
     TimetableModule,
     AssistantModule,
     AuditModule,
+    MessagingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

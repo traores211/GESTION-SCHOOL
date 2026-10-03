@@ -92,6 +92,7 @@ const client = (token) => (method, path, body) =>
   } finally {
     const invoices = await prisma.invoice.findMany({ where: { label: LABEL }, select: { id: true, reference: true } });
     await prisma.notification.deleteMany({ where: { OR: invoices.map((i) => ({ message: { contains: i.reference } })).concat([{ id: '-' }]) } });
+    await prisma.messageLog.deleteMany({ where: { OR: invoices.map((i) => ({ body: { contains: i.reference } })).concat([{ id: '-' }]) } });
     await prisma.payment.deleteMany({ where: { invoiceId: { in: invoices.map((i) => i.id) } } });
     await prisma.invoice.deleteMany({ where: { id: { in: invoices.map((i) => i.id) } } });
     await prisma.$disconnect();

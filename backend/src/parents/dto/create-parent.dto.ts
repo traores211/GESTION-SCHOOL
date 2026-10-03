@@ -1,4 +1,4 @@
-import { IsArray, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateParentDto {
   @IsString()
@@ -26,6 +26,11 @@ export class CreateParentDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  /** The guardian refuses SMS / WhatsApp messages from the school. */
+  @IsOptional()
+  @IsBoolean()
+  smsOptOut?: boolean;
 
   @IsOptional()
   @IsArray()

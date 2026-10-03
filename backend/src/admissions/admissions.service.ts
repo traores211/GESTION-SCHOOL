@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { SequenceService } from '../infra/sequence.service';
 import { StorageService } from '../infra/storage.service';
+import { MessagingService } from '../messaging/messaging.service';
 import { AddPieceDto, AssignClassDto, CreateAdmissionDto, InterviewDto, NoteDto, PieceUpdateDto, TestDto, UpdateAdmissionDto } from './dto/create-admission.dto';
 import {
   ADMISSION_STATUSES,
@@ -70,7 +71,21 @@ export class AdmissionsService {
     private readonly prisma: PrismaService,
     private readonly sequences: SequenceService,
     private readonly storage: StorageService,
+    private readonly messaging: MessagingService,
   ) {}
+
+  /** SMS convocation to the family when a test or an interview gets a date (never blocks the dossier). */
+  private async convoke(admission: { id: string; schoolId: string; firstName: string; lastName: string; guardianPhone: string | null; phone: string | null }, kind: 'test' | 'entretien', scheduledAt: string) {
+    try {
+      const school = await this.prisma.school.findUniqueOrThrow({ where: { id: admission.schoolId }, select: { name: true } });
+      const entry = await this.messaging.admissionConvocation(admission, kind, new Date(scheduledAt), school.name);
+      if (entry?.status === 'SENT') {
+        await this.log(this.prisma, admission.id, { userId: null, userName: 'Automatique' }, { type: 'NOTE', title: 'Convocation envoyée par SMS', message: `au ${entry.to}` });
+      }
+    } catch {
+      // messaging must never break the admission workflow
+    }
+  }
 
   // ---------------------------------------------------------------- helpers
 
@@ -478,11 +493,12 @@ export class AdmissionsService {
         data: { scheduledAt: dto.scheduledAt ?? null, score: dto.score ?? null, maxScore: max },
       });
     });
+    if (dto.scheduledAt && dto.score == null) await this.convoke(admission, 'test', dto.scheduledAt);
     return this.findOne(user, id);
   }
 
   async recordInterview(user: AuthUser, id: string, dto: InterviewDto) {
-    await this.owned(user, id);
+    const admission = await this.owned(user, id);
     if (dto.done && !dto.notes?.trim()) throw new BadRequestException("Résumez l'entretien avant de l'enregistrer comme réalisé");
     const actor = await this.actor(user);
     await this.prisma.$transaction(async (tx) => {
@@ -509,6 +525,7 @@ export class AdmissionsService {
         data: { scheduledAt: dto.scheduledAt ?? null, opinion: dto.opinion ?? null },
       });
     });
+    if (dto.scheduledAt && !dto.done) await this.convoke(admission, 'entretien', dto.scheduledAt);
     return this.findOne(user, id);
   }
 

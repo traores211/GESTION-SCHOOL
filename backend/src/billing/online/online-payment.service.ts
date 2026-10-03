@@ -198,7 +198,7 @@ export class OnlinePaymentService {
       return count > 0;
     });
     if (updated && verdict.status === 'SUCCESS') {
-      await this.billing.notifyPaymentReceived(payment.invoiceId, payment.amount).catch((err: Error) => this.logger.warn(`Notification du paiement ${transactionId} : ${err.message}`));
+      await this.billing.notifyPaymentReceived(payment.invoiceId, payment.amount, payment.id).catch((err: Error) => this.logger.warn(`Notification du paiement ${transactionId} : ${err.message}`));
     }
     return verdict.status;
   }

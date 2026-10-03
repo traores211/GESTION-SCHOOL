@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MessagingService } from '../messaging/messaging.service';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly messaging: MessagingService,
   ) {}
 
   async mark(user: AuthUser, dto: MarkAttendanceDto) {
@@ -53,6 +55,8 @@ export class AttendanceService {
             `Votre enfant ${student.firstName} ${student.lastName} ${label} aujourd'hui.`,
           );
         }
+        // SMS for recent absences only (one per pupil, day and guardian); a sending problem never blocks the roll call.
+        if (record.status === 'ABSENT' && Date.now() - date.getTime() < 2 * 86400000) await this.messaging.absence(student.id, date).catch(() => undefined);
       }
     }
 

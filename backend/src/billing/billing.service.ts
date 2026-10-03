@@ -5,6 +5,7 @@ import { AuthUser } from '../common/current-user.decorator';
 import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SequenceService } from '../infra/sequence.service';
+import { MessagingService } from '../messaging/messaging.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { PaymentProvidersRegistry } from './providers/payment-providers.registry';
@@ -23,6 +24,7 @@ export class BillingService {
     private readonly paymentProviders: PaymentProvidersRegistry,
     private readonly notifications: NotificationsService,
     private readonly sequences: SequenceService,
+    private readonly messaging: MessagingService,
   ) {}
 
   private requireSchool(user: AuthUser) {
@@ -123,12 +125,12 @@ export class BillingService {
       return created;
     });
 
-    if (result.status === 'SUCCESS') await this.notifyPaymentReceived(invoiceId, dto.amount);
+    if (result.status === 'SUCCESS') await this.notifyPaymentReceived(invoiceId, dto.amount, payment.id);
     return payment;
   }
 
-  /** Tells the parents (with an account) that a payment was received. */
-  async notifyPaymentReceived(invoiceId: string, amount: number) {
+  /** Tells the parents that a payment was received: in-app notification and SMS receipt. */
+  async notifyPaymentReceived(invoiceId: string, amount: number, paymentId: string) {
     const invoice = await this.prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId }, include: { student: true } });
     const parents = await this.prisma.parent.findMany({ where: { students: { some: { id: invoice.studentId } }, userId: { not: null } } });
     for (const parent of parents) {
@@ -138,6 +140,7 @@ export class BillingService {
         `Paiement de ${formatFCFA(amount)} reçu pour la facture ${invoice.reference} (${invoice.student.firstName} ${invoice.student.lastName}).`,
       );
     }
+    await this.messaging.paymentReceived(invoice.studentId, amount, invoice.reference, paymentId).catch(() => undefined);
   }
 
   /** Recomputes and stores the status of an invoice from its payments and due date. */

@@ -2132,3 +2132,14 @@ html:has(.save-bar) { scroll-padding-bottom: 104px; }
 .gen-stat span { font-size: var(--fs-xs); color: var(--text-muted); }
 .gen-stat.is-good strong { color: var(--success); }
 .gen-stat.is-bad strong { color: var(--danger); }
+
+/* Messaging page */
+.msg-events { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.msg-event { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--radius); cursor: pointer; }
+.msg-event input { margin-top: 3px; }
+.msg-event span { display: grid; gap: 2px; }
+.msg-event .muted { font-size: 13px; }
+.msg-quota { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--rule); }
+.msg-quota .field { flex: 1 1 260px; max-width: 420px; }
+.msg-quota .field-hint { flex: 1 1 100%; margin: 0; }
+.msg-body { min-width: 260px; max-width: 520px; white-space: normal; overflow-wrap: anywhere; }
