@@ -43,5 +43,9 @@ temp/
 
 # Prisma: migrations are versioned (backend/prisma/migrations), never ignored.
 
+# Browser test output
+frontend/test-results/
+frontend/playwright-report/
+
 # Uploaded files (local dev)
 backend/uploads/
