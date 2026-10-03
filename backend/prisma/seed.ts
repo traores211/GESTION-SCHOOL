@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { seedTimetable } from './seed-timetable';
 import { seedPlanning } from './seed-planning';
+import { seedAdmissions } from './seed-admissions';
 
 const prisma = new PrismaClient();
 
@@ -479,6 +480,7 @@ async function main() {
 
   await seedTimetable(prisma);
   await seedPlanning(prisma);
+  await seedAdmissions(prisma);
 
   console.log('\nSeed complete.');
   console.log(`  ${students.length} élèves répartis sur ${Object.keys(classes).length} classes`);

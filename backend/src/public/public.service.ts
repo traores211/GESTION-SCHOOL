@@ -2,10 +2,14 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicAdmissionDto } from './dto/public-admission.dto';
+import { AdmissionsService } from '../admissions/admissions.service';
 
 @Injectable()
 export class PublicService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly admissions: AdmissionsService,
+  ) {}
 
   async getShowcase(code: string) {
     const ordered = { orderBy: [{ order: 'asc' as const }, { createdAt: 'asc' as const }] };
@@ -87,20 +91,9 @@ export class PublicService {
     const year = await this.prisma.academicYear.findFirst({ where: { schoolId: school.id, isCurrent: true } });
     if (!year) throw new BadRequestException("Les candidatures ne sont pas ouvertes pour le moment");
 
-    const admission = await this.prisma.admission.create({
-      data: {
-        schoolId: school.id,
-        academicYearId: year.id,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        email: dto.email,
-        phone: dto.phone,
-        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-        gender: dto.gender ?? 'M',
-      },
-    });
-
-    return { success: true, reference: admission.id };
+    // Same dossier as an office entry: reference number, pieces to provide, first timeline entry.
+    const admission = await this.admissions.createDossier(school.id, dto, 'EN_LIGNE', { userId: null, userName: 'Famille (en ligne)' });
+    return { success: true, reference: admission.reference ?? admission.id };
   }
 
   /**

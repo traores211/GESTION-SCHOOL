@@ -378,13 +378,78 @@ model Admission {
   dateOfBirth       DateTime?
   gender            String   @default("M")
   status            AdmissionStatus @default(CANDIDATURE)
+  /// Dossier number shown to families ("ADM-2026-0042")
+  reference         String?
+  /// "EN_LIGNE" (public showcase form) or "GUICHET" (entered by the office)
+  source            String   @default("GUICHET")
+  requestedLevel    String?
+  previousSchool    String?
+  address           String?
+  guardianName      String?
+  guardianPhone     String?
+  guardianEmail     String?
+  guardianRelation  String?
+  testScheduledAt   DateTime?
+  testScore         Float?
+  testMaxScore      Float?
+  interviewAt       DateTime?
+  interviewDone     Boolean  @default(false)
+  interviewNotes    String?
+  /// FAVORABLE | RESERVE | DEFAVORABLE
+  interviewOpinion  String?
+  classId           String?
+  decisionReason    String?
+  decidedAt         DateTime?
+  enrolledAt        DateTime?
+  confirmedAt       DateTime?
   documents         Document[]
+  pieces            AdmissionPiece[]
+  events            AdmissionEvent[]
   submittedAt       DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  @@unique([schoolId, reference])
   @@index([schoolId])
   @@index([academicYearId])
   @@index([status])
+}
+
+/// A piece of the application file (birth certificate, report cards…) and its review state.
+model AdmissionPiece {
+  id                String   @id @default(cuid())
+  admissionId       String
+  admission         Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  kind              String   // ACTE_NAISSANCE, BULLETINS, PHOTO, CERTIFICAT_SCOLARITE, CARNET_VACCINATION, AUTRE
+  label             String
+  required          Boolean  @default(true)
+  status            String   @default("MANQUANT") // MANQUANT, RECU, VALIDE, REFUSE
+  note              String?
+  fileName          String?
+  filePath          String?  // stored outside the public uploads, served with authentication
+  fileMime          String?
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+
+  @@index([admissionId])
+}
+
+/// Everything that happened to an application, in order: the timeline of the dossier.
+model AdmissionEvent {
+  id                String   @id @default(cuid())
+  admissionId       String
+  admission         Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  /// CREATED, STATUS, NOTE, PIECE, TEST, INTERVIEW, CLASS, UPDATED, ENROLLED, CONTACT
+  type              String
+  fromStatus        String?
+  toStatus          String?
+  title             String
+  message           String?
+  data              String?  // JSON details (changed fields, score…)
+  userId            String?
+  userName          String?
+  createdAt         DateTime @default(now())
+
+  @@index([admissionId, createdAt])
 }
 
 // ==================== Attendance ====================
