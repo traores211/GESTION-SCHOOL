@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { GradesModule } from '../grades/grades.module';
 import { BulletinsController } from './bulletins.controller';
+import { BulletinsService } from './bulletins.service';
 
 @Module({
-  imports: [GradesModule],
   controllers: [BulletinsController],
+  providers: [BulletinsService],
+  exports: [BulletinsService],
 })
 export class BulletinsModule {}

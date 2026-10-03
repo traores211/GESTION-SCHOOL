@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, FileDown, LoaderCircle, Save } from "lucide-react";
 import Shell from "../../components/Shell";
@@ -138,7 +139,15 @@ export default function GradesPage() {
 
   return (
     <Shell title="Notes & bulletins">
-      <PageHeader title="Saisie des notes" description="Choisissez l'évaluation, saisissez les notes sur 20, puis téléchargez les bulletins." />
+      <PageHeader
+        title="Saisie des notes"
+        description="Choisissez l'évaluation, saisissez les notes sur 20, puis téléchargez les bulletins."
+        actions={
+          <Link className="btn btn-outline" href="/grades/council">
+            Conseil de classe
+          </Link>
+        }
+      />
 
       <div className="filter-bar">
         <div className="filter-item">

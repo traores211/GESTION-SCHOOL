@@ -58,3 +58,74 @@ export function rankLabel(rank: { rank: number; tied: boolean } | undefined): st
 }
 
 export const round2 = (n: number | null) => (n === null ? null : Math.round(n * 100) / 100);
+
+// ---------------------------------------------------------------- report card wording (Côte d'Ivoire)
+
+/** Usual appreciation of an average on 20, used when the teacher wrote none. */
+export function appreciation(average: number | null): string | null {
+  if (average === null) return null;
+  if (average >= 18) return 'Excellent';
+  if (average >= 16) return 'Très bien';
+  if (average >= 14) return 'Bien';
+  if (average >= 12) return 'Assez bien';
+  if (average >= 10) return 'Passable';
+  if (average >= 8) return 'Insuffisant';
+  if (average >= 5) return 'Faible';
+  return 'Très faible';
+}
+
+export interface DistinctionScale {
+  honours: number;
+  encouragement: number;
+  congratulations: number;
+  warning: number;
+  reprimand: number;
+}
+
+/** Thresholds most Ivorian secondary schools use; a school can set its own. */
+export const DEFAULT_DISTINCTIONS: DistinctionScale = { honours: 12, encouragement: 14, congratulations: 16, warning: 8.5, reprimand: 7 };
+
+/** Distinction or sanction of the class council for a term average. */
+export function distinction(average: number | null, scale: DistinctionScale = DEFAULT_DISTINCTIONS): { code: string; label: string } | null {
+  if (average === null) return null;
+  const a = Math.round(average * 100) / 100;
+  if (a >= scale.congratulations) return { code: 'FELICITATIONS', label: "Tableau d'honneur avec félicitations" };
+  if (a >= scale.encouragement) return { code: 'ENCOURAGEMENTS', label: "Tableau d'honneur avec encouragements" };
+  if (a >= scale.honours) return { code: 'TABLEAU_HONNEUR', label: "Tableau d'honneur" };
+  if (a < scale.reprimand) return { code: 'BLAME', label: 'Blâme pour travail insuffisant' };
+  if (a < scale.warning) return { code: 'AVERTISSEMENT', label: 'Avertissement pour travail insuffisant' };
+  return null;
+}
+
+/**
+ * Annual average: the first term counts once, the following ones twice — (T1 + 2×T2 + 2×T3) / 5 for
+ * trimesters, (S1 + 2×S2) / 3 for semesters. Terms without an average are left out.
+ */
+export function annualAverage(terms: { order: number; average: number | null }[]): number | null {
+  const sorted = [...terms].sort((a, b) => a.order - b.order);
+  const first = sorted[0]?.order;
+  const graded = sorted.filter((t): t is { order: number; average: number } => t.average !== null);
+  const weight = graded.reduce((s, t) => s + (t.order === first ? 1 : 2), 0);
+  return weight ? graded.reduce((s, t) => s + t.average * (t.order === first ? 1 : 2), 0) / weight : null;
+}
+
+export type CouncilDecision = 'ADMIS' | 'REDOUBLE' | 'EXCLU';
+
+export const DECISION_LABELS: Record<CouncilDecision, string> = {
+  ADMIS: 'Admis(e) en classe supérieure',
+  REDOUBLE: 'Autorisé(e) à redoubler',
+  EXCLU: 'Non autorisé(e) à redoubler',
+};
+
+/** What the annual average suggests; the class council decides and may depart from it. */
+export function suggestedDecision(annual: number | null, passMark = 10, repeatMark = 8.5): CouncilDecision | null {
+  if (annual === null) return null;
+  const a = Math.round(annual * 100) / 100;
+  return a >= passMark ? 'ADMIS' : a >= repeatMark ? 'REDOUBLE' : 'EXCLU';
+}
+
+/** Pass rate (share of ranked pupils at or above the pass mark), in percent with one decimal. */
+export function passRate(averages: (number | null)[], passMark = 10): number | null {
+  const ranked = averages.filter((a): a is number => a !== null);
+  return ranked.length ? Math.round((ranked.filter((a) => Math.round(a * 100) / 100 >= passMark).length / ranked.length) * 1000) / 10 : null;
+}

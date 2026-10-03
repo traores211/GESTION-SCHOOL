@@ -92,6 +92,8 @@ jobs:
         run: node test/e2e-privacy.js
       - name: End-to-end — bulk imports (pupils, staff, balances, marks)
         run: node test/e2e-imports.js
+      - name: End-to-end — report cards and class council
+        run: node test/e2e-bulletins.js
       - name: API log
         if: failure()
         run: tail -200 /tmp/api.log

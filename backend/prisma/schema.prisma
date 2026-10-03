@@ -335,6 +335,7 @@ model Student {
   documents         Document[]
   admissions        Admission[] @relation("AdmissionStudent")
   grades            Grade[]
+  reportCards       ReportCard[]
   invoices          Invoice[]
   payments          Payment[]
   transportSubscriptions TransportSubscription[]
@@ -609,6 +610,28 @@ model ClassSubject {
   @@index([teacherId])
 }
 
+/// What the class council and the teachers write on a report card (one per pupil and term).
+model ReportCard {
+  id                  String   @id @default(cuid())
+  studentId           String
+  student             Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  termId              String
+  term                Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  classId             String
+  /// Appreciation of the class council
+  councilAppreciation String?
+  /// Subject appreciations written by the teachers: { subjectId: text }
+  appreciations       Json     @default("{}")
+  /// End-of-year decision: ADMIS | REDOUBLE | EXCLU
+  decision            String?
+  updatedById         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([studentId, termId])
+  @@index([classId, termId])
+}
+
 model Term {
   id                String   @id @default(cuid())
   academicYearId    String
@@ -618,6 +641,7 @@ model Term {
   startDate         DateTime
   endDate           DateTime
   grades            Grade[]
+  reportCards       ReportCard[]
   timetableSessions TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
