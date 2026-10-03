@@ -37,6 +37,7 @@ import NotificationBell from "./NotificationBell";
 import { BrandMark, FlagBand, ThemeToggle } from "./Brand";
 import AssistantPanel from "./assistant/AssistantPanel";
 import OfflineSync from "./OfflineSync";
+import { LANGUAGES, setLang, useI18n } from "../lib/i18n";
 import { Avatar } from "./ui";
 
 interface NavItem {
@@ -98,6 +99,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
 export default function Shell({ title, children }: { title: string; children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { t, lang } = useI18n();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [checked, setChecked] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -149,8 +151,10 @@ export default function Shell({ title, children }: { title: string; children: Re
   }, [menuOpen, navOpen]);
 
   useEffect(() => {
-    document.title = `${title} · School ERP`;
-  }, [title]);
+    document.title = `${t(title)} · School ERP`;
+    document.documentElement.lang = lang;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, lang]);
 
   // The orange pill behind the active item glides from where it was on the previous page.
   useEffect(() => {
@@ -180,7 +184,7 @@ export default function Shell({ title, children }: { title: string; children: Re
       <div className="shell-loading" aria-busy="true">
         <div className="shell-loading-side" />
         <div className="shell-loading-main">
-          <span className="visually-hidden">Chargement…</span>
+          <span className="visually-hidden">{t("Chargement…")}</span>
           <div className="skeleton" style={{ height: 30, width: "34%" }} />
           <div className="skeleton" style={{ height: 14, width: "52%" }} />
           <div className="skeleton" style={{ height: 180, marginTop: 18 }} />
@@ -202,10 +206,10 @@ export default function Shell({ title, children }: { title: string; children: Re
     <FlagBand pinned />
     <div className={`app-shell${navOpen ? " nav-open" : ""}`}>
       <a href="#main" className="skip-link">
-        Aller au contenu
+        {t("Aller au contenu")}
       </a>
       <div className="sidebar-backdrop" onClick={() => setNavOpen(false)} />
-      <aside className="sidebar" id="app-sidebar" aria-label="Navigation principale">
+      <aside className="sidebar" id="app-sidebar" aria-label={t("Navigation principale")}>
         <Link href={user?.role === "PARENT" ? "/portal" : "/dashboard"} className="sidebar-brand">
           <BrandMark />
           <span>
@@ -222,15 +226,15 @@ export default function Shell({ title, children }: { title: string; children: Re
             />
           )}
           {groups.map((g) => (
-            <div key={g.group} role="group" aria-label={g.group}>
-              {groups.length > 1 && <div className="sidebar-group">{g.group}</div>}
+            <div key={g.group} role="group" aria-label={t(g.group)}>
+              {groups.length > 1 && <div className="sidebar-group">{t(g.group)}</div>}
               {g.items.map((item) => {
                 const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
                 const Icon = item.icon;
                 return (
                   <Link key={item.href} href={item.href} className={`sidebar-link${active ? " active" : ""}`} aria-current={active ? "page" : undefined}>
                     <Icon size={18} />
-                    {item.label}
+                    {t(item.label)}
                   </Link>
                 );
               })}
@@ -242,7 +246,7 @@ export default function Shell({ title, children }: { title: string; children: Re
             <Avatar name={fullName} />
             <div className="sidebar-footer-text">
               <div className="sidebar-user">{fullName}</div>
-              <div className="sidebar-role">{ROLE_LABELS[user.role] || user.role}</div>
+              <div className="sidebar-role">{t(ROLE_LABELS[user.role] || user.role)}</div>
             </div>
           </div>
         )}
@@ -253,14 +257,14 @@ export default function Shell({ title, children }: { title: string; children: Re
             <button
               type="button"
               className="btn btn-ghost btn-icon menu-toggle"
-              aria-label="Ouvrir le menu"
+              aria-label={t("Ouvrir le menu")}
               aria-controls="app-sidebar"
               aria-expanded={navOpen}
               onClick={() => setNavOpen((o) => !o)}
             >
               <Menu size={20} />
             </button>
-            <div className="topbar-title">{title}</div>
+            <div className="topbar-title">{t(title)}</div>
           </div>
           <div className="topbar-actions">
             <ThemeToggle />
@@ -273,7 +277,7 @@ export default function Shell({ title, children }: { title: string; children: Re
                   onClick={() => setMenuOpen((o) => !o)}
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
-                  aria-label="Menu du compte"
+                  aria-label={t("Menu du compte")}
                 >
                   <Avatar name={fullName} size="sm" />
                   <span className="hide-sm account-name">{user.firstName}</span>
@@ -283,14 +287,21 @@ export default function Shell({ title, children }: { title: string; children: Re
                     <div className="menu-header">
                       <div className="menu-who">{fullName}</div>
                       <div className="menu-email">{user.email}</div>
-                      <span className="badge badge-neutral">{ROLE_LABELS[user.role] || user.role}</span>
+                      <span className="badge badge-neutral">{t(ROLE_LABELS[user.role] || user.role)}</span>
                     </div>
                     <Link href="/account" role="menuitem" className="menu-item">
-                      <ShieldCheck size={16} /> Sécurité du compte
+                      <ShieldCheck size={16} /> {t("Sécurité du compte")}
                       {user.totpRecommended && <span className="badge badge-warning">2FA</span>}
                     </Link>
+                    <div className="menu-lang" role="group" aria-label={t("Langue de l'interface")}>
+                      {LANGUAGES.map((l) => (
+                        <button key={l.code} type="button" className="btn btn-ghost btn-sm" aria-pressed={lang === l.code} lang={l.code} onClick={() => setLang(l.code)}>
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
                     <button type="button" role="menuitem" className="menu-item danger" onClick={signOut}>
-                      <LogOut size={16} /> Se déconnecter
+                      <LogOut size={16} /> {t("Se déconnecter")}
                     </button>
                   </div>
                 )}
@@ -303,8 +314,8 @@ export default function Shell({ title, children }: { title: string; children: Re
             <div className="alert alert-warning" role="status" style={{ marginBottom: 16 }}>
               <ShieldCheck size={17} />
               <div className="alert-body">
-                <span className="alert-title">Protégez votre compte.</span> Votre rôle donne accès à des données sensibles : activez la double authentification.{" "}
-                <Link href="/account">Activer maintenant</Link>
+                <span className="alert-title">{t("Protégez votre compte.")}</span> {t("Votre rôle donne accès à des données sensibles : activez la double authentification.")}{" "}
+                <Link href="/account">{t("Activer maintenant")}</Link>
               </div>
             </div>
           )}

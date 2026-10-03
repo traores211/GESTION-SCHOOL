@@ -8,6 +8,7 @@ import { BrandMark, FlagBand, ThemeToggle } from "../../components/Brand";
 import { api, ApiError, errorMessage } from "../../lib/api";
 import { AuthUser, setSession } from "../../lib/auth";
 import { FormError } from "../../components/ui";
+import { LANGUAGES, setLang, useI18n } from "../../lib/i18n";
 import "./login.css";
 
 interface LoginResponse {
@@ -26,6 +27,7 @@ const DEMO_ACCOUNTS = [
 const SHOW_DEMO = process.env.NEXT_PUBLIC_DEMO_ACCOUNTS === "true";
 
 function LoginForm() {
+  const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const [email, setEmail] = useState(SHOW_DEMO ? "admin@school.local" : "");
@@ -68,7 +70,7 @@ function LoginForm() {
         </div>
         <FormError message={error} />
         <div className="field">
-          <label htmlFor="totp">Code de vérification</label>
+          <label htmlFor="totp">{t("Code de vérification")}</label>
           <input
             id="totp"
             className="input tabular"
@@ -110,11 +112,11 @@ function LoginForm() {
       {reset && !error && <div className="alert alert-success">Mot de passe modifié : connectez-vous avec le nouveau.</div>}
       <FormError message={error} />
       <div className="field">
-        <label htmlFor="email">Adresse email</label>
+        <label htmlFor="email">{t("Adresse email")}</label>
         <input id="email" type="email" autoComplete="username" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required />
       </div>
       <div className="field">
-        <label htmlFor="password">Mot de passe</label>
+        <label htmlFor="password">{t("Mot de passe")}</label>
         <div className="input-icon">
           <input
             id="password"
@@ -125,21 +127,21 @@ function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <button type="button" className="input-clear" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
+          <button type="button" className="input-clear" onClick={() => setShowPassword((v) => !v)} aria-label={t(showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe")}>
             {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
       </div>
       <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading}>
         {loading ? <LoaderCircle size={18} className="spin" /> : <LogIn size={18} />}
-        {loading ? "Connexion…" : "Se connecter"}
+        {t(loading ? "Connexion…" : "Se connecter")}
       </button>
       <p style={{ textAlign: "center", margin: "4px 0 0", fontSize: 13 }}>
-        <Link href="/forgot-password">Mot de passe oublié ?</Link>
+        <Link href="/forgot-password">{t("Mot de passe oublié ?")}</Link>
       </p>
       <p style={{ textAlign: "center", margin: 0, fontSize: 12 }}>
         <Link href="/confidentialite" className="muted">
-          Protection des données personnelles
+          {t("Protection des données personnelles")}
         </Link>
       </p>
 
@@ -170,6 +172,7 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const { t, lang } = useI18n();
   return (
     <main className="login">
       <FlagBand />
@@ -229,6 +232,11 @@ export default function LoginPage() {
       </section>
       <section className="login-panel">
         <div className="login-panel-tools">
+          {LANGUAGES.filter((l) => l.code !== lang).map((l) => (
+            <button key={l.code} type="button" className="btn btn-ghost btn-sm" lang={l.code} onClick={() => setLang(l.code)}>
+              {l.label}
+            </button>
+          ))}
           <ThemeToggle />
         </div>
         <div className="login-card">
@@ -237,8 +245,8 @@ export default function LoginPage() {
               <BrandMark size={28} />
               <strong>School ERP</strong>
             </div>
-            <h1>Connexion</h1>
-            <p>Gestion scolaire de votre établissement</p>
+            <h1>{t("Connexion")}</h1>
+            <p>{t("Gestion scolaire de votre établissement")}</p>
           </div>
           <Suspense fallback={null}>
             <LoginForm />

@@ -20,7 +20,7 @@ Repères chiffrés relevés dans le code :
 
 Mis à jour le 3 octobre 2026, branche `feature/robustness`. « Fait » signifie : codé et vérifié par des tests automatiques. Ce qui dépend d'un compte externe ou d'une démarche légale est indiqué à part, car le code ne peut pas le faire à votre place.
 
-Vérifications en place : 188 tests unitaires côté API, 27 côté web, 15 scénarios de bout en bout sur l'API (302 vérifications), 27 tests dans un vrai navigateur dont un audit d'accessibilité.
+Vérifications en place : 191 tests unitaires côté API, 30 côté web, 16 scénarios de bout en bout sur l'API (326 vérifications), 27 tests dans un vrai navigateur dont un audit d'accessibilité. Les écrans ajoutés en dernier (suivi d'admission, cahier de textes, messagerie, sélecteur de langue) sont vérifiés côté API et à la compilation, pas encore dans un navigateur.
 
 Un défaut de sécurité antérieur à ce chantier a été trouvé et corrigé en cours de route : plusieurs listes (classes, personnel, paie) renvoyaient la fiche complète des enseignants, empreinte du mot de passe et secret de double authentification compris. Ces champs ne sortent plus de l'API, et un test le vérifie sur 51 réponses pour quatre rôles.
 
@@ -38,7 +38,7 @@ Un défaut de sécurité antérieur à ce chantier a été trouvé et corrigé e
 | 10 | Pagination côté serveur | Partiel | Élèves, factures, journal d'audit, messages et vie scolaire sont paginés ; les autres listes sont plafonnées à 2 000 lignes |
 | 11 | Tests des calculs critiques | Fait | — |
 | 12 | Tests du frontend | Fait | — |
-| 13 | Observabilité | Partiel | Logs JSON, identifiant de requête et Sentry (optionnel) sont en place ; pas encore de métriques ni d'alertes |
+| 13 | Observabilité | Fait | Logs JSON, identifiant de requête, Sentry (optionnel), métriques Prometheus (`/api/metrics`) et règles d'alerte (`deploy/monitoring/alerts.yml`). Reste à brancher un serveur Prometheus chez l'hébergeur |
 | 14 | Infrastructure inutilisée | Fait | — |
 | 15 | Archivage au lieu de suppression | Fait | — |
 | 16 | Numérotations | Fait | — |
@@ -49,14 +49,14 @@ Un défaut de sécurité antérieur à ce chantier a été trouvé et corrigé e
 | 21 | Application installable et appel hors ligne | Fait | Pas d'application mobile native |
 | 22 | Bulletins ivoiriens | Fait pour l'essentiel | Format d'export officiel DREN et listes de candidats BEPC/BAC non faits |
 | 23 | Imports en masse | Fait | — |
-| 24 | Portail parents | Partiel | Fait : paiement, bulletins, justificatifs d'absence, emploi du temps, vie scolaire. Reste : messagerie avec l'école, cahier de textes, suivi d'admission par référence |
+| 24 | Portail parents | Fait | Paiement, bulletins, justificatifs d'absence, emploi du temps, vie scolaire, cahier de textes, messagerie avec l'école, suivi d'admission par numéro de dossier |
 | 25 | Modules supplémentaires | Partiel | Fait : vie scolaire (discipline), exports comptables. Reste : cantine, bibliothèque, infirmerie, cartes à QR code, stocks, consolidation de groupe |
 | 26 | SaaS en libre-service | À faire | Inscription autonome, abonnements, export complet par école |
 | 27 | Données personnelles (ARTCI) | Fait côté application | Déclaration à l'ARTCI, registre des traitements et documentation de l'hébergement : démarches à faire par l'éditeur et l'établissement |
 | 28 | Aides à la décision | Fait | Par règles explicites, sans modèle génératif |
 | 29 | Accessibilité | Fait | L'audit automatique passe ; un essai au clavier et au lecteur d'écran par une personne reste recommandé |
 | 30 | Performance du frontend | Partiel | Graphiques chargés à la demande ; pas de budget de taille ni de mesure Web Vitals |
-| 31 | Interface en anglais | À faire | — |
+| 31 | Interface en anglais | Partiel | Mécanisme de traduction et sélecteur de langue en place ; navigation, titres de pages et connexion traduits. Le contenu des écrans reste en français et se traduit écran par écran |
 | 32 | Documentation utilisateur | Partiel | Guide par rôle : `docs/GUIDE-UTILISATEUR.md`. Pas de visites guidées ni de vidéos |
 | 33 | Qualité de code | Fait | La machine hôte garde un TypeScript incompatible avec `ts-node` : tout s'exécute dans les conteneurs |
 
