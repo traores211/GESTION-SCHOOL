@@ -17,7 +17,7 @@ async function audit(page: Page, name: string) {
 }
 
 const PUBLIC_PAGES = ["/login", "/forgot-password", "/confidentialite"];
-const STAFF_PAGES = ["/dashboard", "/students", "/attendance", "/grades", "/grades/council", "/admissions", "/billing", "/messaging", "/imports", "/privacy", "/audit", "/account"];
+const STAFF_PAGES = ["/dashboard", "/insights", "/students", "/attendance", "/grades", "/grades/council", "/admissions", "/billing", "/messaging", "/imports", "/privacy", "/audit", "/account"];
 
 test.describe("accessibility", () => {
   for (const path of PUBLIC_PAGES) {

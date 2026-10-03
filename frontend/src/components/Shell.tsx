@@ -18,6 +18,7 @@ import {
   Menu,
   School,
   FileSpreadsheet,
+  Lightbulb,
   LockKeyhole,
   MessageSquareText,
   ScrollText,
@@ -53,6 +54,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: "Pilotage",
     items: [
       { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: STAFF },
+      { href: "/insights", label: "Synthèse & prévisions", icon: Lightbulb, roles: [...ADMIN, "COMPTABLE"] },
       { href: "/timetable", label: "Emplois du temps", icon: CalendarDays, roles: STAFF },
     ],
   },

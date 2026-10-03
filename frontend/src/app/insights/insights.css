@@ -1,0 +1,10 @@
+/* Weekly summary and forecast */
+.insight-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.insight-head p { margin: 2px 0 0; max-width: 62ch; }
+.insight-topics { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px 32px; }
+.insight-topics h3 { font-size: var(--fs-sm, 14px); font-weight: var(--fw-semibold, 600); color: var(--text-muted); margin: 0 0 6px; }
+.insight-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.insight-line { display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: start; }
+.insight-line svg { margin-top: 3px; color: var(--text-muted); }
+.insight-line.is-warning svg { color: var(--danger); }
+.insight-line.is-good svg { color: var(--success); }

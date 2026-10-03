@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { MANAGEMENT } from '../common/roles';
+import { suggestAppreciation } from '../insights/insight-rules';
 import {
   CouncilDecision,
   DECISION_LABELS,
@@ -201,6 +202,22 @@ export class BulletinsService {
   async bulletin(user: AuthUser, studentId: string, termId: string) {
     const classId = await this.classOf(user, studentId, termId);
     return this.card(await this.classSheet(user, classId, termId), studentId);
+  }
+
+  /** Council appreciation proposed from the results of the term (rules, not a generative model). */
+  async suggestion(user: AuthUser, studentId: string, termId: string) {
+    const card = await this.bulletin(user, studentId, termId);
+    const graded = card.subjects.filter((s): s is typeof s & { average: number } => s.average !== null).sort((a, b) => b.average - a.average);
+    const previous = card.student.termAverages.filter((t) => t.order < card.term.order && t.average !== null).sort((a, b) => b.order - a.order)[0];
+    return {
+      suggestion: suggestAppreciation({
+        average: card.student.average,
+        previousAverage: previous?.average ?? null,
+        unjustifiedAbsences: card.student.absences.unjustified,
+        strongest: graded.length > 1 ? { subject: graded[0].subject, average: graded[0].average } : null,
+        weakest: graded.length > 1 ? { subject: graded[graded.length - 1].subject, average: graded[graded.length - 1].average } : null,
+      }),
+    };
   }
 
   /** Every card of a class, in alphabetical order (batch printing). */

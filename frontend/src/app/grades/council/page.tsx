@@ -99,6 +99,19 @@ function CouncilContent() {
     }
   };
 
+  /** Fills the field with an appreciation proposed from the results; nothing is saved until the field is left. */
+  const suggest = async (p: Pupil) => {
+    try {
+      const { suggestion } = await api.get<{ suggestion: string | null }>(`/bulletins/${p.id}/${termId}/suggestion`);
+      if (!suggestion) return feedback.toast({ kind: "warning", title: "Aucune suggestion", message: "Cet élève n'a pas encore de moyenne pour la période." });
+      setDrafts((d) => ({ ...d, [p.id]: suggestion }));
+      await api.put(`/bulletins/${p.id}/${termId}`, { councilAppreciation: suggestion });
+      patch(p.id, { councilAppreciation: suggestion });
+    } catch (err) {
+      feedback.error("Suggestion indisponible", errorMessage(err));
+    }
+  };
+
   const saveDecision = async (p: Pupil, decision: string) => {
     try {
       await api.put(`/bulletins/${p.id}/${termId}`, { decision: decision || null });
@@ -219,7 +232,8 @@ function CouncilContent() {
                   <td className="num" title={`${p.absences.unjustified} non justifiée(s), ${p.absences.justified} justifiée(s), ${p.absences.late} retard(s)`}>
                     {p.absences.unjustified + p.absences.justified}
                   </td>
-                  <td style={{ minWidth: 240 }}>
+                  <td style={{ minWidth: 280 }}>
+                    <div className="council-appreciation">
                     <input
                       className="input input-sm"
                       aria-label={`Appréciation du conseil pour ${p.firstName} ${p.lastName}`}
@@ -230,6 +244,12 @@ function CouncilContent() {
                       onChange={(e) => setDrafts({ ...drafts, [p.id]: e.target.value })}
                       onBlur={() => saveAppreciation(p)}
                     />
+                    {canWrite && !(drafts[p.id] ?? "") && p.average !== null && (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => suggest(p)} aria-label={`Proposer une appréciation pour ${p.firstName} ${p.lastName}`}>
+                        Suggérer
+                      </button>
+                    )}
+                    </div>
                   </td>
                   {sheet.isLastTerm && (
                     <td className="num">

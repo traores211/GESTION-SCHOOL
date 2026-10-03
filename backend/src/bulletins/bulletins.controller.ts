@@ -71,6 +71,11 @@ export class BulletinsController {
     res.send(file.content);
   }
 
+  @Get(':studentId/:termId/suggestion')
+  suggestion(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string, @Param('termId') termId: string) {
+    return this.bulletins.suggestion(user, studentId, termId);
+  }
+
   @Get(':studentId/:termId')
   bulletin(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string, @Param('termId') termId: string) {
     return this.bulletins.bulletin(user, studentId, termId);

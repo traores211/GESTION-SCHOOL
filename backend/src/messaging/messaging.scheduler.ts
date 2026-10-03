@@ -14,6 +14,7 @@ const CHECK_EVERY_MS = 15 * 60 * 1000;
 export class MessagingScheduler implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger('Scheduler');
   private timer: NodeJS.Timeout | null = null;
+  private readonly dailyJobs: { name: string; run: (now: Date) => Promise<void> }[] = [];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -25,6 +26,11 @@ export class MessagingScheduler implements OnModuleInit, OnModuleDestroy {
     if (process.env.SCHEDULER_ENABLED === 'false' || process.env.JEST_WORKER_ID) return;
     this.timer = setInterval(() => void this.tick(), CHECK_EVERY_MS);
     this.timer.unref();
+  }
+
+  /** Other modules add their own daily work here (weekly summary e-mail…); a failing job never stops the others. */
+  registerDaily(name: string, run: (now: Date) => Promise<void>) {
+    this.dailyJobs.push({ name, run });
   }
 
   onModuleDestroy() {
@@ -52,6 +58,9 @@ export class MessagingScheduler implements OnModuleInit, OnModuleDestroy {
       data: { status: 'OVERDUE' },
     });
     const { sent } = await this.messaging.overdueReminders();
+    for (const job of this.dailyJobs) {
+      await job.run(now).catch((err: Error) => this.logger.error(`Tâche « ${job.name} » en échec : ${err.message}`));
+    }
     return { overdue: count, sent };
   }
 }
