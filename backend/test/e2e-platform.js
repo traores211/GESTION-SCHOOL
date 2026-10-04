@@ -37,7 +37,7 @@ const login = async (email, password) => (await call(null)('POST', '/auth/login'
     console.log('The new school');
     const director = call(await login(EMAIL, PASSWORD));
     const me = await director('GET', '/auth/me');
-    ok(me.status === 200 && me.body.role === 'DIRECTOR', 'the head signs in with the account just created');
+    ok(me.status === 200 && me.body.role === 'ADMIN_ORGANISATION', 'the head signs in with the account just created');
     const sub = await director('GET', '/subscription');
     ok(sub.body.status === 'TRIAL' && sub.body.daysLeft === 30 && sub.body.readOnly === false, `trial: ${sub.body.daysLeft} days left`);
     const years = await director('GET', '/academic-years');

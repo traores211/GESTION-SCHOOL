@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { CookieOptions, Request, Response } from 'express';
 import { AuthService, ClientMeta } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { IsString } from 'class-validator';
 import { ChangePasswordDto, ForgotPasswordDto, LoginDto, ResetPasswordDto, TotpCodeDto, TotpDisableDto } from './dto/login.dto';
 import { REFRESH_COOKIE, REFRESH_TTL_DAYS } from './token.service';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
@@ -24,6 +25,11 @@ function cookieOptions(): CookieOptions {
 
 function meta(req: Request): ClientMeta {
   return { ip: req.ip, userAgent: req.headers['user-agent'] };
+}
+
+class SwitchSchoolDto {
+  @IsString()
+  schoolId!: string;
 }
 
 @Controller('auth')
@@ -81,6 +87,22 @@ export class AuthController {
   @ApiBearerAuth()
   me(@CurrentUser() user: AuthUser) {
     return this.authService.me(user.userId);
+  }
+
+  @Get('schools')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  schools(@CurrentUser() user: AuthUser) {
+    return this.authService.schools(user.userId);
+  }
+
+  @Post('switch-school')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Open another school of the group: the account then works on that school' })
+  switchSchool(@CurrentUser() user: AuthUser, @Body() dto: SwitchSchoolDto, @Req() req: Request) {
+    return this.authService.switchSchool(user.userId, dto.schoolId, meta(req));
   }
 
   @Post('change-password')

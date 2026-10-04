@@ -10,6 +10,7 @@ import {
   Building2,
   Bus,
   Inbox,
+  Landmark,
   CalendarDays,
   ClipboardCheck,
   FileSignature,
@@ -32,7 +33,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { AuthUser, ROLE_LABELS, getStoredUser, getToken } from "../lib/auth";
+import { AuthUser, ROLE_LABELS, getStoredUser, getToken, setSession } from "../lib/auth";
 import { api, logout, refreshAccessToken } from "../lib/api";
 import NotificationBell from "./NotificationBell";
 import { BrandMark, FlagBand, ThemeToggle } from "./Brand";
@@ -89,6 +90,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/announcements", label: "Annonces & vitrine", icon: Megaphone, roles: ADMIN },
       { href: "/audit", label: "Journal d'audit", icon: ScrollText, roles: ADMIN },
       { href: "/privacy", label: "Données personnelles", icon: LockKeyhole, roles: ADMIN },
+      { href: "/schools", label: "Établissements", icon: Landmark, roles: ["SUPER_ADMIN", "ADMIN_ORGANISATION"] },
       { href: "/platform", label: "Plateforme", icon: Building2, roles: ["SUPER_ADMIN"] },
     ],
   },
@@ -110,6 +112,26 @@ export default function Shell({ title, children }: { title: string; children: Re
   const navRef = useRef<HTMLElement>(null);
   const [pill, setPill] = useState<{ top: number; height: number; animate: boolean } | null>(null);
   const [subscription, setSubscription] = useState<{ status: string; daysLeft: number | null; readOnly: boolean } | null>(null);
+
+  const [schools, setSchools] = useState<{ id: string; name: string; current: boolean; isActive: boolean }[]>([]);
+
+  // Schools the account may open: one for most accounts, several in a school group.
+  useEffect(() => {
+    if (!user || user.role === "PARENT") return;
+    api.get<typeof schools>("/auth/schools").then(setSchools).catch(() => {});
+  }, [user]);
+
+  // Opening another school changes what every screen shows: the app restarts on the dashboard.
+  const openSchool = async (schoolId: string) => {
+    try {
+      const result = await api.post<{ accessToken: string; user: AuthUser }>("/auth/switch-school", { schoolId });
+      setSession(result.accessToken, result.user);
+      window.location.href = "/dashboard";
+    } catch {
+      setMenuOpen(false);
+    }
+  };
+  const currentSchool = schools.find((s) => s.current);
 
   // Trial or suspended subscription: shown to staff on every page.
   useEffect(() => {
@@ -223,7 +245,7 @@ export default function Shell({ title, children }: { title: string; children: Re
           <BrandMark />
           <span>
             <span className="sidebar-brand-text">School ERP</span>
-            <span className="sidebar-brand-sub">Côte d&apos;Ivoire</span>
+            <span className="sidebar-brand-sub">{currentSchool?.name ?? "Côte d'Ivoire"}</span>
           </span>
         </Link>
         <nav className={`sidebar-nav${pill ? " has-pill" : ""}`} ref={navRef}>
@@ -302,6 +324,19 @@ export default function Shell({ title, children }: { title: string; children: Re
                       <ShieldCheck size={16} /> {t("Sécurité du compte")}
                       {user.totpRecommended && <span className="badge badge-warning">2FA</span>}
                     </Link>
+                    {schools.length > 1 && (
+                      <div role="group" aria-label={t("Établissement")}>
+                        {schools
+                          .filter((s) => s.isActive || s.current)
+                          .slice(0, 12)
+                          .map((s) => (
+                            <button key={s.id} type="button" role="menuitem" className="menu-item" aria-current={s.current ? "true" : undefined} disabled={s.current} onClick={() => openSchool(s.id)}>
+                              <Landmark size={16} /> {s.name}
+                              {s.current && <span className="badge badge-info">{t("Ouvert")}</span>}
+                            </button>
+                          ))}
+                      </div>
+                    )}
                     <div className="menu-lang" role="group" aria-label={t("Langue de l'interface")}>
                       {LANGUAGES.map((l) => (
                         <button key={l.code} type="button" className="btn btn-ghost btn-sm" aria-pressed={lang === l.code} lang={l.code} onClick={() => setLang(l.code)}>

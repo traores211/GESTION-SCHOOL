@@ -64,7 +64,7 @@ export class PlatformService {
         data: { organisationId: org.id, name, code: schoolCode(name, number), email, phone: dto.phone?.trim() || null, city: dto.city?.trim() || null, currentAcademicYear: year.name },
       });
       await tx.academicYear.create({ data: { schoolId: school.id, name: year.name, startDate: year.startDate, endDate: year.endDate, isCurrent: true, terms: { create: year.terms } } });
-      const user = await tx.user.create({ data: { email, password, firstName: dto.firstName.trim(), lastName: dto.lastName.trim(), phone: dto.phone?.trim() || null, role: 'DIRECTOR', schoolId: school.id } });
+      const user = await tx.user.create({ data: { email, password, firstName: dto.firstName.trim(), lastName: dto.lastName.trim(), phone: dto.phone?.trim() || null, role: 'ADMIN_ORGANISATION', schoolId: school.id, memberships: { create: { schoolId: school.id, role: 'ADMIN_ORGANISATION' } } } });
       return { org, school, user };
     });
 
@@ -97,7 +97,7 @@ export class PlatformService {
 
   async organisations() {
     const orgs = await this.prisma.organisation.findMany({
-      include: { schools: { select: { id: true, name: true, code: true, _count: { select: { students: true, users: true } } } } },
+      include: { schools: { select: { id: true, name: true, code: true, isActive: true, _count: { select: { students: true, users: true } } } } },
       orderBy: { createdAt: 'desc' },
       take: 500,
     });
@@ -107,8 +107,18 @@ export class PlatformService {
       email: o.email,
       createdAt: o.createdAt,
       ...subscriptionState(o),
-      schools: o.schools.map((s) => ({ id: s.id, name: s.name, code: s.code, students: s._count.students, users: s._count.users })),
+      schools: o.schools.map((s) => ({ id: s.id, name: s.name, code: s.code, isActive: s.isActive, students: s._count.students, users: s._count.users })),
     }));
+  }
+
+  /** The platform administrator closes or reopens a school: its accounts are shut out or let in at once. */
+  async setSchoolActive(id: string, isActive: boolean) {
+    const school = await this.prisma.school.findUnique({ where: { id }, select: { id: true } });
+    if (!school) throw new NotFoundException('Établissement introuvable');
+    const updated = await this.prisma.school.update({ where: { id }, data: { isActive }, select: { id: true, name: true, code: true, isActive: true } });
+    const users = await this.prisma.user.findMany({ where: { schoolId: id }, select: { id: true } });
+    if (users.length) await this.cache.del(...users.map((u) => `auth:user:${u.id}`));
+    return updated;
   }
 
   async updateOrganisation(id: string, dto: { status?: 'TRIAL' | 'ACTIVE' | 'SUSPENDED'; plan?: string; trialEndsAt?: string }) {

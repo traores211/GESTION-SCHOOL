@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { inSchool } from '../platform/group.service';
 import { AuthUser } from '../common/current-user.decorator';
 import {
   Conflict,
@@ -217,7 +218,7 @@ export class TimetableService {
       }),
       this.prisma.subject.findMany({ where: { schoolId }, select: { id: true, name: true, code: true, color: true }, orderBy: { name: 'asc' } }),
       this.prisma.staffMember.findMany({
-        where: { user: { schoolId, role: { in: ['ENSEIGNANT', 'DIRECTOR'] } } },
+        where: { user: { ...inSchool(schoolId), role: { in: ['ENSEIGNANT', 'DIRECTOR'] } } },
         select: { id: true, position: true, matricule: true, weeklyMaxMinutes: true, user: { select: { firstName: true, lastName: true, role: true } } },
         orderBy: { user: { lastName: 'asc' } },
       }),

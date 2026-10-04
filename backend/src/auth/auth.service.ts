@@ -9,6 +9,7 @@ import { RedisService } from '../infra/redis.service';
 import { LoginRateLimiter } from './login-rate-limiter';
 import { passwordProblem } from './password-policy';
 import { TokenService, hashToken } from './token.service';
+import { GroupService } from '../platform/group.service';
 
 export interface ClientMeta {
   ip?: string;
@@ -39,6 +40,7 @@ export class AuthService {
     private readonly rateLimiter: LoginRateLimiter,
     private readonly mail: MailService,
     private readonly store: RedisService,
+    private readonly group: GroupService,
   ) {}
 
   private profile(user: { id: string; email: string; firstName: string; lastName: string; role: string; totpEnabled: boolean }) {
@@ -126,6 +128,21 @@ export class AuthService {
   async me(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     return { ...this.profile(user), sessions: await this.tokens.activeSessions(userId) };
+  }
+
+  /** Schools the account may open (one for most accounts, several in a school group). */
+  schools(userId: string) {
+    return this.group.reachable(userId);
+  }
+
+  /** Opens another school of the group and returns a token for it. */
+  async switchSchool(userId: string, schoolId: string, meta: ClientMeta) {
+    const school = await this.group.switchSchool(userId, schoolId);
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    await this.prisma.auditLog
+      .create({ data: { action: 'SWITCH_SCHOOL', resource: 'auth/switch-school', resourceId: schoolId, userId, schoolId, newValues: JSON.stringify({ school: school.name }), ipAddress: meta.ip?.replace('::ffff:', '') ?? null, userAgent: meta.userAgent?.slice(0, 200) ?? null } })
+      .catch(() => undefined);
+    return { accessToken: this.tokens.accessToken(user), user: this.profile(user), school };
   }
 
   // ---------------------------------------------------------------- passwords

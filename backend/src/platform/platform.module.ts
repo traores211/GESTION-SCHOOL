@@ -3,13 +3,15 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from '../auth/auth.module';
 import { PlatformController } from './platform.controller';
 import { PlatformService } from './platform.service';
+import { GroupController } from './group.controller';
+import { GroupService } from './group.service';
 import { SubscriptionInterceptor } from './subscription.interceptor';
 
 @Global()
 @Module({
   imports: [AuthModule],
-  controllers: [PlatformController],
-  providers: [PlatformService, { provide: APP_INTERCEPTOR, useClass: SubscriptionInterceptor }],
-  exports: [PlatformService],
+  controllers: [PlatformController, GroupController],
+  providers: [PlatformService, GroupService, { provide: APP_INTERCEPTOR, useClass: SubscriptionInterceptor }],
+  exports: [PlatformService, GroupService],
 })
 export class PlatformModule {}

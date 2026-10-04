@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpException, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { Equals, IsDateString, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { Equals, IsBoolean, IsDateString, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { LoginRateLimiter } from '../auth/login-rate-limiter';
 import { Roles } from '../common/roles.decorator';
@@ -60,6 +60,11 @@ class UpdateOrganisationDto {
   trialEndsAt?: string;
 }
 
+class SchoolActiveDto {
+  @IsBoolean()
+  isActive!: boolean;
+}
+
 @Controller()
 @ApiTags('Platform')
 export class PlatformController {
@@ -93,6 +98,14 @@ export class PlatformController {
   @ApiBearerAuth()
   organisations() {
     return this.platform.organisations();
+  }
+
+  @Patch('platform/schools/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  setSchoolActive(@Param('id') id: string, @Body() dto: SchoolActiveDto) {
+    return this.platform.setSchoolActive(id, dto.isActive);
   }
 
   @Patch('platform/organisations/:id')

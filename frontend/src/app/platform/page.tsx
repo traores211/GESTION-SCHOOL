@@ -16,7 +16,7 @@ interface Organisation {
   trialEndsAt: string | null;
   daysLeft: number | null;
   readOnly: boolean;
-  schools: { id: string; name: string; code: string; students: number; users: number }[];
+  schools: { id: string; name: string; code: string; isActive: boolean; students: number; users: number }[];
 }
 
 const STATUS = {
@@ -46,6 +46,16 @@ function PlatformContent() {
     try {
       await api.patch(`/platform/organisations/${o.id}`, patch);
       feedback.success(done, o.name);
+      load();
+    } catch (err) {
+      feedback.error("Modification impossible", errorMessage(err));
+    }
+  };
+
+  const setSchoolActive = async (school: Organisation["schools"][number], isActive: boolean) => {
+    try {
+      await api.patch(`/platform/schools/${school.id}`, { isActive });
+      feedback.success(isActive ? "Établissement réactivé" : "Établissement désactivé", school.name);
       load();
     } catch (err) {
       feedback.error("Modification impossible", errorMessage(err));
@@ -88,8 +98,16 @@ function PlatformContent() {
                   <td>
                     <div className="cell-main">{o.name}</div>
                     <div className="cell-sub">
-                      {o.schools.map((s) => s.code).join(", ")} · {o.email} · inscrit le {new Date(o.createdAt).toLocaleDateString("fr-FR")}
+                      {o.email} · inscrit le {new Date(o.createdAt).toLocaleDateString("fr-FR")}
                     </div>
+                    {o.schools.map((s) => (
+                      <div className="cell-sub" key={s.id}>
+                        {s.name} ({s.code}){" "}
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSchoolActive(s, !s.isActive)} aria-label={`${s.isActive ? "Désactiver" : "Réactiver"} ${s.name}`}>
+                          {s.isActive ? "Désactiver" : "Réactiver (désactivé)"}
+                        </button>
+                      </div>
+                    ))}
                   </td>
                   <td className="num">{o.schools.reduce((n, s) => n + s.students, 0)}</td>
                   <td>

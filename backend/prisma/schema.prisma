@@ -85,6 +85,7 @@ model School {
   testimonials          Testimonial[]
   academicYears         AcademicYear[]
   users                 User[]
+  memberships           SchoolMembership[]
   students              Student[]
   classes               Class[]
   subjects              Subject[]
@@ -245,10 +246,26 @@ model User {
   totpEnabled       Boolean  @default(false)
   refreshTokens     RefreshToken[]
   passwordResets    PasswordReset[]
+  /// Schools this account may work in; schoolId above is the one currently open.
+  memberships       SchoolMembership[]
 
   @@index([email])
   @@index([role])
   @@index([status])
+  @@index([schoolId])
+}
+
+/// A staff account attached to a school of the group, with the role held there.
+model SchoolMembership {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  role              UserRole
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, schoolId])
   @@index([schoolId])
 }
 
@@ -325,7 +342,8 @@ model Student {
   school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   firstName         String
   lastName          String
-  matricule         String   @unique
+  /// Unique within a school (see @@unique below): two schools may use the same numbering
+  matricule         String
   dateOfBirth       DateTime
   gender            String   // "M", "F"
   nationality       String?

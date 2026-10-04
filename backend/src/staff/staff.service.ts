@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { inSchool } from '../platform/group.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { passwordProblem } from '../auth/password-policy';
@@ -44,6 +45,7 @@ export class StaffService {
         phone: dto.phone,
         role: dto.role as any,
         schoolId: user.schoolId,
+        memberships: { create: { schoolId: user.schoolId, role: dto.role as any } },
         staffMember: {
           create: {
             position: dto.position,
@@ -63,7 +65,8 @@ export class StaffService {
     if (!user.schoolId) return [];
     const users = await this.prisma.user.findMany({
       where: {
-        schoolId: user.schoolId,
+        // Staff shared with another school of the group stay listed in each of their schools
+        ...inSchool(user.schoolId),
         staffMember: { isNot: null },
         status: archived ? 'ARCHIVED' : { not: 'ARCHIVED' },
         ...(role ? { role: role as never } : {}),
@@ -77,11 +80,11 @@ export class StaffService {
   }
 
   async findOne(user: AuthUser, id: string) {
-    const found = await this.prisma.user.findUnique({
-      where: { id },
+    const found = await this.prisma.user.findFirst({
+      where: { id, ...inSchool(user.schoolId ?? '-') },
       include: { staffMember: { include: { classes: true, classSubjects: { include: { subject: true, class: true } } } } },
     });
-    if (!found || found.schoolId !== user.schoolId || !found.staffMember) {
+    if (!found || !found.staffMember) {
       throw new NotFoundException('Membre du personnel introuvable');
     }
     const { password, totpSecret, ...rest } = found;
@@ -89,8 +92,8 @@ export class StaffService {
   }
 
   async updateSalary(user: AuthUser, id: string, baseSalary: number) {
-    const found = await this.prisma.user.findUnique({ where: { id }, include: { staffMember: true } });
-    if (!found || found.schoolId !== user.schoolId || !found.staffMember) {
+    const found = await this.prisma.user.findFirst({ where: { id, ...inSchool(user.schoolId ?? '-') }, include: { staffMember: true } });
+    if (!found || !found.staffMember) {
       throw new NotFoundException('Membre du personnel introuvable');
     }
     return this.prisma.staffMember.update({ where: { id: found.staffMember.id }, data: { baseSalary } });
@@ -106,8 +109,8 @@ export class StaffService {
 
   /** Activate, deactivate or archive a staff account; leaving ACTIVE cuts every session. */
   async setStatus(user: AuthUser, id: string, status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED') {
-    const found = await this.prisma.user.findUnique({ where: { id } });
-    if (!found || found.schoolId !== user.schoolId) throw new NotFoundException('Membre du personnel introuvable');
+    const found = await this.prisma.user.findFirst({ where: { id, ...inSchool(user.schoolId ?? '-') } });
+    if (!found) throw new NotFoundException('Membre du personnel introuvable');
     if (found.id === user.userId && status !== 'ACTIVE') throw new BadRequestException('Vous ne pouvez pas désactiver votre propre compte');
     await this.prisma.user.update({ where: { id }, data: { status } });
     if (status !== 'ACTIVE') await this.tokens.revokeAll(id);
