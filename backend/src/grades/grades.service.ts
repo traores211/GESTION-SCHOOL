@@ -5,6 +5,7 @@ import { AuthUser } from '../common/current-user.decorator';
 import { EnterGradesDto } from './dto/enter-grades.dto';
 import { classAverages, generalAverage, rankLabel, ranks, subjectAverage } from './grade-math';
 import { assertYearOpen } from '../common/year-guard';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PUBLIC_USER } from '../common/sensitive-fields.interceptor';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class GradesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scope: TeacherScopeService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async enter(user: AuthUser, dto: EnterGradesDto) {
@@ -56,7 +58,23 @@ export class GradesService {
       ),
     );
 
+    // The guardians who have an account are told of the new mark; a problem here never undoes the entry
+    await this.notifyNewMarks(dto.records, subject.name, maxScore).catch(() => undefined);
+
     return results;
+  }
+
+  private async notifyNewMarks(records: { studentId: string; score: number }[], subject: string, maxScore: number) {
+    const students = await this.prisma.student.findMany({
+      where: { id: { in: records.map((r) => r.studentId) } },
+      select: { id: true, firstName: true, parents: { where: { archivedAt: null, userId: { not: null } }, select: { userId: true } } },
+    });
+    for (const record of records) {
+      const student = students.find((s) => s.id === record.studentId);
+      for (const parent of student?.parents ?? []) {
+        await this.notifications.notify(parent.userId, 'Nouvelle note', `${student!.firstName} a obtenu ${String(record.score).replace('.', ',')}/${maxScore} en ${subject}.`);
+      }
+    }
   }
 
   async findByClass(user: AuthUser, classId: string, termId?: string, subjectId?: string) {

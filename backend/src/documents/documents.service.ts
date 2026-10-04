@@ -7,6 +7,7 @@ import { TeacherScopeService } from '../common/teacher-scope.service';
 import { MANAGEMENT, OFFICE } from '../common/roles';
 import { inSchool } from '../platform/group.service';
 import { detectDocument } from '../admissions/admissions.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export const DOCUMENT_CATEGORIES = ['PHOTO', 'BULLETIN', 'ACTE_NAISSANCE', 'CERTIFICAT_SCOLARITE', 'PIECE_IDENTITE', 'CONTRAT', 'DIPLOME', 'ADMINISTRATIF', 'JUSTIFICATIF', 'AUTRE'] as const;
 export const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
@@ -42,6 +43,7 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly scope: TeacherScopeService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private school(user: AuthUser) {
@@ -123,7 +125,7 @@ export class DocumentsService {
     const owner = await this.owner(user, dto, true);
     const stored = await this.store(file);
     const { fileName, ...data } = stored;
-    return this.prisma.document.create({
+    const created = await this.prisma.document.create({
       data: {
         ...data,
         ...owner,
@@ -136,6 +138,14 @@ export class DocumentsService {
       },
       select: PUBLIC,
     });
+    if (created.studentId && created.visibility === 'FAMILLE') await this.tellFamily(created.studentId, created.name).catch(() => undefined);
+    return created;
+  }
+
+  /** The guardians who have an account are told that a document is available for their child. */
+  private async tellFamily(studentId: string, name: string) {
+    const student = await this.prisma.student.findUnique({ where: { id: studentId }, select: { firstName: true, parents: { where: { archivedAt: null, userId: { not: null } }, select: { userId: true } } } });
+    for (const parent of student?.parents ?? []) await this.notifications.notify(parent.userId, 'Document disponible', `Un document est disponible pour ${student!.firstName} : ${name}.`);
   }
 
   /** A new version: the former file is archived, not lost. */

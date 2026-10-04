@@ -30,6 +30,11 @@ function PlatformContent() {
   const feedback = useFeedback();
   const [rows, setRows] = useState<Organisation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<{ organisations: number; schools: number; activeSchools: number; students: number; parents: number; teachers: number; admissionsInProgress: number } | null>(null);
+
+  useEffect(() => {
+    api.get<NonNullable<typeof stats>>("/dashboard/platform").then(setStats).catch(() => {});
+  }, []);
 
   const load = useCallback(() => {
     api
@@ -70,6 +75,25 @@ function PlatformContent() {
   return (
     <>
       <PageHeader title="Établissements de la plateforme" description="Essais en cours, abonnements et taille de chaque établissement. Un établissement dont l'essai est terminé ou suspendu passe en lecture seule." />
+      {stats && (
+        <div className="stat-row" style={{ marginBottom: 18 }}>
+          {[
+            ["Groupes", stats.organisations],
+            ["Établissements actifs", `${stats.activeSchools} / ${stats.schools}`],
+            ["Élèves", stats.students],
+            ["Parents", stats.parents],
+            ["Enseignants", stats.teachers],
+            ["Admissions en cours", stats.admissionsInProgress],
+          ].map(([label, value]) => (
+            <div className="card" key={label as string} style={{ padding: "12px 16px" }}>
+              <div className="cell-sub">{label}</div>
+              <div className="tabular" style={{ fontSize: 24, fontWeight: 600 }}>
+                {typeof value === "number" ? value.toLocaleString("fr-FR") : value}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="table-wrap">
         {error ? (
           <EmptyState tone="error" title="Liste indisponible">
