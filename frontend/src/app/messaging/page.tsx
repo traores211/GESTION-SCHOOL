@@ -36,6 +36,7 @@ const EVENTS: Record<string, { label: string; hint: string }> = {
   PAYMENT: { label: "Reçu de paiement", hint: "À chaque paiement encaissé, au guichet ou en ligne." },
   ADMISSION: { label: "Convocation d'admission", hint: "Quand un test ou un entretien reçoit une date." },
   DISCIPLINE: { label: "Exclusion ou convocation des parents", hint: "Quand une exclusion temporaire ou une convocation est enregistrée en vie scolaire." },
+  GATE: { label: "Arrivée et sortie de l'élève", hint: "À chaque passage au portail : jusqu'à deux SMS par élève et par jour. La notification dans l'espace parent est toujours envoyée, sans coût." },
 };
 const EVENT_LABELS: Record<string, string> = { ...Object.fromEntries(Object.entries(EVENTS).map(([k, v]) => [k, v.label])), TEST: "Test" };
 const STATUS: Record<Message["status"], { label: string; badge: string }> = {

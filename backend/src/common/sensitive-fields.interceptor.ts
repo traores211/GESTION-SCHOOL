@@ -2,7 +2,7 @@ import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nes
 import { Observable, map } from 'rxjs';
 
 /** Never sent to a client, whatever a service returns by mistake. */
-const SENSITIVE_KEYS = new Set(['password', 'totpSecret', 'tokenHash']);
+const SENSITIVE_KEYS = new Set(['password', 'totpSecret', 'tokenHash', 'cardToken']);
 
 /** Removes credentials from a response, in place, at any depth. */
 export function stripSensitive<T>(value: T, depth = 0): T {

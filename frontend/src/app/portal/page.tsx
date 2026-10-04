@@ -53,6 +53,7 @@ const TABS = [
   { id: "summary", label: "Résumé" },
   { id: "bulletins", label: "Bulletins" },
   { id: "absences", label: "Absences" },
+  { id: "gate", label: "Entrées et sorties" },
   { id: "discipline", label: "Vie scolaire" },
   { id: "homework", label: "Devoirs" },
   { id: "timetable", label: "Emploi du temps" },
@@ -84,6 +85,45 @@ interface ConversationRow {
 }
 
 /** Conversations of the parent with the school office: list, reading, reply, new message. */
+function FamilyGate({ childId }: { childId: string }) {
+  const [rows, setRows] = useState<{ id: string; kind: string; occurredAt: string; late: boolean; early: boolean; reason: string | null; pickedUpBy: string | null }[] | null>(null);
+  useEffect(() => {
+    setRows(null);
+    api
+      .get<NonNullable<typeof rows>>(`/gate/family/${childId}`)
+      .then(setRows)
+      .catch(() => setRows([]));
+  }, [childId]);
+  if (!rows) return <TableSkeleton columns={3} rows={4} />;
+  if (rows.length === 0) return <EmptyState title="Aucun passage enregistré">Les arrivées et les sorties de votre enfant apparaîtront ici dès que l&apos;établissement les enregistre au portail.</EmptyState>;
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Heure</th>
+            <th>Passage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((e) => (
+            <tr key={e.id}>
+              <td className="tabular">{new Date(e.occurredAt).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}</td>
+              <td className="tabular">{new Date(e.occurredAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</td>
+              <td>
+                <span className={`badge ${e.kind === "ENTREE" ? "badge-green" : "badge-info"}`}>{e.kind === "ENTREE" ? "Arrivée" : "Sortie"}</span> {e.late && <span className="badge badge-warning">Retard</span>}{" "}
+                {e.early && <span className="badge badge-warning">Sortie anticipée</span>}
+                {(e.reason || e.pickedUpBy) && <div className="cell-sub">{[e.reason, e.pickedUpBy ? `avec ${e.pickedUpBy}` : null].filter(Boolean).join(" · ")}</div>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function FamilyDocuments({ childId }: { childId: string }) {
   const [docs, setDocs] = useState<{ id: string; name: string; type: string; category: string; uploadedAt: string }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -547,6 +587,8 @@ function PortalContent() {
           {tab === "messages" && <ParentMessages childId={childId} childName={child.firstName} />}
 
           {tab === "documents" && <FamilyDocuments childId={childId} />}
+
+          {tab === "gate" && <FamilyGate childId={childId} />}
 
           {tab === "timetable" &&
             (!lessons ? (

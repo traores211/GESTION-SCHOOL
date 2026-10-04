@@ -87,6 +87,7 @@ model School {
   users                 User[]
   memberships           SchoolMembership[]
   promotionBatches      PromotionBatch[]
+  gateEvents            GateEvent[]
   documents             Document[]
   students              Student[]
   classes               Class[]
@@ -392,6 +393,9 @@ model Student {
   status            StudentStatus @default(INSCRIT)
   parents           Parent[]
   guardianships     Guardianship[]
+  gateEvents        GateEvent[]
+  /// Code printed as a QR code on the pupil's card, read at the gate
+  cardToken         String?  @unique
   enrollments       Enrollment[]
   attendance        Attendance[]
   documents         Document[]
@@ -670,6 +674,34 @@ model PromotionBatch {
 }
 
 // ==================== Attendance ====================
+
+/// One passage at the school gate. The roll call of the teachers (Attendance) is a separate record.
+model GateEvent {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  /// ENTREE | SORTIE
+  kind              String
+  occurredAt        DateTime @default(now())
+  accessPoint       String?
+  /// MANUEL | QR | BADGE
+  method            String   @default("MANUEL")
+  /// Arrival after the start of the day plus the tolerance
+  late              Boolean  @default(false)
+  /// Departure before the end of the school day
+  early             Boolean  @default(false)
+  reason            String?
+  pickedUpParentId  String?
+  pickedUpBy        String?
+  recordedById      String?
+  recordedByName    String?
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId, occurredAt])
+  @@index([studentId, occurredAt])
+}
 
 model Attendance {
   id                String   @id @default(cuid())

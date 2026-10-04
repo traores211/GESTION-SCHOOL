@@ -7,7 +7,8 @@ import { Channel, SmsProvider, normalizePhone, providerFromEnv, smsSegments, toG
 import { remaining } from '../billing/billing-math';
 
 /** DISCIPLINE (exclusions, convocations) is off until a school switches it on in the messaging page. */
-export const MESSAGE_EVENTS = ['ABSENCE', 'OVERDUE', 'ADMISSION', 'PAYMENT', 'DISCIPLINE'] as const;
+/** GATE (arrival and departure of the child) costs two messages per pupil and per day: off unless the school switches it on. */
+export const MESSAGE_EVENTS = ['ABSENCE', 'OVERDUE', 'ADMISSION', 'PAYMENT', 'DISCIPLINE', 'GATE'] as const;
 export type MessageEvent = (typeof MESSAGE_EVENTS)[number] | 'TEST';
 
 export interface OutgoingMessage {

@@ -1072,6 +1072,8 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
 /* Heading of a group of fields in a long form (personnel file) */
 .form-section { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-muted); margin: 14px 0 8px; }
 .form-section:first-of-type { margin-top: 0; }
+/* Row of small counters (gate page) */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 /* Short list inside a dialog (what an action is about to do) */
 .plain-list { margin: 8px 0 12px; padding-left: 18px; display: grid; gap: 4px; }
 
