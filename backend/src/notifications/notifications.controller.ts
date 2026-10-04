@@ -1,8 +1,17 @@
-import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Put, Query, UseGuards } from '@nestjs/common';
+import { ArrayMaxSize, IsArray, IsString } from 'class-validator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { NotificationsService } from './notifications.service';
+
+class PreferencesDto {
+  /** Categories the account does not want: GATE, GRADES, DOCUMENTS, ATTENDANCE */
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  muted!: string[];
+}
 
 @Controller('notifications')
 @ApiTags('Notifications')
@@ -14,6 +23,16 @@ export class NotificationsController {
   @Get()
   findAll(@CurrentUser() user: AuthUser, @Query('unread') unread?: string) {
     return this.notificationsService.findForUser(user, unread === 'true');
+  }
+
+  @Get('preferences')
+  preferences(@CurrentUser() user: AuthUser) {
+    return this.notificationsService.preferences(user);
+  }
+
+  @Put('preferences')
+  setPreferences(@CurrentUser() user: AuthUser, @Body() dto: PreferencesDto) {
+    return this.notificationsService.setPreferences(user, dto.muted);
   }
 
   @Get('unread-count')

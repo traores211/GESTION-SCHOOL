@@ -110,7 +110,7 @@ export class FamilyController {
   // ---- parent portal
 
   @Get('parent-portal/children/:studentId/homework')
-  @Roles('PARENT')
+  @Roles('PARENT', 'ELEVE')
   homework(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
     return this.family.homeworkForChild(user, studentId);
   }

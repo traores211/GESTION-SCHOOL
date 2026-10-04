@@ -95,8 +95,13 @@ export class FamilyService {
   }
 
   async homeworkForChild(user: AuthUser, studentId: string) {
-    const parent = await this.parent(user);
-    if (!parent.students.some((s) => s.id === studentId)) throw new ForbiddenException();
+    // A guardian of the child, or the pupil himself
+    if (user.role === 'ELEVE') {
+      if (!(await this.prisma.student.findFirst({ where: { id: studentId, userId: user.userId }, select: { id: true } }))) throw new ForbiddenException();
+    } else {
+      const parent = await this.parent(user);
+      if (!parent.students.some((s) => s.id === studentId)) throw new ForbiddenException();
+    }
     const enrollment = await this.prisma.enrollment.findFirst({ where: { studentId, withdrawalDate: null, class: { academicYear: { isCurrent: true } } }, select: { classId: true } });
     if (!enrollment) return [];
     const items = await this.prisma.homework.findMany({

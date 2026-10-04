@@ -80,7 +80,7 @@ export class GateController {
   constructor(private readonly gate: GateService) {}
 
   @Get('family/:studentId')
-  @Roles('PARENT')
+  @Roles('PARENT', 'ELEVE')
   forFamily(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
     return this.gate.forFamily(user, studentId);
   }

@@ -7,6 +7,7 @@ import { EmptyState, PageHeader, TableSkeleton } from "../../../components/ui";
 import { api, ApiError } from "../../../lib/api";
 import { getStoredUser } from "../../../lib/auth";
 import DocumentsPanel from "../../../components/DocumentsPanel";
+import StudentActions, { StudentPhoto } from "../../../components/StudentActions";
 import { downloadFile } from "../../../lib/download";
 import { ATTENDANCE_STATUS, INVOICE_STATUS, STUDENT_STATUS, statusBadge } from "../../../lib/labels";
 
@@ -21,6 +22,8 @@ interface StudentDetail {
   address?: string;
   phone?: string;
   status: string;
+  photoUrl?: string | null;
+  userId?: string | null;
   placeOfBirth?: string;
   countryOfOrigin?: string;
   city?: string;
@@ -67,13 +70,17 @@ export default function StudentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"info" | "attendance" | "grades" | "billing" | "documents">("info");
 
+  const [version, setVersion] = useState(0);
+  const reload = () => setVersion((v) => v + 1);
+
   useEffect(() => {
     if (!params?.id) return;
     api
       .get<StudentDetail>(`/students/${params.id}`)
       .then(setStudent)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Erreur de chargement"));
-  }, [params?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params?.id, version]);
 
   return (
     <Shell title="Fiche élève">
@@ -99,6 +106,7 @@ export default function StudentDetailPage() {
             actions={
               <>
                 <span className={`badge ${statusBadge(STUDENT_STATUS, student.status).badge}`}>{statusBadge(STUDENT_STATUS, student.status).label}</span>
+                <StudentActions studentId={student.id} name={`${student.firstName} ${student.lastName}`} hasAccount={!!student.userId} onChanged={reload} />
                 {["SUPER_ADMIN", "ADMIN_ORGANISATION", "DIRECTOR"].includes(getStoredUser()?.role ?? "") && (
                   // Right of access: everything held on the pupil and the guardians, to hand to the family.
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => downloadFile(`/privacy/students/${student.id}/export`, `donnees-${student.matricule}.json`).catch(() => undefined)}>
@@ -129,7 +137,8 @@ export default function StudentDetailPage() {
 
           {tab === "info" && (
             <div className="record-sheet">
-              <div className="record-stub" aria-hidden="true">
+              <div className="record-stub">
+                <StudentPhoto studentId={student.id} hasPhoto={!!student.photoUrl} name={`${student.firstName} ${student.lastName}`} onChanged={reload} />
                 <span>Matricule</span>
                 <strong>{student.matricule}</strong>
               </div>

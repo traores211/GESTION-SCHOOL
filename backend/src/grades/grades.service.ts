@@ -72,7 +72,7 @@ export class GradesService {
     for (const record of records) {
       const student = students.find((s) => s.id === record.studentId);
       for (const parent of student?.parents ?? []) {
-        await this.notifications.notify(parent.userId, 'Nouvelle note', `${student!.firstName} a obtenu ${String(record.score).replace('.', ',')}/${maxScore} en ${subject}.`);
+        await this.notifications.notify(parent.userId, 'Nouvelle note', `${student!.firstName} a obtenu ${String(record.score).replace('.', ',')}/${maxScore} en ${subject}.`, 'in_app', 'GRADES');
       }
     }
   }

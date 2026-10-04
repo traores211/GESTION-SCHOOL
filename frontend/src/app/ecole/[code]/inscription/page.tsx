@@ -34,6 +34,39 @@ export default function PublicAdmissionPage() {
       .catch(() => setSchool(null));
   }, [params?.code]);
 
+  // Draft: what the family has typed stays on its own device until the application is sent
+  const draftKey = `preinscription:${params?.code ?? ""}`;
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(draftKey) || "null");
+      if (saved?.form) {
+        setForm((f) => ({ ...f, ...saved.form }));
+        setRestored(true);
+      }
+    } catch {
+      // storage unavailable: the form simply starts empty
+    }
+  }, [draftKey]);
+  useEffect(() => {
+    try {
+      if (reference) localStorage.removeItem(draftKey);
+      else if (Object.values(form).some((v) => v && v !== "M")) localStorage.setItem(draftKey, JSON.stringify({ form, savedAt: Date.now() }));
+    } catch {
+      // storage unavailable
+    }
+  }, [form, reference, draftKey]);
+  const discardDraft = () => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // storage unavailable
+    }
+    setForm({ firstName: "", lastName: "", email: "", phone: "", dateOfBirth: "", gender: "M" });
+    setRestored(false);
+    setStep(0);
+  };
+
   useEffect(() => {
     headingRef.current?.focus();
   }, [step, reference]);
@@ -130,6 +163,16 @@ export default function PublicAdmissionPage() {
                   ))}
                 </ol>
 
+                {restored && (
+                  <div className="alert alert-success" role="status" style={{ marginBottom: 14 }}>
+                    <div className="alert-body">
+                      <span className="alert-title">Brouillon repris.</span> Ce que vous aviez saisi sur cet appareil a été conservé.{" "}
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={discardDraft}>
+                        Recommencer à zéro
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <form ref={formRef} onSubmit={next} noValidate={false}>
                   {step === 0 && (
                     <div className="form-grid sc-apply-step" key="s0">

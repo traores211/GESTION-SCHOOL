@@ -36,32 +36,38 @@ export class ParentPortalController {
   }
 
   @Get('children')
+  @Roles('PARENT', 'ELEVE')
   children(@CurrentUser() user: AuthUser) {
     return this.parentPortalService.children(user);
   }
 
   @Get('children/:studentId')
+  @Roles('PARENT', 'ELEVE')
   childDetail(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
     return this.parentPortalService.childDetail(user, studentId);
   }
 
   @Get('children/:studentId/bulletins')
+  @Roles('PARENT', 'ELEVE')
   bulletins(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
     return this.parentPortalService.bulletins(user, studentId);
   }
 
   @Get('children/:studentId/bulletins/:termId/pdf')
+  @Roles('PARENT', 'ELEVE')
   async bulletinPdf(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string, @Param('termId') termId: string, @Res() res: Response) {
     const card = await this.parentPortalService.bulletinCard(user, studentId, termId);
     sendBulletins(res, [card], `bulletin-${card.student.matricule}-${card.term.name}.pdf`);
   }
 
   @Get('children/:studentId/discipline')
+  @Roles('PARENT', 'ELEVE')
   discipline(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
     return this.parentPortalService.discipline(user, studentId);
   }
 
   @Get('children/:studentId/timetable')
+  @Roles('PARENT', 'ELEVE')
   timetable(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
     return this.parentPortalService.timetable(user, studentId);
   }

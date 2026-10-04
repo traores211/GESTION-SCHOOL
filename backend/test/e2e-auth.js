@@ -3,6 +3,7 @@
  * Usage (inside the backend container): node test/e2e-auth.js
  */
 const { PrismaClient } = require('@prisma/client');
+const { clearThrottle } = require('./throttle');
 const { generate } = require('otplib');
 
 const BASE = process.argv[2] || 'http://localhost:4000/api';
@@ -27,6 +28,7 @@ const post = (path, body, { token, cookie } = {}) =>
 const get = (path, token) => fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
 
 (async () => {
+  await clearThrottle('throttle:reset*');
   const admin = await prisma.user.findUnique({ where: { email: 'admin@school.local' } });
   const secretary = await prisma.user.findUnique({ where: { email: 'secretaire@school.local' } });
   const saved = { admin: admin.password, secretary: secretary.password };

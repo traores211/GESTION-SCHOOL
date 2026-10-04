@@ -2,7 +2,7 @@
 
 Réponse au cahier des charges `docs/AMELIORATIONS2.md`. Mis à jour le 4 octobre 2026, branche `feature/robustness`.
 
-« Fait » signifie : codé et vérifié par des tests automatiques. Les écrans ajoutés pendant ce chantier sont vérifiés à la compilation et au lint, **pas dans un navigateur** (voir « Ce qui n'est pas vérifié »).
+« Fait » signifie : codé et vérifié par des tests automatiques. Les écrans ajoutés pendant ce chantier ont été ouverts une fois dans Chrome, à la main, sur l'application locale (voir « Vérifications ») ; ils n'ont pas de test automatique dans un navigateur.
 
 ## 1. Audit de l'existant (phase 1)
 
@@ -36,11 +36,11 @@ Les écarts relevés par rapport au cahier des charges :
 |---|---|---|
 | 1. Multi-écoles | Fait | Groupes, création et désactivation d'établissements, changement d'établissement, matricule par école. Pas de cloisonnement au niveau PostgreSQL (RLS) |
 | 2. Utilisateurs et rôles | Fait pour l'essentiel | Périmètre enseignant, rattachements par école. Surveillant, éducateur, sécurité sont des **catégories du dossier du personnel**, pas des rôles de connexion. La table `Permission` reste inutilisée |
-| 3. Élèves | Fait | Fiche étendue (origine, régime, scolarité antérieure, date d'entrée), historique des classes. Pas de photo d'identité dans la fiche (à déposer comme document) |
+| 3. Élèves | Fait | Fiche étendue (origine, régime, scolarité antérieure, date d'entrée), photo d'identité, historique des classes |
 | 4. Parents | Fait | Plusieurs enfants, lien par enfant (qualité, responsable légal, contact d'urgence, autorisé à récupérer l'enfant), fiche étendue, pièce d'identité chiffrée |
 | 5. Personnel | Fait | Dossier (catégorie, contrat, diplômes, contact d'urgence, compte bancaire chiffré), rattachement à plusieurs établissements |
 | 6. Classes | Fait | Série, salle, archivage, déplacement d'un élève avec historique |
-| 7. Inscriptions | Partiel | Le parcours d'admission existant est conservé (10 étapes, pièces, suivi public). Réinscription individuelle par l'API, **sans écran**. Pas d'état « brouillon » côté famille |
+| 7. Inscriptions | Fait | Le parcours d'admission existant est conservé (10 étapes, pièces, suivi public). Réinscription individuelle depuis la fiche élève. Le brouillon d'une pré-inscription est gardé sur l'appareil de la famille, pas sur le serveur : il ne se retrouve pas d'un appareil à l'autre |
 | 8. Passage en classe supérieure | Fait | Aperçu, proposition, décision, plan, exécution confirmée, création des classes manquantes, relance sans effet |
 | 9. Présences | Fait | Appel existant, plus dictée vocale |
 | 10. Entrées et sorties | Fait | Carte QR, saisie manuelle, retards, sorties anticipées, personnes autorisées, notification des familles |
@@ -49,23 +49,32 @@ Les écarts relevés par rapport au cahier des charges :
 | 13. OCR | Fait côté application | Lecture par Claude si `ANTHROPIC_API_KEY` est renseignée. **Aucun appel réel au service n'a été fait pendant les tests** |
 | 14. Import de fichiers | Fait | Existant ; un enseignant n'importe plus que pour ses classes et ses matières |
 | 15. Vitrine | Fait | Brouillon, aperçu, publication, contenus supplémentaires, formulaire de contact. Le brouillon ne couvre pas les photos, chiffres clés, partenaires et témoignages, publiés dès leur enregistrement. Pas de favicon par école |
-| 16. Notifications | Partiel | Interne, e-mail, SMS et WhatsApp. Nouveaux événements : arrivée, sortie, nouvelle note, document disponible. **Pas de notification push**, pas de préférences par canal |
+| 16. Notifications | Partiel | Interne, e-mail, SMS et WhatsApp. Nouveaux événements : arrivée, sortie, nouvelle note, document disponible. Chaque compte choisit les catégories qu'il reçoit dans l'application. **Pas de notification push** |
 | 17. Documents | Fait | Catégorie, version, archive, visibilité, suppression contrôlée, partage avec la famille |
-| 18. Tableaux de bord | Fait | École (existant), enseignant, plateforme, parent (portail). Pas de portail élève |
+| 18. Tableaux de bord | Fait | École (existant), enseignant, plateforme, parent (portail), élève (son propre dossier en lecture seule, sans les frais) |
 | 19. Audit | Fait | Existant : auteur, action, objet, anciennes et nouvelles valeurs, adresse IP, résultat |
 | 20. Tests | Fait | Voir ci-dessous |
 
 ## 4. Vérifications
 
 - 240 tests unitaires côté API, 30 côté web.
-- 26 scénarios de bout en bout sur l'API, 571 vérifications, tous exécutés ensemble après le dernier lot.
-- Les migrations (7 nouvelles) sont appliquées sur la base de développement et comparées au schéma : aucune différence.
+- 27 scénarios de bout en bout sur l'API, 594 vérifications, tous exécutés ensemble après le dernier lot.
+- Les migrations (8 nouvelles) sont appliquées sur la base de développement et comparées au schéma : aucune différence.
 - Les 2 575 liens parent-enfant existants ont été repris avec leur qualité.
+
+### Ce qui a été vu dans un navigateur
+
+Une passe manuelle dans Chrome, le 4 octobre 2026, sur l'application locale et les comptes de démonstration :
+
+- Affichage sans erreur : Établissements, Plateforme (avec ses compteurs), Années & passage, Entrées et sorties, Saisie rapide, brouillon de vitrine, page publique avec son formulaire de contact, Personnel et son dossier, fiche élève (scolarité, parents, documents, photo, réinscription, compte élève), tableau de bord enseignant, portail parents (onglets Entrées et sorties et Documents), préférences de notification, formulaire de pré-inscription.
+- Parcours joués : recherche d'un élève au portail et affichage de sa carte QR ; appel dicté (saisi au clavier) jusqu'à la proposition, avec un nom inconnu qui bloque bien la validation ; ouverture du dossier d'un membre du personnel ; ouverture de la fenêtre de réinscription ; reprise puis abandon d'un brouillon de pré-inscription.
 
 ### Ce qui n'est pas vérifié
 
-- **Aucun des écrans ajoutés n'a été ouvert dans un navigateur** : le navigateur de test n'a pas pu être installé dans le conteneur. Les écrans concernés : Établissements, dossier du personnel, fiche élève enrichie, documents, années et passage, entrées et sorties, saisie rapide, brouillon de vitrine, tableau de bord enseignant, nouveaux onglets du portail parents.
-- La dictée vocale et la lecture de carte par caméra dépendent du navigateur et du matériel : elles n'ont pas été essayées.
+- Les parcours qui modifient les données de démonstration n'ont pas été joués dans le navigateur (exécution d'un passage de classe, publication d'une vitrine, enregistrement d'un passage au portail, création d'un compte élève) : ils sont couverts par les tests de l'API, pas par un clic.
+- Aucun test automatique dans un navigateur ne couvre ces écrans : le navigateur de test n'a pas pu être installé dans le conteneur.
+- Rien n'a été essayé sur téléphone.
+- La dictée vocale au micro et la lecture de carte par caméra dépendent du navigateur et du matériel : elles n'ont pas été essayées.
 - La lecture d'une feuille de notes par le service externe n'a pas été appelée en vrai ; seul le traitement de sa réponse est testé.
 - L'intégration continue n'a jamais tourné : la branche n'est pas poussée.
 
@@ -77,13 +86,14 @@ Les écarts relevés par rapport au cahier des charges :
 4. **Lecture des feuilles de notes par Claude** : les noms et les notes de la feuille sont transmis à un service externe. À mentionner dans la politique de confidentialité avant usage réel.
 5. **Entrées et sorties sans matériel de badgeage** : carte QR lue par un lecteur ou une caméra, ou saisie manuelle.
 6. **Les enseignants ne voient plus le tableau de bord de l'école** (qui contient les finances) : ils ont le leur.
+7. **Un élève peut avoir son propre compte**, créé par le secrétariat : il lit son dossier, sans les frais de scolarité, et ne peut rien modifier.
 
 ## 6. Reste à faire
 
-- Écran de réinscription et état « brouillon » d'une pré-inscription côté famille.
+- **Notifications push** : elles demandent une paire de clés propre à votre serveur et une bibliothèque de plus ; à faire quand l'adresse de production est connue.
+- **Cloisonnement PostgreSQL (RLS)** : il touche toutes les requêtes de l'application et peut bloquer des écrans s'il est mal réglé ; à faire comme un chantier à part, avec votre accord.
 - Rôles de connexion pour surveillants et éducateurs ; permissions fines par utilisateur.
-- Notifications push et préférences par canal.
-- Portail élève.
-- Cloisonnement PostgreSQL (RLS), pagination de toutes les listes, montants en décimal exact.
-- Essai de tous les nouveaux écrans dans un navigateur, puis sur téléphone.
+- Brouillon de pré-inscription conservé sur le serveur ; favicon par école ; brouillon de vitrine étendu aux photos et témoignages.
+- Pagination de toutes les listes, montants en décimal exact.
+- Tests automatiques dans un navigateur pour les nouveaux écrans, et essai sur téléphone.
 - Du premier chantier (`docs/AMELIORATIONS.md`) : cantine, bibliothèque, infirmerie, export DREN, traduction complète en anglais.

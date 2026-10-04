@@ -2,7 +2,7 @@
 
 Parcours à dérouler à la main, rôle par rôle, pour valider l'évolution multi-écoles (`docs/AMELIORATIONS2.md`). Chaque parcours indique le résultat attendu et le test automatique qui couvre déjà la même règle côté serveur.
 
-Les tests automatiques vérifient les règles et les droits ; ils ne remplacent pas cette recette, qui vérifie les **écrans**. Aucun des écrans ajoutés n'a encore été ouvert dans un navigateur : c'est le premier objet de cette recette.
+Les tests automatiques vérifient les règles et les droits ; ils ne remplacent pas cette recette, qui vérifie les **écrans**. Les écrans ajoutés ont été ouverts une fois dans Chrome (affichage et quelques parcours, voir `docs/EVOLUTION-MULTI-ECOLES.md`) ; les parcours qui modifient des données et l'usage sur téléphone restent à dérouler ici.
 
 ## Préparation
 
@@ -82,6 +82,9 @@ Les tests automatiques vérifient les règles et les droits ; ils ne remplacent 
 | S8 | « Entrées et sorties » → rechercher un élève → « Carte » | La carte QR s'affiche et s'imprime | e2e-gate | |
 | S9 | « Carte perdue : renouveler » | Une nouvelle carte s'affiche ; l'ancienne est refusée au portail | e2e-gate | |
 | S10 | Admission : dérouler une candidature jusqu'à l'inscription | L'élève est créé à partir du dossier, sans ressaisie | e2e-admissions | |
+| S11 | Fiche élève → « Ajouter une photo » | La photo d'identité s'affiche dans la fiche ; un PDF est refusé | e2e-pupil | |
+| S12 | Fiche d'un élève sorti ou non placé → « Réinscrire » → choisir l'année et la classe | L'élève est inscrit dans la classe ; son dossier est repris, restauré s'il était archivé ; une classe complète est grisée | e2e-promotion | |
+| S13 | Fiche élève → « Créer un compte élève » | Le mot de passe provisoire s'affiche une seule fois | e2e-pupil | |
 
 ## 5. Enseignant
 
@@ -114,6 +117,17 @@ Les tests automatiques vérifient les règles et les droits ; ils ne remplacent 
 | F6 | Essayer d'ouvrir l'adresse d'un document d'un autre élève | Refusé | e2e-documents | |
 | F7 | Pré-inscription depuis la vitrine, puis suivi avec le numéro de dossier | Le numéro est remis à la fin ; le suivi affiche l'étape et les pièces attendues | e2e-admissions | |
 | F8 | Bulletin d'un enfant passé en classe supérieure | Le bulletin de l'année écoulée reste consultable | e2e-promotion | |
+| F9 | « Sécurité du compte » → décocher « Nouvelles notes » | La note suivante ne produit plus de notification ; recocher la rétablit | e2e-pupil | |
+| F10 | Commencer une pré-inscription, fermer l'onglet, revenir | Bandeau « Brouillon repris » et champs remplis ; « Recommencer à zéro » vide le formulaire | passe manuelle | |
+
+## 6 bis. Élève
+
+| N° | Parcours | Résultat attendu | Test automatique | Résultat |
+|---|---|---|---|---|
+| V1 | Se connecter avec le compte créé par le secrétariat | Arrivée sur « Mon espace élève » : son dossier, sa classe | e2e-pupil | |
+| V2 | Parcourir les onglets | Bulletins, absences, entrées et sorties, vie scolaire, devoirs, emploi du temps, documents. Pas d'onglet Scolarité (frais) ni Messages ; pas de bouton pour justifier une absence | e2e-pupil | |
+| V3 | Saisir l'adresse d'un écran du personnel (`/students`, `/classes`) | Accès refusé | e2e-pupil | |
+| V4 | Le secrétariat ferme le compte | L'élève est déconnecté aussitôt ; son dossier ne change pas | e2e-pupil | |
 
 ## 7. Points à contrôler sur téléphone
 

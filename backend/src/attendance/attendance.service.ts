@@ -58,6 +58,8 @@ export class AttendanceService {
             parent.userId,
             'Présence',
             `Votre enfant ${student.firstName} ${student.lastName} ${label} aujourd'hui.`,
+            'in_app',
+            'ATTENDANCE',
           );
         }
         // SMS for recent absences only (one per pupil, day and guardian); a sending problem never blocks the roll call.

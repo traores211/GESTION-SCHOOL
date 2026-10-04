@@ -1072,6 +1072,10 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
 /* Heading of a group of fields in a long form (personnel file) */
 .form-section { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-muted); margin: 14px 0 8px; }
 .form-section:first-of-type { margin-top: 0; }
+/* Identity photo in the pupil record */
+.student-photo { display: grid; gap: 6px; justify-items: start; margin-bottom: 10px; }
+.student-photo img, .student-photo-empty { width: 96px; height: 120px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--rule); }
+.student-photo-empty { display: grid; place-items: center; color: var(--text-muted); background: var(--paper-raised); }
 /* Row of small counters (gate page) */
 .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 /* Short list inside a dialog (what an action is about to do) */

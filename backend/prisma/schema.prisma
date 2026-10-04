@@ -258,6 +258,9 @@ model User {
   totpEnabled       Boolean  @default(false)
   refreshTokens     RefreshToken[]
   passwordResets    PasswordReset[]
+  pupil             Student? @relation("PupilAccount")
+  /// What the account does not want to be notified of: { muted: ["GATE", "GRADES", …] }
+  notificationPrefs Json     @default("{}")
   /// Schools this account may work in; schoolId above is the one currently open.
   memberships       SchoolMembership[]
 
@@ -400,6 +403,9 @@ model Student {
   parents           Parent[]
   guardianships     Guardianship[]
   gateEvents        GateEvent[]
+  /// Account of the pupil himself (role ELEVE): he reads his own record, nothing else
+  userId            String?  @unique
+  user              User?    @relation("PupilAccount", fields: [userId], references: [id], onDelete: SetNull)
   /// Code printed as a QR code on the pupil's card, read at the gate
   cardToken         String?  @unique
   enrollments       Enrollment[]

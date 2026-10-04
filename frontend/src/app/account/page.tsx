@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound, LoaderCircle, LogOut, Monitor, ShieldCheck, ShieldOff, Smartphone } from "lucide-react";
+import NotificationPreferences from "../../components/NotificationPreferences";
 import Shell from "../../components/Shell";
 import { FormError, PageHeader, useFeedback } from "../../components/ui";
 import { api, errorMessage } from "../../lib/api";
@@ -240,6 +241,8 @@ function AccountContent() {
             <LogOut size={16} /> Déconnecter tous les appareils
           </button>
         </section>
+
+        <NotificationPreferences />
       </div>
     </>
   );

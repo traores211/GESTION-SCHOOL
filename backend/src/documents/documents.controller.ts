@@ -87,13 +87,13 @@ export class DocumentsController {
   // ---- families (declared first: "family" must not be read as a document id)
 
   @Get('family/:studentId')
-  @Roles('PARENT')
+  @Roles('PARENT', 'ELEVE')
   forFamily(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
     return this.documents.forFamily(user, studentId);
   }
 
   @Get('family/:studentId/:id/file')
-  @Roles('PARENT')
+  @Roles('PARENT', 'ELEVE')
   async familyFile(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string, @Param('id') id: string, @Res() res: Response) {
     send(res, await this.documents.familyFile(user, studentId, id));
   }

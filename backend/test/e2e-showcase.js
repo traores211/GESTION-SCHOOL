@@ -29,6 +29,7 @@ const cleanup = async () => {
 };
 
 (async () => {
+  await clearThrottle('throttle:contact*');
   await clearThrottle();
   try {
     await cleanup();

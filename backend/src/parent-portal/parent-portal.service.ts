@@ -14,6 +14,16 @@ export class ParentPortalService {
   ) {}
 
   private async getParent(user: AuthUser) {
+    // A pupil signed in with his own account is, for these read routes, the family of one child: himself
+    if (user.role === 'ELEVE') {
+      const students = await this.prisma.student.findMany({ where: { userId: user.userId, archivedAt: null } });
+      if (!students.length) throw new NotFoundException('Aucun dossier élève associé à ce compte');
+      return { id: '', students } as unknown as Awaited<ReturnType<ParentPortalService['guardian']>>;
+    }
+    return this.guardian(user);
+  }
+
+  private async guardian(user: AuthUser) {
     const parent = await this.prisma.parent.findUnique({
       where: { userId: user.userId },
       include: { students: true },
@@ -58,7 +68,8 @@ export class ParentPortalService {
         enrollments: { where: { withdrawalDate: null }, include: { class: true }, orderBy: { enrollmentDate: 'desc' }, take: 1 },
         attendance: { orderBy: { date: 'desc' }, take: 30 },
         grades: { include: { subject: true, term: true }, orderBy: { createdAt: 'desc' }, take: 30 },
-        invoices: { include: { items: true, payments: true }, orderBy: { createdAt: 'desc' } },
+        // Fees are the family's business: a pupil reading his own record gets none
+        invoices: { where: user.role === 'ELEVE' ? { id: '-' } : {}, include: { items: true, payments: true }, orderBy: { createdAt: 'desc' } },
         school: true,
       },
     });

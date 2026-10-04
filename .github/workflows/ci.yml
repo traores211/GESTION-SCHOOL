@@ -122,6 +122,8 @@ jobs:
         run: node test/e2e-showcase.js
       - name: End-to-end — dashboards per role, notifications to families
         run: node test/e2e-dashboards.js
+      - name: End-to-end — pupil accounts, identity photo, notification preferences
+        run: node test/e2e-pupil.js
       - name: End-to-end — no credential in any response
         run: node test/e2e-leaks.js
       - name: API log

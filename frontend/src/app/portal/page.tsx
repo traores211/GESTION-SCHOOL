@@ -6,6 +6,7 @@ import Shell from "../../components/Shell";
 import Thread, { ThreadMessage } from "../../components/Thread";
 import { api, errorMessage } from "../../lib/api";
 import { downloadFile } from "../../lib/download";
+import { getStoredUser } from "../../lib/auth";
 import { EmptyState, PageHeader, TableSkeleton, useFeedback } from "../../components/ui";
 import { DOCUMENT_CATEGORIES } from "../../components/DocumentsPanel";
 import { ATTENDANCE_STATUS, INVOICE_STATUS, statusBadge } from "../../lib/labels";
@@ -327,6 +328,9 @@ function PortalContent() {
     if (tab === "discipline" && !records) api.get<NonNullable<typeof records>>(`/parent-portal/children/${childId}/discipline`).then(setRecords).catch(() => setRecords([]));
   }, [tab, childId, bulletins, lessons, records, homework]);
 
+  // A pupil reads his own record: no fees, no messages to the office, no justification of absences
+  const isPupil = getStoredUser()?.role === "ELEVE";
+
   const pay = async (invoiceId: string) => {
     setBusy(invoiceId);
     try {
@@ -423,7 +427,7 @@ function PortalContent() {
           </div>
 
           <div className="tabs" role="tablist" aria-label="Rubriques">
-            {TABS.map((t) => (
+            {TABS.filter((t) => !isPupil || !["messages", "fees"].includes(t.id)).map((t) => (
               <button key={t.id} type="button" role="tab" className="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>
                 {t.label}
                 {t.id === "absences" && absences.length > 0 && <span className="portal-count">{absences.length}</span>}
@@ -526,7 +530,7 @@ function PortalContent() {
                           <td>{a.justification ?? (a.justificationRequest ? <span className="muted">En attente de validation : {a.justificationRequest}</span> : <span className="muted">—</span>)}</td>
                           <td className="actions">
                             {a.status === "ABSENT" && (
-                              <button type="button" className="btn btn-outline btn-sm" onClick={() => justify(a)}>
+                              <button type="button" className="btn btn-outline btn-sm" hidden={isPupil} onClick={() => justify(a)}>
                                 {a.justificationRequest ? "Modifier" : "Justifier"}
                               </button>
                             )}

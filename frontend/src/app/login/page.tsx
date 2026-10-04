@@ -49,7 +49,7 @@ function LoginForm() {
       setSession(data.accessToken, data.user);
       const next = params.get("next");
       const safeNext = next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : null;
-      router.push(data.user.role === "PARENT" ? "/portal" : safeNext || "/dashboard");
+      router.push(["PARENT", "ELEVE"].includes(data.user.role) ? "/portal" : safeNext || "/dashboard");
     } catch (err) {
       if (err instanceof ApiError && (err.body as { code?: string } | undefined)?.code === "TOTP_REQUIRED") {
         if (needsCode) setError(errorMessage(err));

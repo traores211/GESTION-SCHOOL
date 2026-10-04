@@ -52,6 +52,8 @@ interface NavItem {
   roles: string[];
 }
 
+/** Guardians and pupils use the portal, not the staff screens. */
+const FAMILY = ["PARENT", "ELEVE"];
 const ADMIN = ["SUPER_ADMIN", "ADMIN_ORGANISATION", "DIRECTOR"];
 const OFFICE = [...ADMIN, "SECRETARY"];
 const TEACHING = [...OFFICE, "ENSEIGNANT"];
@@ -102,7 +104,10 @@ const NAV: { group: string; items: NavItem[] }[] = [
   },
   {
     group: "Famille",
-    items: [{ href: "/portal", label: "Mes enfants", icon: HeartHandshake, roles: ["PARENT"] }],
+    items: [
+      { href: "/portal", label: "Mes enfants", icon: HeartHandshake, roles: ["PARENT"] },
+      { href: "/portal", label: "Mon espace élève", icon: GraduationCap, roles: ["ELEVE"] },
+    ],
   },
 ];
 
@@ -123,7 +128,7 @@ export default function Shell({ title, children }: { title: string; children: Re
 
   // Schools the account may open: one for most accounts, several in a school group.
   useEffect(() => {
-    if (!user || user.role === "PARENT") return;
+    if (!user || FAMILY.includes(user.role)) return;
     api.get<typeof schools>("/auth/schools").then(setSchools).catch(() => {});
   }, [user]);
 
@@ -141,7 +146,7 @@ export default function Shell({ title, children }: { title: string; children: Re
 
   // Trial or suspended subscription: shown to staff on every page.
   useEffect(() => {
-    if (!user || user.role === "PARENT") return;
+    if (!user || FAMILY.includes(user.role)) return;
     api.get<NonNullable<typeof subscription>>("/subscription").then(setSubscription).catch(() => {});
   }, [user]);
 
@@ -247,7 +252,7 @@ export default function Shell({ title, children }: { title: string; children: Re
       </a>
       <div className="sidebar-backdrop" onClick={() => setNavOpen(false)} />
       <aside className="sidebar" id="app-sidebar" aria-label={t("Navigation principale")}>
-        <Link href={user?.role === "PARENT" ? "/portal" : "/dashboard"} className="sidebar-brand">
+        <Link href={user && FAMILY.includes(user.role) ? "/portal" : "/dashboard"} className="sidebar-brand">
           <BrandMark />
           <span>
             <span className="sidebar-brand-text">School ERP</span>
@@ -383,10 +388,10 @@ export default function Shell({ title, children }: { title: string; children: Re
               </div>
             </div>
           )}
-          {user && user.role !== "PARENT" && <OfflineSync />}
+          {user && !FAMILY.includes(user.role) && <OfflineSync />}
           {children}
         </main>
-        {user && user.role !== "PARENT" && <AssistantPanel />}
+        {user && !FAMILY.includes(user.role) && <AssistantPanel />}
       </div>
     </div>
     </div>

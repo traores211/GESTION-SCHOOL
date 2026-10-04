@@ -145,7 +145,7 @@ export class DocumentsService {
   /** The guardians who have an account are told that a document is available for their child. */
   private async tellFamily(studentId: string, name: string) {
     const student = await this.prisma.student.findUnique({ where: { id: studentId }, select: { firstName: true, parents: { where: { archivedAt: null, userId: { not: null } }, select: { userId: true } } } });
-    for (const parent of student?.parents ?? []) await this.notifications.notify(parent.userId, 'Document disponible', `Un document est disponible pour ${student!.firstName} : ${name}.`);
+    for (const parent of student?.parents ?? []) await this.notifications.notify(parent.userId, 'Document disponible', `Un document est disponible pour ${student!.firstName} : ${name}.`, 'in_app', 'DOCUMENTS');
   }
 
   /** A new version: the former file is archived, not lost. */
@@ -221,7 +221,10 @@ export class DocumentsService {
   // ---------------------------------------------------------------- families
 
   private async childOf(user: AuthUser, studentId: string) {
-    const link = await this.prisma.parent.findFirst({ where: { userId: user.userId, archivedAt: null, students: { some: { id: studentId } } }, select: { id: true } });
+    // A guardian of the child, or the pupil himself
+    const link = user.role === 'ELEVE'
+      ? await this.prisma.student.findFirst({ where: { id: studentId, userId: user.userId }, select: { id: true } })
+      : await this.prisma.parent.findFirst({ where: { userId: user.userId, archivedAt: null, students: { some: { id: studentId } } }, select: { id: true } });
     if (!link) throw new ForbiddenException();
   }
 

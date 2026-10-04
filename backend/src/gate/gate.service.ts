@@ -113,7 +113,7 @@ export class GateService {
     });
 
     const text = gateMessage(student, kind, now, pickedUpBy);
-    for (const parent of student.parents) await this.notifications.notify(parent.userId, kind === 'ENTREE' ? 'Arrivée' : 'Sortie', text);
+    for (const parent of student.parents) await this.notifications.notify(parent.userId, kind === 'ENTREE' ? 'Arrivée' : 'Sortie', text, 'in_app', 'GATE');
     // SMS only when the school switched the event on; a sending problem never blocks the gate
     await this.messaging.sendToGuardians(student.id, 'GATE', (_s, school) => `${school}: ${text}`, `gate:${event.id}`).catch(() => undefined);
 
@@ -186,7 +186,10 @@ export class GateService {
 
   /** What a guardian sees: the last passages of his own child. */
   async forFamily(user: AuthUser, studentId: string) {
-    const link = await this.prisma.parent.findFirst({ where: { userId: user.userId, archivedAt: null, students: { some: { id: studentId } } }, select: { id: true } });
+    // A guardian of the child, or the pupil himself
+    const link = user.role === 'ELEVE'
+      ? await this.prisma.student.findFirst({ where: { id: studentId, userId: user.userId }, select: { id: true } })
+      : await this.prisma.parent.findFirst({ where: { userId: user.userId, archivedAt: null, students: { some: { id: studentId } } }, select: { id: true } });
     if (!link) throw new ForbiddenException();
     return this.prisma.gateEvent.findMany({
       where: { studentId, occurredAt: { gte: new Date(Date.now() - 30 * 86400000) } },
