@@ -6,7 +6,8 @@ import Shell from "../../components/Shell";
 import Thread, { ThreadMessage } from "../../components/Thread";
 import { api, errorMessage } from "../../lib/api";
 import { downloadFile } from "../../lib/download";
-import { EmptyState, PageHeader, useFeedback } from "../../components/ui";
+import { EmptyState, PageHeader, TableSkeleton, useFeedback } from "../../components/ui";
+import { DOCUMENT_CATEGORIES } from "../../components/DocumentsPanel";
 import { ATTENDANCE_STATUS, INVOICE_STATUS, statusBadge } from "../../lib/labels";
 import "./portal.css";
 
@@ -56,6 +57,7 @@ const TABS = [
   { id: "homework", label: "Devoirs" },
   { id: "timetable", label: "Emploi du temps" },
   { id: "messages", label: "Messages" },
+  { id: "documents", label: "Documents" },
   { id: "fees", label: "Scolarité" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
@@ -82,6 +84,52 @@ interface ConversationRow {
 }
 
 /** Conversations of the parent with the school office: list, reading, reply, new message. */
+function FamilyDocuments({ childId }: { childId: string }) {
+  const [docs, setDocs] = useState<{ id: string; name: string; type: string; category: string; uploadedAt: string }[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setDocs(null);
+    api
+      .get<NonNullable<typeof docs>>(`/documents/family/${childId}`)
+      .then(setDocs)
+      .catch(() => setDocs([]));
+  }, [childId]);
+  if (!docs) return <TableSkeleton columns={3} rows={3} />;
+  if (docs.length === 0) return <EmptyState title="Aucun document partagé">L&apos;établissement n&apos;a pas encore partagé de document pour cet enfant.</EmptyState>;
+  return (
+    <div className="table-wrap">
+      {error && <p className="field-error" role="alert">{error}</p>}
+      <table>
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Ajouté le</th>
+            <th className="actions">
+              <span className="visually-hidden">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {docs.map((d) => (
+            <tr key={d.id}>
+              <td>
+                <div className="cell-main">{d.name}</div>
+                <div className="cell-sub">{DOCUMENT_CATEGORIES[d.category] ?? d.category}</div>
+              </td>
+              <td className="tabular">{new Date(d.uploadedAt).toLocaleDateString("fr-FR")}</td>
+              <td className="actions">
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => downloadFile(`/documents/family/${childId}/${d.id}/file`, d.name).catch((err) => setError(errorMessage(err)))} aria-label={`Télécharger ${d.name}`}>
+                  Télécharger
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ParentMessages({ childId, childName }: { childId: string; childName: string }) {
   const feedback = useFeedback();
   const [list, setList] = useState<ConversationRow[] | null>(null);
@@ -497,6 +545,8 @@ function PortalContent() {
           )}
 
           {tab === "messages" && <ParentMessages childId={childId} childName={child.firstName} />}
+
+          {tab === "documents" && <FamilyDocuments childId={childId} />}
 
           {tab === "timetable" &&
             (!lessons ? (

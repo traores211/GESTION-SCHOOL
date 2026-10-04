@@ -41,7 +41,7 @@ const EVENT_TITLES = {
 const OPINIONS: Record<string, string> = { FAVORABLE: 'favorable', RESERVE: 'réservé', DEFAVORABLE: 'défavorable' };
 
 /** PDF, JPEG or PNG only, recognised by their signature (the extension is not trusted). */
-function detectDocument(buffer: Buffer): { ext: string; mime: string } | null {
+export function detectDocument(buffer: Buffer): { ext: string; mime: string } | null {
   if (buffer.length < 8) return null;
   if (buffer.subarray(0, 4).toString('ascii') === '%PDF') return { ext: 'pdf', mime: 'application/pdf' };
   if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return { ext: 'jpg', mime: 'image/jpeg' };

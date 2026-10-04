@@ -6,6 +6,7 @@ import Shell from "../../../components/Shell";
 import { EmptyState, PageHeader, TableSkeleton } from "../../../components/ui";
 import { api, ApiError } from "../../../lib/api";
 import { getStoredUser } from "../../../lib/auth";
+import DocumentsPanel from "../../../components/DocumentsPanel";
 import { downloadFile } from "../../../lib/download";
 import { ATTENDANCE_STATUS, INVOICE_STATUS, STUDENT_STATUS, statusBadge } from "../../../lib/labels";
 
@@ -64,7 +65,7 @@ export default function StudentDetailPage() {
   const params = useParams<{ id: string }>();
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"info" | "attendance" | "grades" | "billing">("info");
+  const [tab, setTab] = useState<"info" | "attendance" | "grades" | "billing" | "documents">("info");
 
   useEffect(() => {
     if (!params?.id) return;
@@ -120,6 +121,9 @@ export default function StudentDetailPage() {
             </button>
             <button type="button" role="tab" className="tab" aria-selected={tab === "billing"} onClick={() => setTab("billing")}>
               Scolarité
+            </button>
+            <button type="button" role="tab" className="tab" aria-selected={tab === "documents"} onClick={() => setTab("documents")}>
+              Documents
             </button>
           </div>
 
@@ -280,6 +284,8 @@ export default function StudentDetailPage() {
               </div>
             </div>
           )}
+
+          {tab === "documents" && <DocumentsPanel studentId={student.id} />}
 
           {tab === "billing" && (
             <div className="table-wrap">

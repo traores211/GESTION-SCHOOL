@@ -86,6 +86,7 @@ model School {
   academicYears         AcademicYear[]
   users                 User[]
   memberships           SchoolMembership[]
+  documents             Document[]
   students              Student[]
   classes               Class[]
   subjects              Subject[]
@@ -348,6 +349,7 @@ model StaffMember {
   timetableSessions TimetableSession[]
   qualifications    TeacherQualification[]
   availabilities    TeacherAvailability[]
+  documents         Document[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -926,19 +928,44 @@ model Payment {
 
 // ==================== Documents ====================
 
+/// A file kept in the record of a pupil or of a staff member. Replacing a document creates a new
+/// version and archives the previous one; nothing is deleted before being archived.
 model Document {
   id                String   @id @default(cuid())
+  schoolId          String?
+  school            School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   name              String
-  type              String   // "PDF", "IMAGE", etc.
-  url               String
+  type              String   // "PDF", "IMAGE"
+  /// Former public address; files are now stored privately (filePath) and served with authentication
+  url               String?
+  /// PHOTO, BULLETIN, ACTE_NAISSANCE, CERTIFICAT_SCOLARITE, PIECE_IDENTITE, CONTRAT, DIPLOME, ADMINISTRATIF, JUSTIFICATIF, AUTRE
+  category          String   @default("AUTRE")
+  filePath          String?
+  fileMime          String?
+  fileSize          Int?
+  documentDate      DateTime?
+  version           Int      @default(1)
+  /// Previous version of this document, archived when this one was added
+  replacesId        String?
+  /// ACTIF | ARCHIVE
+  status            String   @default("ACTIF")
+  /// INTERNE (staff only) | FAMILLE (also shown to the guardians of the pupil)
+  visibility        String   @default("INTERNE")
+  uploadedById      String?
+  uploadedByName    String?
+  archivedAt        DateTime?
   studentId         String?
   student           Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  staffId           String?
+  staff             StaffMember? @relation(fields: [staffId], references: [id], onDelete: Cascade)
   admissionId       String?
   admission         Admission? @relation(fields: [admissionId], references: [id], onDelete: Cascade)
   uploadedAt        DateTime @default(now())
 
   @@index([studentId])
   @@index([admissionId])
+  @@index([staffId])
+  @@index([schoolId, status])
 }
 
 // ==================== Audit ====================

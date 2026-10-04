@@ -110,6 +110,8 @@ jobs:
         run: node test/e2e-group.js
       - name: End-to-end — pupil, guardian and staff files
         run: node test/e2e-files.js
+      - name: End-to-end — documents of the records (versions, archive, families)
+        run: node test/e2e-documents.js
       - name: End-to-end — no credential in any response
         run: node test/e2e-leaks.js
       - name: API log
