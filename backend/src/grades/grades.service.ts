@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeacherScopeService } from '../common/teacher-scope.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { EnterGradesDto } from './dto/enter-grades.dto';
 import { classAverages, generalAverage, rankLabel, ranks, subjectAverage } from './grade-math';
@@ -7,11 +8,16 @@ import { PUBLIC_USER } from '../common/sensitive-fields.interceptor';
 
 @Injectable()
 export class GradesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scope: TeacherScopeService,
+  ) {}
 
   async enter(user: AuthUser, dto: EnterGradesDto) {
     const klass = await this.prisma.class.findUnique({ where: { id: dto.classId } });
     if (!klass || klass.schoolId !== user.schoolId) throw new NotFoundException('Classe introuvable');
+
+    await this.scope.assertSubject(user, dto.classId, dto.subjectId);
 
     const maxScore = dto.maxScore ?? 20;
     // Every reference must belong to this class and school: no mark for a pupil of another class,
@@ -54,6 +60,7 @@ export class GradesService {
   async findByClass(user: AuthUser, classId: string, termId?: string, subjectId?: string) {
     const klass = await this.prisma.class.findUnique({ where: { id: classId } });
     if (!klass || klass.schoolId !== user.schoolId) throw new ForbiddenException();
+    await this.scope.assertClass(user, classId);
 
     return this.prisma.grade.findMany({
       where: { classId, ...(termId ? { termId } : {}), ...(subjectId ? { subjectId } : {}) },
@@ -65,6 +72,7 @@ export class GradesService {
   async findByStudent(user: AuthUser, studentId: string, termId?: string) {
     const student = await this.prisma.student.findUnique({ where: { id: studentId } });
     if (!student || student.schoolId !== user.schoolId) throw new ForbiddenException();
+    await this.scope.assertStudent(user, studentId);
 
     return this.prisma.grade.findMany({
       where: { studentId, ...(termId ? { termId } : {}) },
@@ -80,6 +88,7 @@ export class GradesService {
       include: { school: true, enrollments: { where: { withdrawalDate: null }, include: { class: true }, take: 1 } },
     });
     if (!student || student.schoolId !== user.schoolId) throw new NotFoundException('Élève introuvable');
+    await this.scope.assertStudent(user, studentId);
 
     const enrollment = student.enrollments[0];
     if (!enrollment) throw new BadRequestException("L'élève n'est inscrit dans aucune classe");

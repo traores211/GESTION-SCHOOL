@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeacherScopeService } from '../common/teacher-scope.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { MANAGEMENT } from '../common/roles';
 import { suggestAppreciation } from '../insights/insight-rules';
@@ -35,7 +36,10 @@ const mean = (values: number[]) => (values.length ? values.reduce((s, v) => s + 
  */
 @Injectable()
 export class BulletinsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scope: TeacherScopeService,
+  ) {}
 
   private async context(user: AuthUser, classId: string, termId: string) {
     const klass = await this.prisma.class.findUnique({
@@ -43,6 +47,7 @@ export class BulletinsService {
       include: { school: { select: { name: true, city: true, phone: true, logoUrl: true } }, academicYear: { include: { terms: { orderBy: { order: 'asc' } } } }, teacher: { include: { user: { select: { firstName: true, lastName: true } } } } },
     });
     if (!klass || klass.schoolId !== user.schoolId) throw new NotFoundException('Classe introuvable');
+    await this.scope.assertClass(user, classId);
     const term = klass.academicYear.terms.find((t) => t.id === termId);
     if (!term) throw new NotFoundException("Cette période n'appartient pas à l'année scolaire de la classe");
     return { klass, term, terms: klass.academicYear.terms, isLastTerm: klass.academicYear.terms[klass.academicYear.terms.length - 1].id === termId };
@@ -239,6 +244,9 @@ export class BulletinsService {
       const subjects = new Set((await this.prisma.classSubject.findMany({ where: { classId }, select: { subjectId: true } })).map((s) => s.subjectId));
       const unknown = Object.keys(input.appreciations).filter((id) => !subjects.has(id));
       if (unknown.length) throw new BadRequestException("Une appréciation porte sur une matière qui n'est pas enseignée dans cette classe");
+      // A teacher writes the appreciation of his own subjects only
+      const allowed = await this.scope.gradeChecker(user);
+      if (Object.keys(input.appreciations).some((id) => !allowed(classId, id))) throw new ForbiddenException("Vous ne pouvez rédiger que l'appréciation de vos matières");
     }
     const existing = await this.prisma.reportCard.findUnique({ where: { studentId_termId: { studentId, termId } } });
     const merged = { ...((existing?.appreciations ?? {}) as Record<string, string>) };

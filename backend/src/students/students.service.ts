@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeacherScopeService } from '../common/teacher-scope.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -12,6 +13,7 @@ export class StudentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequences: SequenceService,
+    private readonly scope: TeacherScopeService,
   ) {}
 
   /** Platform-wide unique student number from an atomic counter (safe with simultaneous entries). */
@@ -49,6 +51,8 @@ export class StudentsService {
   async findAll(user: AuthUser, search?: string, classId?: string, page?: PageQueryDto, archived = false) {
     if (!user.schoolId) return [];
     const text = page?.q ?? search;
+    // A teacher only sees the pupils of his classes
+    const own = await this.scope.classIds(user);
     const where: Prisma.StudentWhereInput = {
       schoolId: user.schoolId,
       archivedAt: archived ? { not: null } : null,
@@ -61,7 +65,10 @@ export class StudentsService {
             ],
           }
         : {}),
-      ...(classId ? { enrollments: { some: { classId, withdrawalDate: null } } } : {}),
+      AND: [
+        ...(classId ? [{ enrollments: { some: { classId, withdrawalDate: null } } }] : []),
+        ...(own ? [{ enrollments: { some: { classId: { in: own }, withdrawalDate: null } } }] : []),
+      ],
     };
     const [items, total] = await Promise.all([
       this.prisma.student.findMany({
@@ -90,6 +97,7 @@ export class StudentsService {
 
     if (!student) throw new NotFoundException('Élève introuvable');
     if (student.schoolId !== user.schoolId) throw new ForbiddenException();
+    await this.scope.assertStudent(user, id);
 
     const attendanceStats = await this.prisma.attendance.groupBy({
       by: ['status'],

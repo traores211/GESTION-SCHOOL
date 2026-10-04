@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeacherScopeService } from '../common/teacher-scope.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { MANAGEMENT } from '../common/roles';
 import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
@@ -40,6 +41,7 @@ export class DisciplineService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly messaging: MessagingService,
+    private readonly scope: TeacherScopeService,
   ) {}
 
   private school(user: AuthUser) {
@@ -57,6 +59,7 @@ export class DisciplineService {
     const schoolId = this.school(user);
     const student = await this.prisma.student.findUnique({ where: { id: dto.studentId }, include: { parents: { where: { archivedAt: null, userId: { not: null } } } } });
     if (!student || student.schoolId !== schoolId) throw new NotFoundException('Élève introuvable');
+    await this.scope.assertStudent(user, student.id);
     if (student.archivedAt) throw new BadRequestException('Cet élève est archivé');
     const date = new Date(dto.date);
     if (date.getTime() > Date.now() + 86400000) throw new BadRequestException('La date ne peut pas être dans le futur');
@@ -93,8 +96,11 @@ export class DisciplineService {
   }
 
   async findAll(user: AuthUser, page: PageQueryDto, filters: { studentId?: string; classId?: string; kind?: string; from?: string; to?: string }) {
+    // A teacher sees the records of the pupils of his classes
+    const own = await this.scope.classIds(user);
     const where: Prisma.DisciplineRecordWhereInput = {
       schoolId: this.school(user),
+      ...(own ? { AND: [{ student: { enrollments: { some: { classId: { in: own } } } } }] } : {}),
       ...(filters.studentId ? { studentId: filters.studentId } : {}),
       ...(filters.kind ? { kind: filters.kind } : {}),
       ...(filters.classId ? { student: { enrollments: { some: { classId: filters.classId, withdrawalDate: null } } } } : {}),
@@ -116,10 +122,12 @@ export class DisciplineService {
     const schoolId = this.school(user);
     const year = await this.prisma.academicYear.findFirst({ where: { schoolId, isCurrent: true }, select: { startDate: true } });
     const since = year?.startDate ?? new Date(Date.now() - 365 * 86400000);
+    const own = await this.scope.classIds(user);
+    const mine = own ? { student: { enrollments: { some: { classId: { in: own } } } } } : {};
     const sanctions = DISCIPLINE_KINDS.filter((k) => k !== 'ENCOURAGEMENT' && k !== 'OBSERVATION');
     const [byKind, top] = await Promise.all([
-      this.prisma.disciplineRecord.groupBy({ by: ['kind'], where: { schoolId, date: { gte: since } }, _count: true }),
-      this.prisma.disciplineRecord.groupBy({ by: ['studentId'], where: { schoolId, date: { gte: since }, kind: { in: [...sanctions] } }, _count: true, orderBy: { _count: { studentId: 'desc' } }, take: 5 }),
+      this.prisma.disciplineRecord.groupBy({ by: ['kind'], where: { schoolId, date: { gte: since }, ...mine }, _count: true }),
+      this.prisma.disciplineRecord.groupBy({ by: ['studentId'], where: { schoolId, date: { gte: since }, kind: { in: [...sanctions] }, ...mine }, _count: true, orderBy: { _count: { studentId: 'desc' } }, take: 5 }),
     ]);
     const students = await this.prisma.student.findMany({ where: { id: { in: top.map((t) => t.studentId) } }, select: { id: true, firstName: true, lastName: true } });
     return {

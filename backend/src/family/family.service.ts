@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeacherScopeService } from '../common/teacher-scope.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { MANAGEMENT, OFFICE } from '../common/roles';
 import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
@@ -25,6 +26,7 @@ export class FamilyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly scope: TeacherScopeService,
   ) {}
 
   private school(user: AuthUser) {
@@ -43,6 +45,7 @@ export class FamilyService {
     const schoolId = this.school(user);
     const klass = await this.prisma.class.findUnique({ where: { id: dto.classId } });
     if (!klass || klass.schoolId !== schoolId) throw new NotFoundException('Classe introuvable');
+    await this.scope.assertClass(user, klass.id);
     if (dto.subjectId) {
       const subject = await this.prisma.subject.findFirst({ where: { id: dto.subjectId, schoolId } });
       if (!subject) throw new NotFoundException('Matière introuvable');
@@ -65,9 +68,10 @@ export class FamilyService {
   }
 
   /** Homework of the school (or of one class), the nearest due date first; past work for two weeks. */
-  listHomework(user: AuthUser, classId?: string) {
+  async listHomework(user: AuthUser, classId?: string) {
+    const own = await this.scope.classIds(user);
     return this.prisma.homework.findMany({
-      where: { schoolId: this.school(user), ...(classId ? { classId } : {}), dueDate: { gte: new Date(Date.now() - 14 * 86400000) } },
+      where: { schoolId: this.school(user), ...(classId ? { classId } : {}), ...(own ? { class: { id: { in: own } } } : {}), dueDate: { gte: new Date(Date.now() - 14 * 86400000) } },
       include: HOMEWORK_INCLUDE,
       orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
       take: 300,

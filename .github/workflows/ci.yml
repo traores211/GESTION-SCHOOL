@@ -104,6 +104,8 @@ jobs:
         run: node test/e2e-family.js
       - name: End-to-end — self-service sign-up, trial, platform administration
         run: node test/e2e-platform.js
+      - name: End-to-end — a teacher is limited to his classes and subjects
+        run: node test/e2e-teacher-scope.js
       - name: End-to-end — no credential in any response
         run: node test/e2e-leaks.js
       - name: API log

@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeacherScopeService } from '../common/teacher-scope.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
@@ -7,7 +8,10 @@ import { PUBLIC_USER } from '../common/sensitive-fields.interceptor';
 
 @Injectable()
 export class ClassesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scope: TeacherScopeService,
+  ) {}
 
   private async resolveAcademicYearId(schoolId: string, academicYearId?: string) {
     if (academicYearId) return academicYearId;
@@ -41,10 +45,13 @@ export class ClassesService {
   async findAll(user: AuthUser, academicYearId?: string) {
     if (!user.schoolId) return [];
     const resolvedYearId = await this.resolveAcademicYearId(user.schoolId, academicYearId).catch(() => undefined);
+    // A teacher only sees the classes he teaches in
+    const own = await this.scope.classIds(user);
 
     return this.prisma.class.findMany({
       where: {
         schoolId: user.schoolId,
+        ...(own ? { id: { in: own } } : {}),
         ...(resolvedYearId ? { academicYearId: resolvedYearId } : {}),
       },
       include: {
@@ -72,6 +79,7 @@ export class ClassesService {
     });
     if (!klass) throw new NotFoundException('Classe introuvable');
     if (klass.schoolId !== user.schoolId) throw new ForbiddenException();
+    await this.scope.assertClass(user, id);
     return klass;
   }
 

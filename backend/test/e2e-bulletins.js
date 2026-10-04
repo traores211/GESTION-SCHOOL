@@ -33,7 +33,9 @@ const client = (token) => (method, path, body) =>
     const [t1, , t3] = year.terms;
     const last = year.terms[year.terms.length - 1];
     const [maths, french] = await prisma.subject.findMany({ where: { schoolId }, take: 2, orderBy: { name: 'asc' } });
-    klass = await prisma.class.create({ data: { schoolId, academicYearId: year.id, name: `6ème ${NAME}`, code: `TB-${Date.now()}`, level: '6ème', classSubjects: { create: [{ subjectId: maths.id, coefficient: 3 }, { subjectId: french.id, coefficient: 2 }] } } });
+    // The teacher of the scenario is the main teacher of the class: a teacher only reaches his own classes.
+    const mainTeacher = await prisma.staffMember.findFirst({ where: { user: { email: 'k.kouassi@school.local' } } });
+    klass = await prisma.class.create({ data: { schoolId, academicYearId: year.id, teacherId: mainTeacher.id, name: `6ème ${NAME}`, code: `TB-${Date.now()}`, level: '6ème', classSubjects: { create: [{ subjectId: maths.id, coefficient: 3 }, { subjectId: french.id, coefficient: 2 }] } } });
     // Four pupils: A and B tie at 14, C fails, D has no mark at all.
     const pupils = [];
     for (const [i, first] of ['Awa', 'Binta', 'Cedric', 'Djeneba'].entries()) {

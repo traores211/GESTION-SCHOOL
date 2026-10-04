@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeacherScopeService } from '../common/teacher-scope.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { SequenceService } from '../infra/sequence.service';
 import { normalizePhone } from '../infra/sms';
@@ -49,6 +50,7 @@ export class ImportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequences: SequenceService,
+    private readonly scope: TeacherScopeService,
   ) {}
 
   private async table(file: { buffer: Buffer; originalname: string; size: number } | undefined): Promise<string[][]> {
@@ -329,6 +331,8 @@ export class ImportsService {
 
   private async grades(user: AuthUser, schoolId: string, rows: { line: number; values: Values }[]): Promise<Prepared[]> {
     const year = await this.currentYear(schoolId);
+    // A teacher imports marks for his own classes and subjects only
+    const allowed = await this.scope.gradeChecker(user);
     const [students, subjects, existing] = await Promise.all([
       this.prisma.student.findMany({
         where: { schoolId, archivedAt: null },
@@ -370,6 +374,7 @@ export class ImportsService {
       else if (maxScore <= 0 || maxScore > 100) messages.push(`Barème invalide : ${maxScore}`);
       else if (parsed.score > maxScore) messages.push(`La note ${parsed.score} dépasse le barème ${maxScore}`);
       if (!type) messages.push(`Type d'évaluation non reconnu : « ${v.type} »`);
+      if (classId && subjectId && !allowed(classId, subjectId)) messages.push(`${v.subject} ne vous est pas affectée dans la classe de cet élève`);
 
       const label = student ? `${student.lastName} ${student.firstName} · ${v.subject} · ${v.score}` : v.matricule || `Ligne ${line}`;
       if (messages.length || !student || !classId || !subjectId || !termId || !parsed || !type) return { line, label, status: 'error', messages };
