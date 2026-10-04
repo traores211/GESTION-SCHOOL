@@ -105,6 +105,15 @@ Les tests automatiques vérifient les règles et les droits ; ils ne remplacent 
 | E13 | Enregistrer une sortie avant la fin des cours sans motif | Refusé : le motif est demandé | e2e-gate | |
 | E14 | Sortie avec un responsable non autorisé à récupérer l'enfant | Le responsable est grisé dans la liste ; refusé côté serveur | e2e-gate | |
 
+## 5 bis. Surveillant ou éducateur
+
+| N° | Parcours | Résultat attendu | Test automatique | Résultat |
+|---|---|---|---|---|
+| U1 | La direction crée un membre du personnel avec le rôle « Surveillant » ; il se connecte | Arrivée sur « Entrées et sorties » ; menu limité à Élèves, Classes, Présence, Entrées et sorties, Saisie rapide, Vie scolaire | e2e-supervision | |
+| U2 | Enregistrer une arrivée, faire un appel, signaler un incident | Les trois sont enregistrés à son nom | e2e-supervision | |
+| U3 | Ouvrir la fiche d'un élève | Ni notes ni factures | e2e-supervision | |
+| U4 | Saisir l'adresse de « Notes & bulletins », « Facturation » ou « Personnel » | Accès refusé | e2e-supervision | |
+
 ## 6. Parent
 
 | N° | Parcours | Résultat attendu | Test automatique | Résultat |
@@ -137,9 +146,10 @@ Les tests automatiques vérifient les règles et les droits ; ils ne remplacent 
 | M2 | « Notes sur photo » | Le champ ouvre l'appareil photo | |
 | M3 | « Entrées et sorties » → « Lire les cartes avec la caméra » | L'aperçu de la caméra s'affiche ; une carte présentée est enregistrée une fois | |
 | M4 | Tableaux larges (passage de classe, documents) | Défilement horizontal du tableau, sans casser la page | |
+| M5 | En production, application installée : « Sécurité du compte » → « Recevoir les notifications sur cet appareil », puis faire enregistrer une note | Le téléphone affiche « Vous avez une nouvelle notification » ; un appui ouvre l'application | |
 
 ## 8. Ce que la recette ne peut pas valider ici
 
 - Envoi réel de SMS, paiement Mobile Money réel : comptes marchands à ouvrir.
 - Lecture réelle d'une feuille de notes : elle transmet des noms d'élèves à un service externe ; à n'essayer qu'avec une feuille fictive tant que la politique de confidentialité ne le mentionne pas.
-- Notifications push : non réalisées.
+- Notifications push : à valider sur un vrai téléphone, en production, une fois les clés générées (parcours M5).

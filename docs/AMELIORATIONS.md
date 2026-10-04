@@ -20,7 +20,7 @@ Repères chiffrés relevés dans le code :
 
 Mis à jour le 4 octobre 2026, branche `feature/robustness`. « Fait » signifie : codé et vérifié par des tests automatiques. Ce qui dépend d'un compte externe ou d'une démarche légale est indiqué à part, car le code ne peut pas le faire à votre place.
 
-Vérifications en place : 240 tests unitaires côté API, 30 côté web, 27 scénarios de bout en bout sur l'API (594 vérifications). Les 27 tests dans un vrai navigateur datent d'avant les derniers écrans et n'ont pas été relancés : tous les écrans ajoutés depuis (suivi d'admission, cahier de textes, messagerie, inscription, plateforme, et tous ceux de l'évolution multi-écoles) sont vérifiés côté API et à la compilation, pas dans un navigateur.
+Vérifications en place : 251 tests unitaires côté API, 30 côté web, 28 scénarios de bout en bout sur l'API (617 vérifications). Les 27 tests dans un vrai navigateur datent d'avant les derniers écrans et n'ont pas été relancés : tous les écrans ajoutés depuis (suivi d'admission, cahier de textes, messagerie, inscription, plateforme, et tous ceux de l'évolution multi-écoles) sont vérifiés côté API et à la compilation, pas dans un navigateur.
 
 L'évolution multi-écoles demandée ensuite (`docs/AMELIORATIONS2.md`) a son propre état des lieux : `docs/EVOLUTION-MULTI-ECOLES.md`, et son cahier de recettes : `docs/CAHIER-DE-RECETTES.md`.
 

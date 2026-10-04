@@ -35,7 +35,7 @@ Les écarts relevés par rapport au cahier des charges :
 | Lot du cahier des charges | État | Détail |
 |---|---|---|
 | 1. Multi-écoles | Fait | Groupes, création et désactivation d'établissements, changement d'établissement, matricule par école. Pas de cloisonnement au niveau PostgreSQL (RLS) |
-| 2. Utilisateurs et rôles | Fait pour l'essentiel | Périmètre enseignant, rattachements par école. Surveillant, éducateur, sécurité sont des **catégories du dossier du personnel**, pas des rôles de connexion. La table `Permission` reste inutilisée |
+| 2. Utilisateurs et rôles | Fait | Périmètre enseignant, rattachements par école, rôles de connexion surveillant et éducateur (portail, appel, vie scolaire ; ni notes ni finances). Les autres catégories (sécurité, technique) restent des catégories du dossier, sans connexion. Pas de permissions fines par utilisateur : la table `Permission` reste inutilisée |
 | 3. Élèves | Fait | Fiche étendue (origine, régime, scolarité antérieure, date d'entrée), photo d'identité, historique des classes |
 | 4. Parents | Fait | Plusieurs enfants, lien par enfant (qualité, responsable légal, contact d'urgence, autorisé à récupérer l'enfant), fiche étendue, pièce d'identité chiffrée |
 | 5. Personnel | Fait | Dossier (catégorie, contrat, diplômes, contact d'urgence, compte bancaire chiffré), rattachement à plusieurs établissements |
@@ -48,8 +48,8 @@ Les écarts relevés par rapport au cahier des charges :
 | 12. Appel vocal | Fait | Reconnaissance vocale du navigateur (Chrome, Edge), champ de texte en secours |
 | 13. OCR | Fait côté application | Lecture par Claude si `ANTHROPIC_API_KEY` est renseignée. **Aucun appel réel au service n'a été fait pendant les tests** |
 | 14. Import de fichiers | Fait | Existant ; un enseignant n'importe plus que pour ses classes et ses matières |
-| 15. Vitrine | Fait | Brouillon, aperçu, publication, contenus supplémentaires, formulaire de contact. Le brouillon ne couvre pas les photos, chiffres clés, partenaires et témoignages, publiés dès leur enregistrement. Pas de favicon par école |
-| 16. Notifications | Partiel | Interne, e-mail, SMS et WhatsApp. Nouveaux événements : arrivée, sortie, nouvelle note, document disponible. Chaque compte choisit les catégories qu'il reçoit dans l'application. **Pas de notification push** |
+| 15. Vitrine | Fait | Brouillon, aperçu, publication, contenus supplémentaires, formulaire de contact. Le brouillon ne couvre pas les photos, chiffres clés, partenaires et témoignages, publiés dès leur enregistrement. L'onglet du navigateur affiche le favicon de l'école, ou son logo |
+| 16. Notifications | Partiel | Interne, e-mail, SMS et WhatsApp. Nouveaux événements : arrivée, sortie, nouvelle note, document disponible. Chaque compte choisit les catégories qu'il reçoit dans l'application. Notifications push codées : l'appareil affiche un message générique, sans contenu ; elles restent **éteintes tant que les clés du serveur ne sont pas générées**, et n'ont pas été essayées sur un vrai appareil |
 | 17. Documents | Fait | Catégorie, version, archive, visibilité, suppression contrôlée, partage avec la famille |
 | 18. Tableaux de bord | Fait | École (existant), enseignant, plateforme, parent (portail), élève (son propre dossier en lecture seule, sans les frais) |
 | 19. Audit | Fait | Existant : auteur, action, objet, anciennes et nouvelles valeurs, adresse IP, résultat |
@@ -57,9 +57,9 @@ Les écarts relevés par rapport au cahier des charges :
 
 ## 4. Vérifications
 
-- 240 tests unitaires côté API, 30 côté web.
-- 27 scénarios de bout en bout sur l'API, 594 vérifications, tous exécutés ensemble après le dernier lot.
-- Les migrations (8 nouvelles) sont appliquées sur la base de développement et comparées au schéma : aucune différence.
+- 251 tests unitaires côté API, 30 côté web.
+- 28 scénarios de bout en bout sur l'API, 617 vérifications, tous exécutés ensemble après le dernier lot.
+- Les migrations (10 nouvelles) sont appliquées sur la base de développement et comparées au schéma : aucune différence.
 - Les 2 575 liens parent-enfant existants ont été repris avec leur qualité.
 
 ### Ce qui a été vu dans un navigateur
@@ -75,6 +75,8 @@ Une passe manuelle dans Chrome, le 4 octobre 2026, sur l'application locale et l
 - Aucun test automatique dans un navigateur ne couvre ces écrans : le navigateur de test n'a pas pu être installé dans le conteneur.
 - Rien n'a été essayé sur téléphone.
 - La dictée vocale au micro et la lecture de carte par caméra dépendent du navigateur et du matériel : elles n'ont pas été essayées.
+- Les notifications push n'ont pas été reçues sur un appareil : la signature et les garde-fous sont testés, pas la livraison par Google, Mozilla ou Apple. Elles ne fonctionnent qu'en production (application installée, HTTPS).
+- Les écrans des comptes élève, surveillant et éducateur n'ont pas été ouverts dans le navigateur ; leurs droits sont testés côté API.
 - La lecture d'une feuille de notes par le service externe n'a pas été appelée en vrai ; seul le traitement de sa réponse est testé.
 - L'intégration continue n'a jamais tourné : la branche n'est pas poussée.
 
@@ -87,13 +89,15 @@ Une passe manuelle dans Chrome, le 4 octobre 2026, sur l'application locale et l
 5. **Entrées et sorties sans matériel de badgeage** : carte QR lue par un lecteur ou une caméra, ou saisie manuelle.
 6. **Les enseignants ne voient plus le tableau de bord de l'école** (qui contient les finances) : ils ont le leur.
 7. **Un élève peut avoir son propre compte**, créé par le secrétariat : il lit son dossier, sans les frais de scolarité, et ne peut rien modifier.
+8. **La fiche d'un élève ne montre plus ses factures aux enseignants** : elles restent visibles du secrétariat, de la direction et de la comptabilité.
+9. **Les notifications push ne transportent aucun contenu** : l'appareil affiche « nouvelle notification », le détail se lit dans l'application.
 
 ## 6. Reste à faire
 
-- **Notifications push** : elles demandent une paire de clés propre à votre serveur et une bibliothèque de plus ; à faire quand l'adresse de production est connue.
+- **Notifications push** : générer les clés une fois (`node scripts/generate-vapid.js`), les mettre dans la configuration de production, puis essayer sur un téléphone.
 - **Cloisonnement PostgreSQL (RLS)** : il touche toutes les requêtes de l'application et peut bloquer des écrans s'il est mal réglé ; à faire comme un chantier à part, avec votre accord.
-- Rôles de connexion pour surveillants et éducateurs ; permissions fines par utilisateur.
-- Brouillon de pré-inscription conservé sur le serveur ; favicon par école ; brouillon de vitrine étendu aux photos et témoignages.
-- Pagination de toutes les listes, montants en décimal exact.
+- Permissions fines par utilisateur.
+- Brouillon de pré-inscription conservé sur le serveur ; brouillon de vitrine étendu aux photos et témoignages.
+- Pagination côté écran des listes parents et personnel (l'API sait paginer, les écrans chargent encore la liste entière) ; pagination des autres listes ; montants en décimal exact.
 - Tests automatiques dans un navigateur pour les nouveaux écrans, et essai sur téléphone.
 - Du premier chantier (`docs/AMELIORATIONS.md`) : cantine, bibliothèque, infirmerie, export DREN, traduction complète en anglais.
