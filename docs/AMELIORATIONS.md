@@ -18,9 +18,11 @@ Repères chiffrés relevés dans le code :
 
 ## État de mise en œuvre
 
-Mis à jour le 3 octobre 2026, branche `feature/robustness`. « Fait » signifie : codé et vérifié par des tests automatiques. Ce qui dépend d'un compte externe ou d'une démarche légale est indiqué à part, car le code ne peut pas le faire à votre place.
+Mis à jour le 4 octobre 2026, branche `feature/robustness`. « Fait » signifie : codé et vérifié par des tests automatiques. Ce qui dépend d'un compte externe ou d'une démarche légale est indiqué à part, car le code ne peut pas le faire à votre place.
 
-Vérifications en place : 191 tests unitaires côté API, 30 côté web, 16 scénarios de bout en bout sur l'API (326 vérifications), 27 tests dans un vrai navigateur dont un audit d'accessibilité. Les écrans ajoutés en dernier (suivi d'admission, cahier de textes, messagerie, sélecteur de langue) sont vérifiés côté API et à la compilation, pas encore dans un navigateur.
+Vérifications en place : 240 tests unitaires côté API, 30 côté web, 26 scénarios de bout en bout sur l'API (571 vérifications). Les 27 tests dans un vrai navigateur datent d'avant les derniers écrans et n'ont pas été relancés : tous les écrans ajoutés depuis (suivi d'admission, cahier de textes, messagerie, inscription, plateforme, et tous ceux de l'évolution multi-écoles) sont vérifiés côté API et à la compilation, pas dans un navigateur.
+
+L'évolution multi-écoles demandée ensuite (`docs/AMELIORATIONS2.md`) a son propre état des lieux : `docs/EVOLUTION-MULTI-ECOLES.md`, et son cahier de recettes : `docs/CAHIER-DE-RECETTES.md`.
 
 Un défaut de sécurité antérieur à ce chantier a été trouvé et corrigé en cours de route : plusieurs listes (classes, personnel, paie) renvoyaient la fiche complète des enseignants, empreinte du mot de passe et secret de double authentification compris. Ces champs ne sortent plus de l'API, et un test le vérifie sur 51 réponses pour quatre rôles.
 
@@ -42,7 +44,7 @@ Un défaut de sécurité antérieur à ce chantier a été trouvé et corrigé e
 | 14 | Infrastructure inutilisée | Fait | — |
 | 15 | Archivage au lieu de suppression | Fait | — |
 | 16 | Numérotations | Fait | — |
-| 17 | Cloisonnement entre écoles | Partiel | Vérifié par un test automatique (30 contrôles) ; pas de cloisonnement au niveau de PostgreSQL (RLS) |
+| 17 | Cloisonnement entre écoles | Partiel | Vérifié par des tests automatiques (écoles, groupes, périmètre des enseignants) ; pas de cloisonnement au niveau de PostgreSQL (RLS) |
 | 18 | Stockage des fichiers | Fait | Le mode S3 est vérifié sur l'exemple de signature publié par AWS, pas encore sur un vrai compartiment |
 | 19 | Paiement Mobile Money | Fait côté application | Ouvrir un compte marchand CinetPay et valider en bac à sable (voir ci-dessous) |
 | 20 | SMS et WhatsApp | Fait côté application | Souscrire une offre Orange SMS ou Twilio ; WhatsApp demande un expéditeur approuvé |
@@ -50,8 +52,8 @@ Un défaut de sécurité antérieur à ce chantier a été trouvé et corrigé e
 | 22 | Bulletins ivoiriens | Fait pour l'essentiel | Format d'export officiel DREN et listes de candidats BEPC/BAC non faits |
 | 23 | Imports en masse | Fait | — |
 | 24 | Portail parents | Fait | Paiement, bulletins, justificatifs d'absence, emploi du temps, vie scolaire, cahier de textes, messagerie avec l'école, suivi d'admission par numéro de dossier |
-| 25 | Modules supplémentaires | Partiel | Fait : vie scolaire (discipline), exports comptables. Reste : cantine, bibliothèque, infirmerie, cartes à QR code, stocks, consolidation de groupe |
-| 26 | SaaS en libre-service | À faire | Inscription autonome, abonnements, export complet par école |
+| 25 | Modules supplémentaires | Partiel | Fait : vie scolaire (discipline), exports comptables. Fait aussi : cartes à QR code (entrées et sorties), groupes d'établissements. Reste : cantine, bibliothèque, infirmerie, stocks |
+| 26 | SaaS en libre-service | Fait | Inscription autonome avec essai de 30 jours, lecture seule à l'échéance, administration de la plateforme, export complet par école. L'activation d'un abonnement est manuelle : l'application n'encaisse pas |
 | 27 | Données personnelles (ARTCI) | Fait côté application | Déclaration à l'ARTCI, registre des traitements et documentation de l'hébergement : démarches à faire par l'éditeur et l'établissement |
 | 28 | Aides à la décision | Fait | Par règles explicites, sans modèle génératif |
 | 29 | Accessibilité | Fait | L'audit automatique passe ; un essai au clavier et au lecteur d'écran par une personne reste recommandé |
