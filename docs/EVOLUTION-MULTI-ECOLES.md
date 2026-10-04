@@ -95,7 +95,7 @@ Une passe manuelle dans Chrome, le 4 octobre 2026, sur l'application locale et l
 ## 6. Reste à faire
 
 - **Notifications push** : générer les clés une fois (`node scripts/generate-vapid.js`), les mettre dans la configuration de production, puis essayer sur un téléphone.
-- **Cloisonnement PostgreSQL (RLS)** : il touche toutes les requêtes de l'application et peut bloquer des écrans s'il est mal réglé ; à faire comme un chantier à part, avec votre accord.
+- **Cloisonnement PostgreSQL (RLS)** : décision du 4 octobre 2026 : ne pas le faire maintenant. Le cloisonnement reste assuré par l'application et vérifié par les tests ; le RLS sera un chantier à part, avec un essai complet avant la production.
 - Permissions fines par utilisateur.
 - Brouillon de pré-inscription conservé sur le serveur ; brouillon de vitrine étendu aux photos et témoignages.
 - Pagination côté écran des listes parents et personnel (l'API sait paginer, les écrans chargent encore la liste entière) ; pagination des autres listes ; montants en décimal exact.
