@@ -7,6 +7,7 @@ import {
   Banknote,
   BookOpen,
   BookOpenCheck,
+  Building2,
   Bus,
   Inbox,
   CalendarDays,
@@ -32,7 +33,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AuthUser, ROLE_LABELS, getStoredUser, getToken } from "../lib/auth";
-import { logout, refreshAccessToken } from "../lib/api";
+import { api, logout, refreshAccessToken } from "../lib/api";
 import NotificationBell from "./NotificationBell";
 import { BrandMark, FlagBand, ThemeToggle } from "./Brand";
 import AssistantPanel from "./assistant/AssistantPanel";
@@ -88,6 +89,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/announcements", label: "Annonces & vitrine", icon: Megaphone, roles: ADMIN },
       { href: "/audit", label: "Journal d'audit", icon: ScrollText, roles: ADMIN },
       { href: "/privacy", label: "Données personnelles", icon: LockKeyhole, roles: ADMIN },
+      { href: "/platform", label: "Plateforme", icon: Building2, roles: ["SUPER_ADMIN"] },
     ],
   },
   {
@@ -107,6 +109,13 @@ export default function Shell({ title, children }: { title: string; children: Re
   const menuRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const [pill, setPill] = useState<{ top: number; height: number; animate: boolean } | null>(null);
+  const [subscription, setSubscription] = useState<{ status: string; daysLeft: number | null; readOnly: boolean } | null>(null);
+
+  // Trial or suspended subscription: shown to staff on every page.
+  useEffect(() => {
+    if (!user || user.role === "PARENT") return;
+    api.get<NonNullable<typeof subscription>>("/subscription").then(setSubscription).catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -316,6 +325,20 @@ export default function Shell({ title, children }: { title: string; children: Re
               <div className="alert-body">
                 <span className="alert-title">{t("Protégez votre compte.")}</span> {t("Votre rôle donne accès à des données sensibles : activez la double authentification.")}{" "}
                 <Link href="/account">{t("Activer maintenant")}</Link>
+              </div>
+            </div>
+          )}
+          {subscription?.readOnly && (
+            <div className="alert alert-danger" role="status" style={{ marginBottom: 16 }}>
+              <div className="alert-body">
+                <span className="alert-title">{subscription.status === "SUSPENDED" ? "Abonnement suspendu." : "Période d'essai terminée."}</span> Vos données restent consultables et exportables, mais ne peuvent plus être modifiées. Contactez l&apos;éditeur pour activer l&apos;abonnement.
+              </div>
+            </div>
+          )}
+          {subscription && !subscription.readOnly && subscription.status === "TRIAL" && subscription.daysLeft !== null && subscription.daysLeft <= 10 && (
+            <div className="alert alert-warning" role="status" style={{ marginBottom: 16 }}>
+              <div className="alert-body">
+                <span className="alert-title">Essai gratuit : {subscription.daysLeft} jour(s) restant(s).</span> Passé ce délai, l&apos;établissement passe en lecture seule jusqu&apos;à l&apos;activation de l&apos;abonnement.
               </div>
             </div>
           )}

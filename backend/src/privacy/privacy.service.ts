@@ -114,6 +114,51 @@ export class PrivacyService {
   }
 
   /**
+   * Everything the school entered, in one document: the school can leave with its data
+   * (reversibility). Credentials are never part of it.
+   */
+  async exportSchool(user: AuthUser) {
+    const schoolId = this.school(user);
+    const [school, years, classes, subjects, students, parents, staff, enrollments, grades, attendance, invoices, payslips, admissions, discipline, homework] = await Promise.all([
+      this.prisma.school.findUniqueOrThrow({ where: { id: schoolId } }),
+      this.prisma.academicYear.findMany({ where: { schoolId }, include: { terms: true } }),
+      this.prisma.class.findMany({ where: { schoolId }, include: { classSubjects: true } }),
+      this.prisma.subject.findMany({ where: { schoolId } }),
+      this.prisma.student.findMany({ where: { schoolId } }),
+      this.prisma.parent.findMany({ where: { students: { some: { schoolId } } }, include: { students: { select: { id: true } } } }),
+      this.prisma.user.findMany({ where: { schoolId, staffMember: { isNot: null } }, select: { id: true, email: true, firstName: true, lastName: true, phone: true, role: true, status: true, staffMember: true } }),
+      this.prisma.enrollment.findMany({ where: { class: { schoolId } } }),
+      this.prisma.grade.findMany({ where: { class: { schoolId } } }),
+      this.prisma.attendance.findMany({ where: { schoolId } }),
+      this.prisma.invoice.findMany({ where: { schoolId }, include: { items: true, payments: true } }),
+      this.prisma.payslip.findMany({ where: { schoolId } }),
+      this.prisma.admission.findMany({ where: { schoolId }, include: { pieces: { select: { label: true, status: true, required: true } }, events: true } }),
+      this.prisma.disciplineRecord.findMany({ where: { schoolId } }),
+      this.prisma.homework.findMany({ where: { schoolId } }),
+    ]);
+    return {
+      document: "Export complet des données de l'établissement",
+      generatedAt: new Date().toISOString(),
+      counts: { students: students.length, parents: parents.length, staff: staff.length, classes: classes.length, grades: grades.length, attendance: attendance.length, invoices: invoices.length },
+      school,
+      academicYears: years,
+      classes,
+      subjects,
+      students,
+      parents: parents.map(({ userId: _u, ...p }) => (void _u, p)),
+      staff,
+      enrollments,
+      grades,
+      attendance,
+      invoices,
+      payslips,
+      admissions,
+      discipline,
+      homework,
+    };
+  }
+
+  /**
    * Erases the identity of an archived pupil. Marks, attendance and invoices stay (statistics and
    * accounting obligations) but can no longer be linked to a person. Guardians with no other child
    * are erased too, their account is closed and the admission documents are deleted.

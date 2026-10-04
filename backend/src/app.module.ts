@@ -37,6 +37,7 @@ import { ImportsModule } from './imports/imports.module';
 import { InsightsModule } from './insights/insights.module';
 import { DisciplineModule } from './discipline/discipline.module';
 import { FamilyModule } from './family/family.module';
+import { PlatformModule } from './platform/platform.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { FamilyModule } from './family/family.module';
     InsightsModule,
     DisciplineModule,
     FamilyModule,
+    PlatformModule,
   ],
   controllers: [AppController],
   // Credentials are stripped from every JSON response, whatever a service returns.

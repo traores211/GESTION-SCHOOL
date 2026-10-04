@@ -106,9 +106,14 @@ function PrivacyContent() {
         title="Données personnelles"
         description="Droits des familles (accès, effacement), durée de conservation et protection des données sensibles."
         actions={
-          <Link className="btn btn-outline" href="/confidentialite" target="_blank">
-            Voir la notice publique
-          </Link>
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => downloadFile("/privacy/school-export", "export-etablissement.json").catch((err) => feedback.error("Export impossible", errorMessage(err)))}>
+              <Download size={16} /> Exporter toutes les données
+            </button>
+            <Link className="btn btn-outline" href="/confidentialite" target="_blank">
+              Voir la notice publique
+            </Link>
+          </>
         }
       />
 

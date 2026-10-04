@@ -72,6 +72,8 @@ services:
       MAIL_FROM: ${MAIL_FROM:-School ERP <no-reply@example.ci>}
       SENTRY_DSN: ${SENTRY_DSN:-}
       METRICS_TOKEN: ${METRICS_TOKEN:-}
+      SIGNUP_ENABLED: ${SIGNUP_ENABLED:-false}
+      TRIAL_DAYS: ${TRIAL_DAYS:-30}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SMS_PROVIDER: ${SMS_PROVIDER:-log}
       SMS_DEFAULT_COUNTRY_CODE: ${SMS_DEFAULT_COUNTRY_CODE:-225}

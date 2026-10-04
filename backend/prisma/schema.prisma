@@ -22,6 +22,9 @@ model Organisation {
   city              String?
   logo              String?
   subscriptionPlan  String   @default("STARTER") // STARTER, PRO, ENTERPRISE
+  /// TRIAL (free trial until trialEndsAt), ACTIVE (subscription in order), SUSPENDED (read-only)
+  subscriptionStatus String  @default("ACTIVE")
+  trialEndsAt       DateTime?
   isActive          Boolean  @default(true)
   schools           School[]
   createdAt         DateTime @default(now())

@@ -53,6 +53,14 @@ export class PrivacyController {
     return this.privacy.archivedStudents(user, due === 'true');
   }
 
+  /** The whole school's data in one JSON file (reversibility). */
+  @Get('school-export')
+  @Header('Cache-Control', 'no-store')
+  @Header('Content-Disposition', 'attachment; filename="export-etablissement.json"')
+  exportSchool(@CurrentUser() user: AuthUser) {
+    return this.privacy.exportSchool(user);
+  }
+
   @Get('students/:id/export')
   @Header('Cache-Control', 'no-store')
   export(@CurrentUser() user: AuthUser, @Param('id') id: string) {
