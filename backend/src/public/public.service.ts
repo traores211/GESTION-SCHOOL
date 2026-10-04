@@ -4,15 +4,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PublicAdmissionDto } from './dto/public-admission.dto';
 import { AdmissionsService } from '../admissions/admissions.service';
 import { AdmissionStatusName, STATUS_LABELS } from '../admissions/workflow';
+import { ShowcaseContent, previewOf, upcomingEvents } from '../showcase/showcase-content';
+import { MailService } from '../infra/mail.service';
+import { OFFICE } from '../common/roles';
 
 @Injectable()
 export class PublicService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly admissions: AdmissionsService,
+    private readonly mail: MailService,
   ) {}
 
-  async getShowcase(code: string) {
+  /** The public page of a school; with `preview`, as it would look once the draft is published. */
+  async getShowcase(code: string, preview = false) {
     const ordered = { orderBy: [{ order: 'asc' as const }, { createdAt: 'asc' as const }] };
     const school = await this.prisma.school.findUnique({
       where: { code },
@@ -35,7 +40,7 @@ export class PublicService {
     const year = school.academicYears[0];
     const [fees, programs] = year ? await Promise.all([this.feesByLevel(school.id, year.id), this.programsByLevel(school.id, year.id)]) : [[], []];
 
-    return {
+    const page = {
       name: school.name,
       code: school.code,
       tagline: school.tagline,
@@ -83,6 +88,28 @@ export class PublicService {
         publishedAt: a.publishedAt,
       })),
     };
+    const merged = previewOf(page, school.showcaseContent as ShowcaseContent, preview ? (school.showcaseDraft as Record<string, unknown> | null) : null);
+    return { ...merged, content: { ...merged.content, events: upcomingEvents(merged.content.events, new Date()) }, preview: preview && school.showcaseDraft !== null };
+  }
+
+  /** The preview is for the management of that very school. */
+  async previewShowcase(user: { schoolId: string | null }, code: string) {
+    const school = await this.prisma.school.findUnique({ where: { code }, select: { id: true } });
+    if (!school || school.id !== user.schoolId) throw new NotFoundException('Établissement introuvable');
+    return this.getShowcase(code, true);
+  }
+
+  /** A message left on the public page reaches the office: in the application and by e-mail. */
+  async contact(code: string, dto: { name: string; email: string; phone?: string; message: string }) {
+    const school = await this.prisma.school.findUnique({ where: { code }, select: { id: true, name: true, email: true, isActive: true } });
+    if (!school || !school.isActive) throw new NotFoundException('Établissement introuvable');
+    const from = `${dto.name.trim()} (${dto.email.trim().toLowerCase()}${dto.phone?.trim() ? `, ${dto.phone.trim()}` : ''})`;
+    const office = await this.prisma.user.findMany({ where: { schoolId: school.id, status: 'ACTIVE', role: { in: [...OFFICE] as never } }, select: { id: true }, take: 30 });
+    if (office.length) await this.prisma.notification.createMany({ data: office.map((u) => ({ userId: u.id, type: 'in_app', subject: 'Message reçu depuis la vitrine', message: `${from} : ${dto.message.trim()}` })) });
+    await this.mail
+      .send({ to: school.email, subject: `Message reçu depuis la page de ${school.name}`, text: `De : ${from}\n\n${dto.message.trim()}\n\nRépondez directement à ${dto.email.trim()}.` })
+      .catch(() => undefined);
+    return { success: true };
   }
 
   /**

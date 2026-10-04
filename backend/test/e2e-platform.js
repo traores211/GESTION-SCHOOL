@@ -2,6 +2,7 @@
  * Usage (inside the backend container or in CI): node test/e2e-platform.js
  */
 const { PrismaClient } = require('@prisma/client');
+const { clearThrottle } = require('./throttle');
 const bcrypt = require('bcrypt');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
 const prisma = new PrismaClient();
@@ -22,6 +23,7 @@ const call = (token) => (method, path, body) =>
 const login = async (email, password) => (await call(null)('POST', '/auth/login', { email, password })).body?.accessToken;
 
 (async () => {
+  await clearThrottle();
   const anonymous = call(null);
   const form = { schoolName: NAME, city: 'Bouaké', firstName: 'Aminata', lastName: 'Test-Platform', email: EMAIL, password: PASSWORD, consent: true };
   try {

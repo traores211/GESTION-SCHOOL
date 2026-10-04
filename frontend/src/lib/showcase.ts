@@ -25,7 +25,25 @@ export interface ShowcaseTestimonial {
   photoUrl: string | null;
 }
 
+/** Published content beyond the identity of the school; every part is optional. */
+export interface ShowcaseContent {
+  primaryColor?: string | null;
+  faviconUrl?: string | null;
+  history?: string | null;
+  values?: string | null;
+  directorName?: string | null;
+  directorMessage?: string | null;
+  openingHours?: string | null;
+  facilities?: string[];
+  activities?: string[];
+  events?: { title: string; date: string; description?: string | null }[];
+  downloads?: { label: string; url: string }[];
+}
+
 export interface Showcase {
+  content: ShowcaseContent;
+  /** True when the page shows a draft that is not published yet. */
+  preview: boolean;
   name: string;
   code: string;
   tagline: string | null;

@@ -118,6 +118,8 @@ jobs:
         run: node test/e2e-gate.js
       - name: End-to-end — assisted entry (spoken roll call and marks, photographed sheet)
         run: node test/e2e-smart-entry.js
+      - name: End-to-end — showcase (draft, preview, publication, contact form)
+        run: node test/e2e-showcase.js
       - name: End-to-end — no credential in any response
         run: node test/e2e-leaks.js
       - name: API log

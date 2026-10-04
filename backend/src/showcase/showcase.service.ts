@@ -4,7 +4,9 @@ import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../infra/storage.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { Prisma } from '@prisma/client';
 import { UpdateShowcaseSettingsDto } from './dto/showcase.dto';
+import { ShowcaseContent, cleanDraft, splitDraft } from './showcase-content';
 
 export const UPLOAD_DIR = process.env.UPLOAD_DIR || join(process.cwd(), 'uploads');
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -76,6 +78,39 @@ export class ShowcaseService {
     ]);
     if (!school) throw new NotFoundException('Établissement introuvable');
     return { school, highlights, photos, partners, testimonials };
+  }
+
+  /** What is published and, beside it, the changes being prepared. */
+  async getDraft(user: AuthUser) {
+    const school = await this.prisma.school.findUnique({ where: { id: this.schoolId(user) }, select: { ...SETTINGS_SELECT, showcaseContent: true, showcaseDraft: true, showcaseDraftAt: true, showcasePublishedAt: true } });
+    if (!school) throw new NotFoundException('Établissement introuvable');
+    const { showcaseContent, showcaseDraft, showcaseDraftAt, showcasePublishedAt, ...settings } = school;
+    return { published: { ...settings, ...(showcaseContent as ShowcaseContent) }, draft: showcaseDraft, hasDraft: showcaseDraft !== null, draftAt: showcaseDraftAt, publishedAt: showcasePublishedAt };
+  }
+
+  /** Saves the changes without showing them to the public: they are previewed first. */
+  async saveDraft(user: AuthUser, dto: object) {
+    const draft = cleanDraft(dto as Record<string, unknown>);
+    await this.prisma.school.update({ where: { id: this.schoolId(user) }, data: { showcaseDraft: draft as Prisma.InputJsonValue, showcaseDraftAt: new Date() } });
+    return this.getDraft(user);
+  }
+
+  async discardDraft(user: AuthUser) {
+    await this.prisma.school.update({ where: { id: this.schoolId(user) }, data: { showcaseDraft: Prisma.DbNull, showcaseDraftAt: null } });
+    return this.getDraft(user);
+  }
+
+  /** The draft becomes the public page, in one go. */
+  async publish(user: AuthUser) {
+    const schoolId = this.schoolId(user);
+    const school = await this.prisma.school.findUnique({ where: { id: schoolId }, select: { showcaseContent: true, showcaseDraft: true } });
+    if (!school?.showcaseDraft) throw new BadRequestException("Aucune modification en attente de publication");
+    const { settings, content } = splitDraft(school.showcaseDraft as Record<string, unknown>, school.showcaseContent as ShowcaseContent);
+    await this.prisma.school.update({
+      where: { id: schoolId },
+      data: { ...settings, showcaseContent: content as Prisma.InputJsonValue, showcaseDraft: Prisma.DbNull, showcaseDraftAt: null, showcasePublishedAt: new Date() },
+    });
+    return this.getDraft(user);
   }
 
   updateSettings(user: AuthUser, dto: UpdateShowcaseSettingsDto) {

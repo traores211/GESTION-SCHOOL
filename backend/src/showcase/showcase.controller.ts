@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -17,6 +18,8 @@ import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import { HighlightDto, PartnerDto, PhotoDto, TestimonialDto, UpdateShowcaseSettingsDto } from './dto/showcase.dto';
+import { MANAGEMENT } from '../common/roles';
+import { ShowcaseDraftDto } from './dto/showcase-draft.dto';
 import { MAX_UPLOAD_BYTES, ShowcaseService } from './showcase.service';
 
 class UpdateHighlightDto extends PartialType(HighlightDto) {}
@@ -28,7 +31,7 @@ class UpdateTestimonialDto extends PartialType(TestimonialDto) {}
 @Controller('showcase')
 @ApiTags('Showcase (admin)')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPER_ADMIN', 'DIRECTOR')
+@Roles(...MANAGEMENT)
 @ApiBearerAuth()
 export class ShowcaseController {
   constructor(private readonly showcase: ShowcaseService) {}
@@ -36,6 +39,27 @@ export class ShowcaseController {
   @Get('settings')
   getSettings(@CurrentUser() user: AuthUser) {
     return this.showcase.getSettings(user);
+  }
+
+  /** The draft being prepared, beside what is published. */
+  @Get('draft')
+  getDraft(@CurrentUser() user: AuthUser) {
+    return this.showcase.getDraft(user);
+  }
+
+  @Put('draft')
+  saveDraft(@CurrentUser() user: AuthUser, @Body() dto: ShowcaseDraftDto) {
+    return this.showcase.saveDraft(user, dto);
+  }
+
+  @Delete('draft')
+  discardDraft(@CurrentUser() user: AuthUser) {
+    return this.showcase.discardDraft(user);
+  }
+
+  @Post('publish')
+  publish(@CurrentUser() user: AuthUser) {
+    return this.showcase.publish(user);
   }
 
   @Patch('settings')

@@ -3,6 +3,7 @@
  * Usage (inside the backend container or in CI): node test/e2e-promotion.js
  */
 const { PrismaClient } = require('@prisma/client');
+const { clearThrottle } = require('./throttle');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
 const prisma = new PrismaClient();
 const TAG = 'Test-Passage';
@@ -27,6 +28,7 @@ const cleanup = async () => {
 };
 
 (async () => {
+  await clearThrottle();
   try {
     await cleanup();
     const signup = await post('/public/signup', { schoolName: `${TAG} Collège`, firstName: 'Awa', lastName: 'Chef', email: HEAD, password: PASSWORD, consent: true });

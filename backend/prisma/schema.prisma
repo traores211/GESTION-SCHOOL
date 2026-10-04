@@ -63,6 +63,12 @@ model School {
   linkedinUrl           String?
   youtubeUrl            String?
   whatsappNumber        String?
+  /// Published showcase content beyond the columns above (colour, history, values, events, downloads…)
+  showcaseContent       Json     @default("{}")
+  /// Changes being prepared: previewed, then published in one go
+  showcaseDraft         Json?
+  showcaseDraftAt       DateTime?
+  showcasePublishedAt   DateTime?
   // Timetable grid: open days (1 = Monday … 7 = Sunday), day bounds, breaks ("12:00-14:00,…"), snapping step
   timetableDays         String   @default("1,2,3,4,5,6")
   timetableStart        String   @default("07:00")

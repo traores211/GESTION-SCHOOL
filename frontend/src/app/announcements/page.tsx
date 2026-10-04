@@ -57,6 +57,9 @@ export default function AnnouncementsPage() {
       <div className="page-header">
         <div>
           <h1>Annonces &amp; vitrine publique</h1>
+          <p>
+            <a href="/announcements/draft">Préparer un brouillon, le prévisualiser puis le publier →</a>
+          </p>
           <p>Contenu du site public de l&apos;établissement, accessible sans compte</p>
         </div>
         {code && (
