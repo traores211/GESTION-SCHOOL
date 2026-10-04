@@ -108,6 +108,17 @@ const cleanup = async () => {
     ok(again.body.summary.skipped === 3 && (await prisma.enrollment.count({ where: { studentId: pupils.Admise } })) === 2, 'running it again changes nothing for pupils already placed');
     ok((await head('GET', '/promotion/history')).body.length === 2 && (await head('GET', '/promotion/history')).body[0].executedByName === 'Awa Chef', 'each execution is recorded with its author');
 
+    console.log('Re-enrolment of a known pupil');
+    const sixthNew = await prisma.class.findFirst({ where: { academicYearId: y2.body.id, name: '6ème A' } });
+    const back = await head('POST', `/promotion/students/${pupils.Indecis}/reenrol`, { classId: sixthNew.id });
+    ok(back.status === 201 && back.body.class === '6ème A' && back.body.restored === false, 'the undecided pupil is re-enrolled in the new year with his existing record', back.body);
+    ok((await head('POST', `/promotion/students/${pupils.Indecis}/reenrol`, { classId: fifthB.body.id })).status === 409, 'not twice in the same year');
+    await head('DELETE', `/students/${pupils.Sortant}`);
+    const returning = await head('POST', `/promotion/students/${pupils.Sortant}/reenrol`, { classId: fifthB.body.id });
+    const restored = await prisma.student.findUnique({ where: { id: pupils.Sortant } });
+    ok(returning.status === 201 && returning.body.restored === true && restored.archivedAt === null && restored.status === 'INSCRIT', 'a pupil who had left comes back: his archived record is restored, not recreated');
+    ok((await outsider('POST', `/promotion/students/${pupils.Admise}/reenrol`, { classId: fifthB.body.id })).status === 404, "another school cannot re-enrol this school's pupil");
+
     console.log('Closing the year');
     ok((await head('PATCH', `/academic-years/${y2.body.id}/set-current`)).body.isCurrent === true, 'the new year becomes the current one');
     ok((await head('PATCH', `/academic-years/${y1.id}/status`, { status: 'CLOTUREE' })).body.status === 'CLOTUREE', 'the past year is closed');

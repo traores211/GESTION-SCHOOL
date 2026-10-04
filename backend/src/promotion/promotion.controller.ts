@@ -27,6 +27,11 @@ class DecisionDto {
   toClassId?: string;
 }
 
+class ReenrolDto {
+  @IsString()
+  classId!: string;
+}
+
 class RunDto {
   @IsString()
   classId!: string;
@@ -71,6 +76,13 @@ export class PromotionController {
   @HttpCode(HttpStatus.OK)
   run(@CurrentUser() user: AuthUser, @Body() dto: RunDto) {
     return this.promotion.run(user, dto.classId, dto.toYearId, dto.decisions, dto.confirm === true);
+  }
+
+  /** Re-enrols one known pupil in a class of an open year; his existing record is reused. */
+  @Post('promotion/students/:studentId/reenrol')
+  @Roles(...OFFICE)
+  reenrol(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string, @Body() dto: ReenrolDto) {
+    return this.promotion.reenrol(user, studentId, dto.classId);
   }
 
   @Get('promotion/history')

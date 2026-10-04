@@ -196,6 +196,33 @@ export class PromotionService {
     return { executed: true, summary };
   }
 
+  /**
+   * Re-enrolment of a pupil already known to the school, one at a time: a pupil who was undecided at
+   * the promotion, or who left and comes back. His record is reused as it is (and restored if archived).
+   */
+  async reenrol(user: AuthUser, studentId: string, classId: string) {
+    const schoolId = this.school(user);
+    const [student, klass] = await Promise.all([
+      this.prisma.student.findFirst({ where: { id: studentId, schoolId } }),
+      this.prisma.class.findFirst({ where: { id: classId, schoolId }, include: { academicYear: true } }),
+    ]);
+    if (!student) throw new NotFoundException('Élève introuvable');
+    if (student.anonymizedAt) throw new BadRequestException("Ce dossier a été anonymisé : créez une nouvelle inscription");
+    if (!klass) throw new NotFoundException('Classe introuvable');
+    if (klass.archivedAt) throw new BadRequestException('Cette classe est archivée');
+    if (yearIsFrozen(klass.academicYear.status)) throw new BadRequestException(`L'année ${klass.academicYear.name} est clôturée`);
+    const existing = await this.prisma.enrollment.findFirst({ where: { studentId, withdrawalDate: null, class: { academicYearId: klass.academicYearId } }, include: { class: { select: { name: true } } } });
+    if (existing) throw new ConflictException(`Cet élève est déjà inscrit en ${existing.class.name} pour ${klass.academicYear.name}`);
+    const size = await this.prisma.enrollment.count({ where: { classId, withdrawalDate: null } });
+    if (size >= klass.capacity) throw new BadRequestException(`${klass.name} est complète (${klass.capacity} places)`);
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.enrollment.upsert({ where: { classId_studentId: { classId, studentId } }, create: { classId, studentId, enrollmentDate: now }, update: { withdrawalDate: null, outcome: null, outcomeAt: null, enrollmentDate: now } }),
+      this.prisma.student.update({ where: { id: studentId }, data: { status: 'INSCRIT', archivedAt: null, archiveReason: null } }),
+    ]);
+    return { studentId, class: klass.name, year: klass.academicYear.name, restored: !!student.archivedAt };
+  }
+
   history(user: AuthUser) {
     return this.prisma.promotionBatch.findMany({ where: { schoolId: this.school(user) }, orderBy: { executedAt: 'desc' }, take: 100, select: { id: true, fromClassId: true, toYearId: true, summary: true, executedByName: true, executedAt: true } });
   }
