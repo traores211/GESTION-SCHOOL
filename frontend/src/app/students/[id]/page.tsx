@@ -20,7 +20,17 @@ interface StudentDetail {
   address?: string;
   phone?: string;
   status: string;
-  parents: { id: string; firstName: string; lastName: string; phone: string; relationship: string }[];
+  placeOfBirth?: string;
+  countryOfOrigin?: string;
+  city?: string;
+  country?: string;
+  email?: string;
+  regime?: string;
+  entryDate?: string;
+  previousSchool?: string;
+  previousClass?: string;
+  previousAverage?: number | null;
+  parents: { id: string; firstName: string; lastName: string; phone: string; phone2?: string | null; relationship: string; relation: string; isLegalGuardian: boolean; isEmergencyContact: boolean; canPickUp: boolean }[];
   enrollments: { class: { id: string; name: string } }[];
   attendance: { id: string; date: string; status: string }[];
   attendanceStats: { status: string; _count: number }[];
@@ -39,6 +49,9 @@ interface StudentDetail {
 function formatFCFA(amount: number) {
   return new Intl.NumberFormat("fr-FR").format(Math.round(amount)) + " FCFA";
 }
+
+const RELATIONS: Record<string, string> = { PERE: "Père", MERE: "Mère", TUTEUR: "Tuteur", AUTRE: "Responsable" };
+const REGIMES: Record<string, string> = { EXTERNE: "Externe", DEMI_PENSIONNAIRE: "Demi-pensionnaire", INTERNE: "Interne" };
 
 const ATT_LABELS: Record<string, string> = {
   PRESENT: "Présences",
@@ -132,12 +145,45 @@ export default function StudentDetailPage() {
                     <dd>{student.nationality || "—"}</dd>
                   </div>
                   <div>
+                    <dt>Lieu de naissance</dt>
+                    <dd>{student.placeOfBirth || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Pays d&apos;origine</dt>
+                    <dd>{student.countryOfOrigin || "—"}</dd>
+                  </div>
+                  <div>
                     <dt>Adresse</dt>
-                    <dd>{student.address || "—"}</dd>
+                    <dd>{[student.address, student.city, student.country].filter(Boolean).join(", ") || "—"}</dd>
                   </div>
                   <div>
                     <dt>Téléphone</dt>
                     <dd className="tabular">{student.phone || "—"}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section className="record-part" aria-labelledby="rec-school">
+                <h2 id="rec-school">Scolarité</h2>
+                <dl className="record-list">
+                  <div>
+                    <dt>Régime</dt>
+                    <dd>{student.regime ? REGIMES[student.regime] || student.regime : "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Date d&apos;entrée</dt>
+                    <dd className="tabular">{student.entryDate ? new Date(student.entryDate).toLocaleDateString("fr-FR") : "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Établissement précédent</dt>
+                    <dd>{student.previousSchool || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Classe précédente</dt>
+                    <dd>{student.previousClass || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Moyenne précédente</dt>
+                    <dd className="tabular">{student.previousAverage != null ? `${student.previousAverage.toLocaleString("fr-FR")} / 20` : "—"}</dd>
                   </div>
                 </dl>
               </section>
@@ -147,10 +193,14 @@ export default function StudentDetailPage() {
                 <dl className="record-list">
                   {student.parents.map((p) => (
                     <div key={p.id}>
-                      <dt>{p.relationship}</dt>
+                      <dt>{RELATIONS[p.relation] || p.relationship}</dt>
                       <dd>
                         {p.firstName} {p.lastName}
-                        <span className="cell-sub tabular">{p.phone}</span>
+                        <span className="cell-sub tabular">{[p.phone, p.phone2].filter(Boolean).join(" · ")}</span>
+                        <span className="cell-sub">
+                          {p.isLegalGuardian && <span className="badge badge-neutral">Responsable légal</span>} {p.isEmergencyContact && <span className="badge badge-info">Contact d&apos;urgence</span>}{" "}
+                          {!p.canPickUp && <span className="badge badge-warning">Ne récupère pas l&apos;enfant</span>}
+                        </span>
                       </dd>
                     </div>
                   ))}

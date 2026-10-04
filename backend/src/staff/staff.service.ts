@@ -3,6 +3,8 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { inSchool } from '../platform/group.service';
+import { FINANCE } from '../common/roles';
+import { StaffProfileDto } from './dto/staff-profile.dto';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { passwordProblem } from '../auth/password-policy';
@@ -61,6 +63,12 @@ export class StaffService {
     return { ...created, temporaryPassword: dto.password ? undefined : plainPassword, password: undefined, totpSecret: undefined };
   }
 
+  /** Bank details are for the management and the accounts only. */
+  private visible<T extends { staffMember?: { bankAccount?: string | null; bankName?: string | null } | null }>(user: AuthUser, row: T): T {
+    if ((FINANCE as readonly string[]).includes(user.role) || !row.staffMember) return row;
+    return { ...row, staffMember: { ...row.staffMember, bankAccount: undefined, bankName: undefined } };
+  }
+
   async findAll(user: AuthUser, role?: string, archived = false) {
     if (!user.schoolId) return [];
     const users = await this.prisma.user.findMany({
@@ -76,7 +84,7 @@ export class StaffService {
       },
       orderBy: [{ lastName: 'asc' }],
     });
-    return users.map(({ password, totpSecret, ...rest }) => rest);
+    return users.map(({ password, totpSecret, ...rest }) => this.visible(user, rest));
   }
 
   async findOne(user: AuthUser, id: string) {
@@ -88,7 +96,22 @@ export class StaffService {
       throw new NotFoundException('Membre du personnel introuvable');
     }
     const { password, totpSecret, ...rest } = found;
-    return rest;
+    return this.visible(user, rest);
+  }
+
+  /** Personnel file: identity, contract, qualifications, emergency contact, bank details. */
+  async updateProfile(user: AuthUser, id: string, dto: StaffProfileDto) {
+    const found = await this.prisma.user.findFirst({ where: { id, ...inSchool(user.schoolId ?? '-') }, include: { staffMember: true } });
+    if (!found || !found.staffMember) throw new NotFoundException('Membre du personnel introuvable');
+    const { firstName, lastName, phone, dateOfBirth, hireDate, ...file } = dto;
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id }, data: { ...(firstName ? { firstName } : {}), ...(lastName ? { lastName } : {}), ...(phone !== undefined ? { phone: phone || null } : {}) } }),
+      this.prisma.staffMember.update({
+        where: { id: found.staffMember.id },
+        data: { ...file, ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}), ...(hireDate ? { hireDate: new Date(hireDate) } : {}) },
+      }),
+    ]);
+    return this.findOne(user, id);
   }
 
   async updateSalary(user: AuthUser, id: string, baseSalary: number) {

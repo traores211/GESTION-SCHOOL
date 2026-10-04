@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeacherScopeService } from '../common/teacher-scope.service';
+import { relationOf } from '../parents/parents.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -25,13 +26,14 @@ export class StudentsService {
     if (!user.schoolId) {
       throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
     }
-    const { classId, ...data } = dto;
+    const { classId, entryDate, ...data } = dto;
     const matricule = await this.generateMatricule();
 
     return this.prisma.student.create({
       data: {
         ...data,
         dateOfBirth: new Date(dto.dateOfBirth),
+        entryDate: entryDate ? new Date(entryDate) : new Date(),
         schoolId: user.schoolId,
         matricule,
         ...(classId
@@ -86,7 +88,9 @@ export class StudentsService {
     const student = await this.prisma.student.findUnique({
       where: { id },
       include: {
-        parents: true,
+        // Contact details only: identity papers of the guardians stay in the parent file (office)
+        parents: { where: { archivedAt: null }, select: { id: true, firstName: true, lastName: true, phone: true, phone2: true, email: true, relationship: true, profession: true } },
+        guardianships: { select: { parentId: true, relation: true, isLegalGuardian: true, isEmergencyContact: true, canPickUp: true } },
         enrollments: { include: { class: true }, orderBy: { enrollmentDate: 'desc' } },
         attendance: { orderBy: { date: 'desc' }, take: 20 },
         grades: { include: { subject: true, term: true }, orderBy: { createdAt: 'desc' }, take: 20 },
@@ -110,7 +114,12 @@ export class StudentsService {
       _avg: { score: true },
     });
 
-    return { ...student, attendanceStats, averageScore: gradeAgg._avg.score };
+    const { guardianships, parents, ...file } = student;
+    const guardians = parents.map((p) => {
+      const link = guardianships.find((g) => g.parentId === p.id);
+      return { ...p, relation: link?.relation ?? relationOf(p.relationship), isLegalGuardian: link?.isLegalGuardian ?? true, isEmergencyContact: link?.isEmergencyContact ?? false, canPickUp: link?.canPickUp ?? true };
+    });
+    return { ...file, parents: guardians, attendanceStats, averageScore: gradeAgg._avg.score };
   }
 
   async update(user: AuthUser, id: string, dto: UpdateStudentDto) {
@@ -118,13 +127,15 @@ export class StudentsService {
     if (!existing) throw new NotFoundException('Élève introuvable');
     if (existing.schoolId !== user.schoolId) throw new ForbiddenException();
 
-    const { classId, dateOfBirth, status, ...rest } = dto;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { classId, dateOfBirth, entryDate, status, ...rest } = dto;
     return this.prisma.student.update({
       where: { id },
       data: {
         ...rest,
         ...(status ? { status: status as any } : {}),
         ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),
+        ...(entryDate ? { entryDate: new Date(entryDate) } : {}),
       },
     });
   }

@@ -26,7 +26,8 @@ interface ParentRow {
   students: StudentOption[];
 }
 
-const EMPTY_FORM = { firstName: "", lastName: "", email: "", phone: "", relationship: "Père", smsOptOut: false, studentIds: [] as string[] };
+const EMPTY_FORM = { firstName: "", lastName: "", email: "", phone: "", relationship: "Père", smsOptOut: false, studentIds: [] as string[], phone2: "", profession: "", employer: "", city: "", idType: "", idNumber: "" };
+const ID_TYPES: Record<string, string> = { CNI: "Carte nationale d'identité", PASSEPORT: "Passeport", CARTE_CONSULAIRE: "Carte consulaire", PERMIS: "Permis de conduire", AUTRE: "Autre" };
 
 export default function ParentsPage() {
   const feedback = useFeedback();
@@ -69,7 +70,9 @@ export default function ParentsPage() {
     setSaving(true);
     setFormError(null);
     try {
-      await api.post("/parents", { ...form, email: form.email.trim().toLowerCase() });
+      // Optional fields left empty are not sent
+      const filled = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ""));
+      await api.post("/parents", { ...filled, email: form.email.trim().toLowerCase() });
       setShowForm(false);
       feedback.success("Parent enregistré", `${form.firstName} ${form.lastName}`);
       setForm(EMPTY_FORM);
@@ -228,6 +231,37 @@ export default function ParentsPage() {
                 <option>Tuteur</option>
                 <option>Tutrice</option>
               </select>
+            </div>
+            <div className="field">
+              <label htmlFor="pa-phone2">Téléphone secondaire</label>
+              <input id="pa-phone2" type="tel" className="input" value={form.phone2} onChange={(e) => setForm({ ...form, phone2: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="pa-city">Ville</label>
+              <input id="pa-city" className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="pa-job">Profession</label>
+              <input id="pa-job" className="input" value={form.profession} onChange={(e) => setForm({ ...form, profession: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="pa-employer">Employeur</label>
+              <input id="pa-employer" className="input" value={form.employer} onChange={(e) => setForm({ ...form, employer: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="pa-idtype">Pièce d&apos;identité</label>
+              <select id="pa-idtype" className="input" value={form.idType} onChange={(e) => setForm({ ...form, idType: e.target.value })}>
+                <option value="">—</option>
+                {Object.entries(ID_TYPES).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="pa-idnum">Numéro de pièce</label>
+              <input id="pa-idnum" className="input" autoComplete="off" value={form.idNumber} onChange={(e) => setForm({ ...form, idNumber: e.target.value })} />
             </div>
           </div>
           <label className="checkbox" style={{ display: "flex", marginBottom: 14 }}>

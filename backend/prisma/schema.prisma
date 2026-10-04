@@ -322,6 +322,26 @@ model StaffMember {
   baseSalary        Float?
   matricule         String?  // Staff number used to match timetable planning imports
   weeklyMaxMinutes  Int?     // Teaching load ceiling (obligation de service); null = no ceiling
+  /// Personnel file. category: ENSEIGNANT, SURVEILLANT, EDUCATEUR, ADMINISTRATION, DIRECTION, COMPTABILITE, SECRETARIAT, TECHNIQUE, SECURITE, AUTRE
+  category          String?
+  gender            String?
+  dateOfBirth       DateTime?
+  placeOfBirth      String?
+  nationality       String?
+  countryOfOrigin   String?
+  photoUrl          String?
+  address           String?
+  /// CDI, CDD, VACATAIRE, STAGE, AUTRE
+  contractType      String?
+  diploma           String?
+  qualification     String?
+  specialty         String?
+  experienceYears   Int?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  bankName          String?
+  /// Encrypted at rest; shown to the management only
+  bankAccount       String?
   classes           Class[] @relation("TeacherClasses")
   classSubjects     ClassSubject[]
   payslips          Payslip[]
@@ -352,8 +372,20 @@ model Student {
   phone             String?
   allergies         String?
   specialNeeds      String?
+  countryOfOrigin   String?
+  city              String?
+  country           String?
+  email             String?
+  photoUrl          String?
+  /// EXTERNE, DEMI_PENSIONNAIRE, INTERNE
+  regime            String?
+  entryDate         DateTime?
+  previousSchool    String?
+  previousClass     String?
+  previousAverage   Float?
   status            StudentStatus @default(INSCRIT)
   parents           Parent[]
+  guardianships     Guardianship[]
   enrollments       Enrollment[]
   attendance        Attendance[]
   documents         Document[]
@@ -390,7 +422,21 @@ model Parent {
   relationship      String   // "Father", "Mother", "Guardian"
   profession        String?
   address           String?
+  gender            String?
+  dateOfBirth       DateTime?
+  nationality       String?
+  countryOfOrigin   String?
+  phone2            String?
+  employer          String?
+  city              String?
+  country           String?
+  /// CNI, PASSEPORT, CARTE_CONSULAIRE, PERMIS, AUTRE
+  idType            String?
+  /// Encrypted at rest
+  idNumber          String?
+  photoUrl          String?
   students          Student[]
+  guardianships     Guardianship[]
   conversations     Conversation[]
   /// The guardian asked not to receive SMS / WhatsApp messages.
   smsOptOut         Boolean  @default(false)
@@ -399,6 +445,27 @@ model Parent {
   updatedAt         DateTime @updatedAt
 
   @@index([email])
+}
+
+/// What a guardian is for one child: the same person may be the father of one pupil and the tutor of
+/// another. The link itself stays in Parent.students; this row carries its attributes.
+model Guardianship {
+  id                 String   @id @default(cuid())
+  parentId           String
+  parent             Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  /// PERE, MERE, TUTEUR, AUTRE
+  relation           String   @default("AUTRE")
+  isLegalGuardian    Boolean  @default(true)
+  isEmergencyContact Boolean  @default(false)
+  /// May collect the child at the gate
+  canPickUp          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([parentId, studentId])
+  @@index([studentId])
 }
 
 /// Every SMS / WhatsApp message sent (or skipped) to a family: proof, cost follow-up and quota.

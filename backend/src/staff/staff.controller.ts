@@ -8,6 +8,7 @@ import { FINANCE, MANAGEMENT, OFFICE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { StaffService } from './staff.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
+import { StaffProfileDto } from './dto/staff-profile.dto';
 
 class StaffStatusDto {
   @IsIn(['ACTIVE', 'INACTIVE', 'ARCHIVED'])
@@ -48,6 +49,12 @@ export class StaffController {
   @Get(':id')
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.staffService.findOne(user, id);
+  }
+
+  @Roles(...MANAGEMENT)
+  @Patch(':id/profile')
+  updateProfile(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: StaffProfileDto) {
+    return this.staffService.updateProfile(user, id, dto);
   }
 
   @Roles(...FINANCE)

@@ -13,6 +13,8 @@ export const ENCRYPTED_FIELDS: Record<string, string[]> = {
   Student: ['allergies', 'specialNeeds'],
   User: ['totpSecret'],
   Admission: ['interviewNotes'],
+  Parent: ['idNumber'],
+  StaffMember: ['bankAccount'],
 };
 
 export function loadKey(raw = process.env.DATA_ENCRYPTION_KEY): Buffer | null {

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
@@ -6,7 +6,7 @@ import { RolesGuard } from '../common/roles.guard';
 import { OFFICE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { ParentsService } from './parents.service';
-import { CreateParentDto } from './dto/create-parent.dto';
+import { CreateParentDto, GuardianLinkDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
 
 @Controller('parents')
@@ -35,6 +35,11 @@ export class ParentsController {
   @Patch(':id')
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateParentDto) {
     return this.parentsService.update(user, id, dto);
+  }
+
+  @Put(':id/students/:studentId')
+  setLink(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('studentId') studentId: string, @Body() dto: GuardianLinkDto) {
+    return this.parentsService.setLink(user, id, studentId, dto);
   }
 
   @Delete(':id')

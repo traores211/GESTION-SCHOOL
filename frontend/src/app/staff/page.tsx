@@ -7,6 +7,7 @@ import { Avatar, EmptyState, FormError, Modal, PageHeader, Pagination, SearchInp
 import { api, errorMessage } from "../../lib/api";
 import { useTable } from "../../lib/useTable";
 import { getStoredUser } from "../../lib/auth";
+import StaffFileModal, { STAFF_CATEGORIES } from "../../components/StaffFileModal";
 
 interface StaffRow {
   id: string;
@@ -15,7 +16,7 @@ interface StaffRow {
   email: string;
   role: string;
   status?: "ACTIVE" | "INACTIVE" | "ARCHIVED";
-  staffMember: { position: string; department?: string } | null;
+  staffMember: { position: string; department?: string; category?: string | null } | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -40,6 +41,7 @@ export default function StaffPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ email: string; temporaryPassword?: string } | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [fileOf, setFileOf] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setStaff(null);
@@ -175,7 +177,10 @@ export default function StaffPage() {
                     <td>
                       <span className={`badge ${s.role === "ENSEIGNANT" ? "badge-green" : s.role === "DIRECTOR" ? "badge-orange" : "badge-info"}`}>{ROLE_LABELS[s.role] || s.role}</span>
                     </td>
-                    <td>{s.staffMember?.position || <span className="muted">—</span>}</td>
+                    <td>
+                      {s.staffMember?.position || <span className="muted">—</span>}
+                      {s.staffMember?.category && <div className="cell-sub">{STAFF_CATEGORIES[s.staffMember.category] ?? s.staffMember.category}</div>}
+                    </td>
                     <td>
                       <a href={`mailto:${s.email}`}>{s.email}</a>
                     </td>
@@ -185,6 +190,9 @@ export default function StaffPage() {
                       </span>
                     </td>
                     <td className="actions">
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setFileOf(s.id)} aria-label={`Dossier de ${s.firstName} ${s.lastName}`}>
+                        Dossier
+                      </button>
                       {canManage && s.status !== "ACTIVE" && (
                         <button type="button" className="btn btn-outline btn-sm" onClick={() => setStatus(s, "ACTIVE")}>
                           Réactiver
@@ -209,6 +217,8 @@ export default function StaffPage() {
           </>
         )}
       </div>
+
+      <StaffFileModal staffId={fileOf} canEdit={canManage} onClose={() => setFileOf(null)} onSaved={load} />
 
       <Modal
         open={showForm}
