@@ -4,6 +4,7 @@ import { TeacherScopeService } from '../common/teacher-scope.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MessagingService } from '../messaging/messaging.service';
+import { assertYearOpen } from '../common/year-guard';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
 
 @Injectable()
@@ -20,6 +21,7 @@ export class AttendanceService {
     const klass = await this.prisma.class.findUnique({ where: { id: dto.classId } });
     if (!klass || klass.schoolId !== user.schoolId) throw new NotFoundException('Classe introuvable');
     await this.scope.assertClass(user, klass.id);
+    await assertYearOpen(this.prisma, klass.academicYearId);
 
     const date = new Date(dto.date);
     date.setHours(0, 0, 0, 0);

@@ -43,7 +43,7 @@ export class ParentPortalService {
     return this.prisma.student.findMany({
       where: { id: { in: parent.students.map((s) => s.id) } },
       include: {
-        enrollments: { where: { withdrawalDate: null }, include: { class: true }, take: 1 },
+        enrollments: { where: { withdrawalDate: null }, include: { class: true }, orderBy: { enrollmentDate: 'desc' }, take: 1 },
         school: true,
       },
     });
@@ -55,7 +55,7 @@ export class ParentPortalService {
     return this.prisma.student.findUnique({
       where: { id: studentId },
       include: {
-        enrollments: { where: { withdrawalDate: null }, include: { class: true }, take: 1 },
+        enrollments: { where: { withdrawalDate: null }, include: { class: true }, orderBy: { enrollmentDate: 'desc' }, take: 1 },
         attendance: { orderBy: { date: 'desc' }, take: 30 },
         grades: { include: { subject: true, term: true }, orderBy: { createdAt: 'desc' }, take: 30 },
         invoices: { include: { items: true, payments: true }, orderBy: { createdAt: 'desc' } },

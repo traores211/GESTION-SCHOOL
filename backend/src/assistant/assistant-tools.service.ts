@@ -91,7 +91,7 @@ export class AssistantToolsService {
       },
       take: 10,
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-      select: { matricule: true, firstName: true, lastName: true, status: true, enrollments: { where: { withdrawalDate: null }, select: { class: { select: { name: true } } }, take: 1 } },
+      select: { matricule: true, firstName: true, lastName: true, status: true, enrollments: { where: { withdrawalDate: null }, select: { class: { select: { name: true } } }, orderBy: { enrollmentDate: 'desc' }, take: 1 } },
     });
     return {
       eleves: students.map((s) => ({ matricule: s.matricule, nom: `${s.lastName} ${s.firstName}`, classe: s.enrollments[0]?.class.name ?? null, statut: s.status })),
@@ -109,7 +109,7 @@ export class AssistantToolsService {
         matricule: true,
         gender: true,
         status: true,
-        enrollments: { where: { withdrawalDate: null }, select: { class: { select: { name: true, academicYearId: true } } }, take: 1 },
+        enrollments: { where: { withdrawalDate: null }, select: { class: { select: { name: true, academicYearId: true } } }, orderBy: { enrollmentDate: 'desc' }, take: 1 },
       },
     });
     if (!student) throw new NotFoundException(`Aucun élève avec le matricule ${matricule} dans cet établissement`);

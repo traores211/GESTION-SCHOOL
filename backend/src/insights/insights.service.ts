@@ -74,7 +74,7 @@ export class InsightsService implements OnModuleInit {
     const fresh = late.filter((i) => i.dueDate >= from);
 
     const students = absentees.length
-      ? await this.prisma.student.findMany({ where: { id: { in: absentees.map((a) => a.studentId) } }, select: { id: true, firstName: true, lastName: true, enrollments: { where: { withdrawalDate: null }, select: { class: { select: { name: true } } }, take: 1 } } })
+      ? await this.prisma.student.findMany({ where: { id: { in: absentees.map((a) => a.studentId) } }, select: { id: true, firstName: true, lastName: true, enrollments: { where: { withdrawalDate: null }, select: { class: { select: { name: true } } }, orderBy: { enrollmentDate: 'desc' }, take: 1 } } })
       : [];
     const repeatedAbsentees = absentees
       .map((a) => {

@@ -24,8 +24,8 @@ export class ClassesController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query('academicYearId') academicYearId?: string) {
-    return this.classesService.findAll(user, academicYearId);
+  findAll(@CurrentUser() user: AuthUser, @Query('academicYearId') academicYearId?: string, @Query('archived') archived?: string) {
+    return this.classesService.findAll(user, academicYearId, archived === 'true');
   }
 
   @Get(':id')
@@ -43,6 +43,24 @@ export class ClassesController {
   @Delete(':id')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.classesService.remove(user, id);
+  }
+
+  @Roles(...MANAGEMENT)
+  @Post(':id/archive')
+  archive(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.classesService.setArchived(user, id, true);
+  }
+
+  @Roles(...MANAGEMENT)
+  @Post(':id/restore')
+  restore(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.classesService.setArchived(user, id, false);
+  }
+
+  @Roles(...OFFICE)
+  @Post(':id/move/:studentId')
+  move(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('studentId') studentId: string, @Body('toClassId') toClassId: string) {
+    return this.classesService.move(user, id, studentId, toClassId);
   }
 
   @Roles(...OFFICE)

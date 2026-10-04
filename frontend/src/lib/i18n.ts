@@ -21,6 +21,7 @@ const EN: Record<string, string> = {
   Famille: "Family",
   // Navigation and page titles
   "Tableau de bord": "Dashboard",
+  "Années & passage": "Years & promotion",
   "Établissements": "Schools",
   "Établissement": "School",
   "Ouvert": "Open",

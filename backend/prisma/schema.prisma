@@ -86,6 +86,7 @@ model School {
   academicYears         AcademicYear[]
   users                 User[]
   memberships           SchoolMembership[]
+  promotionBatches      PromotionBatch[]
   documents             Document[]
   students              Student[]
   classes               Class[]
@@ -117,6 +118,9 @@ model AcademicYear {
   startDate         DateTime
   endDate           DateTime
   isCurrent         Boolean  @default(false)
+  /// PREPARATION → OUVERTE → CLOTUREE → ARCHIVEE; a closed year keeps its history and is frozen
+  status            String   @default("OUVERTE")
+  closedAt          DateTime?
   classes           Class[]
   admissions        Admission[]
   terms             Term[]
@@ -514,6 +518,13 @@ model Class {
   code              String   // "5A-001"
   level             String   // "5ème", "4ème", "3ème"
   capacity          Int      @default(50)
+  /// Série / filière ("A", "C", "D"…) for the lycée
+  series            String?
+  /// Usual room of the class
+  roomId            String?
+  room              Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  /// An archived class leaves the lists; its pupils, marks and roll calls are kept
+  archivedAt        DateTime?
   teacherId         String?
   teacher           StaffMember? @relation(name: "TeacherClasses", fields: [teacherId], references: [id], onDelete: SetNull)
   enrollments       Enrollment[]
@@ -539,6 +550,9 @@ model Enrollment {
   student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   enrollmentDate    DateTime @default(now())
   withdrawalDate    DateTime?
+  /// End-of-year result in this class: ADMIS, REDOUBLE, ORIENTE, SORTANT; TRANSFERE for a move during the year
+  outcome           String?
+  outcomeAt         DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -636,6 +650,23 @@ model AdmissionEvent {
   createdAt         DateTime @default(now())
 
   @@index([admissionId, createdAt])
+}
+
+/// One execution of the end-of-year promotion of a class: who decided what, and the result.
+model PromotionBatch {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  fromClassId       String
+  toYearId          String
+  decisions         Json
+  summary           Json
+  executedById      String?
+  executedByName    String?
+  executedAt        DateTime @default(now())
+
+  @@index([schoolId, executedAt])
+  @@index([fromClassId])
 }
 
 // ==================== Attendance ====================
@@ -1180,6 +1211,7 @@ model Room {
   schoolId          String
   school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   name              String   // "Salle 12", "Labo SVT"
+  classes           Class[]
   type              String?  // "Salle de classe", "Laboratoire", "Salle informatique", "Terrain"…
   capacity          Int?
   building          String?

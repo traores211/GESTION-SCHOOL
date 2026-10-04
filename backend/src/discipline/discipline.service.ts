@@ -33,7 +33,7 @@ export interface DisciplineInput {
   visibleToParents?: boolean;
 }
 
-const INCLUDE = { student: { select: { id: true, firstName: true, lastName: true, matricule: true, enrollments: { where: { withdrawalDate: null }, select: { class: { select: { id: true, name: true } } }, take: 1 } } } } satisfies Prisma.DisciplineRecordInclude;
+const INCLUDE = { student: { select: { id: true, firstName: true, lastName: true, matricule: true, enrollments: { where: { withdrawalDate: null }, select: { class: { select: { id: true, name: true } } }, orderBy: { enrollmentDate: 'desc' }, take: 1 } } } } satisfies Prisma.DisciplineRecordInclude;
 
 @Injectable()
 export class DisciplineService {
