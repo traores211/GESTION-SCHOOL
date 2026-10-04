@@ -96,7 +96,7 @@ function FamilyGate({ childId }: { childId: string }) {
       .catch(() => setRows([]));
   }, [childId]);
   if (!rows) return <TableSkeleton columns={3} rows={4} />;
-  if (rows.length === 0) return <EmptyState title="Aucun passage enregistré">Les arrivées et les sorties de votre enfant apparaîtront ici dès que l&apos;établissement les enregistre au portail.</EmptyState>;
+  if (rows.length === 0) return <EmptyState title="Aucun passage enregistré">Les arrivées et les sorties apparaîtront ici dès que l&apos;établissement les enregistre au portail.</EmptyState>;
   return (
     <div className="table-wrap">
       <table>
@@ -394,7 +394,7 @@ function PortalContent() {
 
   return (
     <>
-      <PageHeader title="Mes enfants" description="Suivi scolaire : résultats, bulletins, absences, emploi du temps et scolarité." />
+      <PageHeader title={isPupil ? "Mon espace élève" : "Mes enfants"} description={isPupil ? "Mes résultats, mes bulletins, mes absences, mon emploi du temps et mes devoirs." : "Suivi scolaire : résultats, bulletins, absences, emploi du temps et scolarité."} />
 
       {children && children.length > 1 && (
         <div className="portal-children" role="group" aria-label="Choisir un enfant">
@@ -549,7 +549,7 @@ function PortalContent() {
               {!records ? (
                 <div className="skeleton" style={{ height: 100 }} />
               ) : records.length === 0 ? (
-                <EmptyState title="Rien à signaler">Aucune observation ni sanction n&apos;a été enregistrée pour votre enfant.</EmptyState>
+                <EmptyState title="Rien à signaler">Aucune observation ni sanction n&apos;a été enregistrée.</EmptyState>
               ) : (
                 records.map((r) => (
                   <div key={r.id} className="portal-line" style={{ alignItems: "flex-start" }}>
@@ -683,7 +683,7 @@ function PortalContent() {
 
 export default function ParentPortalPage() {
   return (
-    <Shell title="Mon espace parent">
+    <Shell title={typeof window !== "undefined" && getStoredUser()?.role === "ELEVE" ? "Mon espace élève" : "Mon espace parent"}>
       <PortalContent />
     </Shell>
   );

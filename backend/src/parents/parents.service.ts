@@ -60,6 +60,8 @@ export class ParentsService {
               { lastName: { contains: search, mode: 'insensitive' } },
               { phone: { contains: search, mode: 'insensitive' } },
               { email: { contains: search, mode: 'insensitive' } },
+              // Also by the name of one of the children of this school
+              { students: { some: { schoolId: user.schoolId, OR: [{ firstName: { contains: search, mode: 'insensitive' } }, { lastName: { contains: search, mode: 'insensitive' } }] } } },
             ],
           }
         : {}),
