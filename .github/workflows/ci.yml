@@ -116,6 +116,8 @@ jobs:
         run: node test/e2e-promotion.js
       - name: End-to-end — school gate (arrivals, departures, QR cards)
         run: node test/e2e-gate.js
+      - name: End-to-end — assisted entry (spoken roll call and marks, photographed sheet)
+        run: node test/e2e-smart-entry.js
       - name: End-to-end — no credential in any response
         run: node test/e2e-leaks.js
       - name: API log

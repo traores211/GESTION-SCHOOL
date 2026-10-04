@@ -41,6 +41,7 @@ import { PlatformModule } from './platform/platform.module';
 import { DocumentsModule } from './documents/documents.module';
 import { PromotionModule } from './promotion/promotion.module';
 import { GateModule } from './gate/gate.module';
+import { SmartEntryModule } from './smart-entry/smart-entry.module';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { GateModule } from './gate/gate.module';
     DocumentsModule,
     PromotionModule,
     GateModule,
+    SmartEntryModule,
   ],
   controllers: [AppController],
   // Credentials are stripped from every JSON response, whatever a service returns.
