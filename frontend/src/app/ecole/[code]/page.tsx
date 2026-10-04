@@ -101,6 +101,15 @@ export default function SchoolShowcasePage() {
 
   useEffect(() => {
     if (data) document.title = `${data.name}${data.city ? ` · ${data.city}` : ""}`;
+    // The tab shows the icon of the school: its favicon when it has one, otherwise its logo
+    const icon = api.mediaUrl(data?.content?.faviconUrl) || api.mediaUrl(data?.logoUrl);
+    if (!icon) return;
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]') ?? document.head.appendChild(Object.assign(document.createElement("link"), { rel: "icon" }));
+    const former = link.href;
+    link.href = icon;
+    return () => {
+      link.href = former;
+    };
   }, [data]);
 
   useEffect(() => {

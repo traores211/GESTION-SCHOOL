@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { PushService } from './push.service';
 
 /** What a notification is about; an account may mute a category. */
 export const NOTIFICATION_CATEGORIES = ['GATE', 'GRADES', 'DOCUMENTS', 'ATTENDANCE'] as const;
@@ -8,7 +9,10 @@ export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly push: PushService,
+  ) {}
 
   /** Internal helper used by other modules (attendance, billing, admissions...) to push a notification. */
   async notify(userId: string | null | undefined, subject: string, message: string, type: string = 'in_app', category?: NotificationCategory) {
@@ -17,9 +21,12 @@ export class NotificationsService {
       const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { notificationPrefs: true } });
       if (this.muted(user?.notificationPrefs).includes(category)) return null;
     }
-    return this.prisma.notification.create({
+    const created = await this.prisma.notification.create({
       data: { userId, subject, message, type },
     });
+    // The devices of the account are woken, without waiting and without any content
+    void this.push.wake(userId).catch(() => undefined);
+    return created;
   }
 
   private muted(prefs: unknown): string[] {

@@ -8,7 +8,7 @@ import { schoolCode, schoolYear } from './subscription-rules';
 /** Roles that reach every school of their group (or of the platform) without a membership. */
 const GROUP_ADMINS = ['SUPER_ADMIN', 'ADMIN_ORGANISATION'];
 /** Roles a group administrator may give in a school. */
-export const MEMBER_ROLES = ['DIRECTOR', 'SECRETARY', 'COMPTABLE', 'ENSEIGNANT'] as const;
+export const MEMBER_ROLES = ['DIRECTOR', 'SECRETARY', 'COMPTABLE', 'ENSEIGNANT', 'SURVEILLANT', 'EDUCATEUR'] as const;
 
 export interface SchoolInput {
   name: string;

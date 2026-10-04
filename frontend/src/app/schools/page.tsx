@@ -29,7 +29,7 @@ interface Member {
   open: boolean;
 }
 
-const MEMBER_ROLES = ["DIRECTOR", "SECRETARY", "COMPTABLE", "ENSEIGNANT"];
+const MEMBER_ROLES = ["DIRECTOR", "SECRETARY", "COMPTABLE", "ENSEIGNANT", "SURVEILLANT", "EDUCATEUR"];
 const EMPTY = { name: "", city: "", phone: "" };
 
 function SchoolsContent() {

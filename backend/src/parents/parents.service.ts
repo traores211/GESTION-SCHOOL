@@ -3,7 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateParentDto, GuardianLinkDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
-import { MAX_LIST } from '../common/pagination';
+import { Prisma } from '@prisma/client';
+import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
 
 /** Quality of the link deduced from the free text kept on the parent record ("Père", "Mère", "Tuteur"). */
 export function relationOf(relationship: string | null | undefined): string {
@@ -45,28 +46,35 @@ export class ParentsService {
     });
   }
 
-  findAll(user: AuthUser, search?: string) {
+  /** Guardians of the school. Paged when `page.page` is given ({ items, total, … }), otherwise a capped array. */
+  async findAll(user: AuthUser, search?: string, page?: PageQueryDto) {
     if (!user.schoolId) return [];
-    return this.prisma.parent.findMany({
-      take: MAX_LIST,
-      where: {
-        students: { some: { schoolId: user.schoolId } },
-        archivedAt: null,
-        ...(search
-          ? {
-              OR: [
-                { firstName: { contains: search, mode: 'insensitive' } },
-                { lastName: { contains: search, mode: 'insensitive' } },
-                { phone: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-      // Only the children of this school: a parent of a group may also have children elsewhere
-      include: { students: { where: { schoolId: user.schoolId }, select: { id: true, firstName: true, lastName: true, matricule: true } } },
-      orderBy: [{ lastName: 'asc' }],
-    });
+    search = page?.q ?? search;
+    const where: Prisma.ParentWhereInput = {
+      students: { some: { schoolId: user.schoolId } },
+      archivedAt: null,
+      ...(search
+        ? {
+            OR: [
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } },
+              { phone: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.parent.findMany({
+        where,
+        // Only the children of this school: a parent of a group may also have children elsewhere
+        include: { students: { where: { schoolId: user.schoolId }, select: { id: true, firstName: true, lastName: true, matricule: true } } },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        ...pageArgs(page),
+      }),
+      page?.page ? this.prisma.parent.count({ where }) : Promise.resolve(0),
+    ]);
+    return pageResult(page, items, total);
   }
 
   async findOne(user: AuthUser, id: string) {

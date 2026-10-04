@@ -1,6 +1,6 @@
 import { IsDateString, IsEmail, IsIn, IsNumber, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
 
-const STAFF_ROLES = ['DIRECTOR', 'SECRETARY', 'COMPTABLE', 'ENSEIGNANT'] as const;
+const STAFF_ROLES = ['DIRECTOR', 'SECRETARY', 'COMPTABLE', 'ENSEIGNANT', 'SURVEILLANT', 'EDUCATEUR'] as const;
 
 export class CreateStaffDto {
   @IsString()

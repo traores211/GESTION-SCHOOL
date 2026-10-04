@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
 import { inSchool } from '../platform/group.service';
 import { FINANCE } from '../common/roles';
 import { StaffProfileDto } from './dto/staff-profile.dto';
@@ -69,22 +71,24 @@ export class StaffService {
     return { ...row, staffMember: { ...row.staffMember, bankAccount: undefined, bankName: undefined } };
   }
 
-  async findAll(user: AuthUser, role?: string, archived = false) {
+  /** Staff of the school. Paged when `page.page` is given ({ items, total, … }), otherwise a capped array. */
+  async findAll(user: AuthUser, role?: string, archived = false, page?: PageQueryDto) {
     if (!user.schoolId) return [];
-    const users = await this.prisma.user.findMany({
-      where: {
+    const where: Prisma.UserWhereInput = {
+      AND: [{
         // Staff shared with another school of the group stay listed in each of their schools
         ...inSchool(user.schoolId),
         staffMember: { isNot: null },
         status: archived ? 'ARCHIVED' : { not: 'ARCHIVED' },
         ...(role ? { role: role as never } : {}),
-      },
-      include: {
-        staffMember: { include: { classes: true } },
-      },
-      orderBy: [{ lastName: 'asc' }],
-    });
-    return users.map(({ password, totpSecret, ...rest }) => this.visible(user, rest));
+      }],
+      ...(page?.q ? { OR: [{ firstName: { contains: page.q, mode: 'insensitive' } }, { lastName: { contains: page.q, mode: 'insensitive' } }, { email: { contains: page.q, mode: 'insensitive' } }] } : {}),
+    };
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({ where, include: { staffMember: { include: { classes: true } } }, orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }], ...pageArgs(page) }),
+      page?.page ? this.prisma.user.count({ where }) : Promise.resolve(0),
+    ]);
+    return pageResult(page, users.map(({ password, totpSecret, ...rest }) => this.visible(user, rest)), total);
   }
 
   async findOne(user: AuthUser, id: string) {

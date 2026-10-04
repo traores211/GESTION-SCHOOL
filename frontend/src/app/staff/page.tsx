@@ -24,6 +24,8 @@ const ROLE_LABELS: Record<string, string> = {
   SECRETARY: "Secrétaire",
   COMPTABLE: "Comptable",
   ENSEIGNANT: "Enseignant",
+  SURVEILLANT: "Surveillant",
+  EDUCATEUR: "Éducateur",
 };
 
 const today = () => new Date().toISOString().slice(0, 10);

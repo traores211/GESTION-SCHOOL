@@ -5,7 +5,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { OFFICE, TEACHING } from '../common/roles';
+import { OFFICE, FIELD } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { StudentsService } from './students.service';
 import { CreateStudentDto } from './dto/create-student.dto';
@@ -37,7 +37,7 @@ class StudentQueryDto extends PageQueryDto {
 @Controller('students')
 @ApiTags('Students')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(...TEACHING, 'COMPTABLE')
+@Roles(...FIELD, 'COMPTABLE')
 @ApiBearerAuth()
 export class StudentsController {
   constructor(

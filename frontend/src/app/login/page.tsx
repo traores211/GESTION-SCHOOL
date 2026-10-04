@@ -49,7 +49,8 @@ function LoginForm() {
       setSession(data.accessToken, data.user);
       const next = params.get("next");
       const safeNext = next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : null;
-      router.push(["PARENT", "ELEVE"].includes(data.user.role) ? "/portal" : safeNext || "/dashboard");
+      // Families go to their portal; supervisors start at the gate (they have no dashboard)
+      router.push(["PARENT", "ELEVE"].includes(data.user.role) ? "/portal" : safeNext || (["SURVEILLANT", "EDUCATEUR"].includes(data.user.role) ? "/gate" : "/dashboard"));
     } catch (err) {
       if (err instanceof ApiError && (err.body as { code?: string } | undefined)?.code === "TOTP_REQUIRED") {
         if (needsCode) setError(errorMessage(err));

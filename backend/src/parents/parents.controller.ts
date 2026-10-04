@@ -8,6 +8,15 @@ import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { ParentsService } from './parents.service';
 import { CreateParentDto, GuardianLinkDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { PageQueryDto } from '../common/pagination';
+
+class ParentQueryDto extends PageQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+}
 
 @Controller('parents')
 @ApiTags('Parents')
@@ -23,8 +32,8 @@ export class ParentsController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query('search') search?: string) {
-    return this.parentsService.findAll(user, search);
+  findAll(@CurrentUser() user: AuthUser, @Query() q: ParentQueryDto) {
+    return this.parentsService.findAll(user, q.search, q);
   }
 
   @Get(':id')

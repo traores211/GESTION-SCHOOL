@@ -56,6 +56,8 @@ export const ROLE_LABELS: Record<string, string> = {
   SECRETARY: "Secrétaire",
   COMPTABLE: "Comptable",
   ENSEIGNANT: "Enseignant",
+  SURVEILLANT: "Surveillant",
+  EDUCATEUR: "Éducateur",
   ELEVE: "Élève",
   PARENT: "Parent",
 };

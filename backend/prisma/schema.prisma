@@ -153,6 +153,8 @@ enum UserRole {
   SECRETARY             // School secretary
   COMPTABLE             // Accountant
   ENSEIGNANT            // Teacher
+  SURVEILLANT           // Supervisor: gate, roll call, school life (no marks, no money)
+  EDUCATEUR             // Educator: same reach as a supervisor
   ELEVE                 // Student
   PARENT                // Parent
 }
@@ -259,6 +261,7 @@ model User {
   refreshTokens     RefreshToken[]
   passwordResets    PasswordReset[]
   pupil             Student? @relation("PupilAccount")
+  pushSubscriptions PushSubscription[]
   /// What the account does not want to be notified of: { muted: ["GATE", "GRADES", …] }
   notificationPrefs Json     @default("{}")
   /// Schools this account may work in; schoolId above is the one currently open.
@@ -1068,6 +1071,20 @@ model AuditLog {
 }
 
 // ==================== Notifications ====================
+
+/// A device that asked to be woken when its account gets a notification (web push).
+model PushSubscription {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Address given by the browser's push service; requests only go to the known services
+  endpoint          String   @unique
+  failures          Int      @default(0)
+  lastUsedAt        DateTime?
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+}
 
 model Notification {
   id                String   @id @default(cuid())

@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { MANAGEMENT, OFFICE, TEACHING } from '../common/roles';
+import { MANAGEMENT, OFFICE, FIELD } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { ClassesService } from './classes.service';
 import { CreateClassDto } from './dto/create-class.dto';
@@ -12,7 +12,7 @@ import { UpdateClassDto } from './dto/update-class.dto';
 @Controller('classes')
 @ApiTags('Classes')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(...TEACHING)
+@Roles(...FIELD)
 @ApiBearerAuth()
 export class ClassesController {
   constructor(private readonly classesService: ClassesService) {}

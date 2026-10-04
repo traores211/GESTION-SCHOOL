@@ -76,6 +76,14 @@ const cleanup = async () => {
     ok(updated.status === 200 && links.students.some((s) => s.id === elsewhere.id) && !links.students.some((s) => s.id === brother.body.id), "changing the children here keeps the child enrolled in the other school");
     ok(links.guardianships.length === 1 && links.guardianships[0].studentId === pupil.body.id, 'and the description of the removed link is dropped');
 
+    console.log('Paged lists');
+    const page = await secretary('GET', `/parents?page=1&pageSize=5&q=${encodeURIComponent(TAG)}`);
+    ok(page.status === 200 && page.body.total === 1 && page.body.items.length === 1 && page.body.pageSize === 5, 'guardians are paged on request, with search', page.body);
+    ok(Array.isArray((await secretary('GET', '/parents?search=a')).body), 'and still returned as a plain list without a page');
+    const staffPage = await admin('GET', '/staff?page=1&pageSize=3');
+    ok(staffPage.status === 200 && staffPage.body.items.length === 3 && staffPage.body.total > 3 && staffPage.body.items.every((u) => u.password === undefined), 'staff are paged on request', staffPage.body && { total: staffPage.body.total });
+    ok((await admin('GET', '/staff?page=0')).status === 400, 'a page below 1 is refused');
+
     console.log('Staff file');
     const staff = await admin('POST', '/staff', { email: 'surveillant@test-dossier.local', firstName: 'Kouadio', lastName: TAG, role: 'SECRETARY', position: 'Surveillant général', hireDate: '2023-09-01' });
     ok(staff.status === 201, 'a staff member is hired', staff.body);

@@ -4,7 +4,7 @@ import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength } from '
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { OFFICE, TEACHING } from '../common/roles';
+import { FIELD, OFFICE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { PageQueryDto } from '../common/pagination';
 import { GateService } from './gate.service';
@@ -86,32 +86,32 @@ export class GateController {
   }
 
   @Post('scan')
-  @Roles(...TEACHING)
+  @Roles(...FIELD)
   @HttpCode(HttpStatus.OK)
   scan(@CurrentUser() user: AuthUser, @Body() dto: ScanDto) {
     return this.gate.scan(user, dto.token, dto.accessPoint);
   }
 
   @Post('events')
-  @Roles(...TEACHING)
+  @Roles(...FIELD)
   record(@CurrentUser() user: AuthUser, @Body() dto: GateEventDto) {
     return this.gate.record(user, dto);
   }
 
   @Get('events')
-  @Roles(...TEACHING)
+  @Roles(...FIELD)
   events(@CurrentUser() user: AuthUser, @Query() q: GateQueryDto) {
     return this.gate.events(user, q, q);
   }
 
   @Get('today')
-  @Roles(...TEACHING)
+  @Roles(...FIELD)
   today(@CurrentUser() user: AuthUser) {
     return this.gate.today(user);
   }
 
   @Get('students/:studentId/pick-up')
-  @Roles(...TEACHING)
+  @Roles(...FIELD)
   pickUp(@CurrentUser() user: AuthUser, @Param('studentId') studentId: string) {
     return this.gate.pickUp(user, studentId);
   }

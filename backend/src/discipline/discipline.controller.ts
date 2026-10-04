@@ -4,7 +4,7 @@ import { IsBoolean, IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLeng
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { MANAGEMENT, TEACHING } from '../common/roles';
+import { MANAGEMENT, FIELD } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { PageQueryDto } from '../common/pagination';
 import { DISCIPLINE_KINDS, DisciplineKind, DisciplineService } from './discipline.service';
@@ -66,7 +66,7 @@ class DisciplineQueryDto extends PageQueryDto {
 @Controller('discipline')
 @ApiTags('Discipline')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(...TEACHING)
+@Roles(...FIELD)
 @ApiBearerAuth()
 export class DisciplineController {
   constructor(private readonly discipline: DisciplineService) {}

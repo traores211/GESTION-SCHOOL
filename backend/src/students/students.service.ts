@@ -8,6 +8,7 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { Prisma } from '@prisma/client';
 import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
 import { SequenceService } from '../infra/sequence.service';
+import { OFFICE, SUPERVISION } from '../common/roles';
 
 @Injectable()
 export class StudentsService {
@@ -119,7 +120,10 @@ export class StudentsService {
       const link = guardianships.find((g) => g.parentId === p.id);
       return { ...p, relation: link?.relation ?? relationOf(p.relationship), isLegalGuardian: link?.isLegalGuardian ?? true, isEmergencyContact: link?.isEmergencyContact ?? false, canPickUp: link?.canPickUp ?? true };
     });
-    return { ...file, parents: guardians, attendanceStats, averageScore: gradeAgg._avg.score };
+    // Invoices are for the office and the accounts; marks are not for supervisors and educators
+    const seesMoney = ([...OFFICE, 'COMPTABLE'] as string[]).includes(user.role);
+    const seesMarks = !(SUPERVISION as readonly string[]).includes(user.role);
+    return { ...file, parents: guardians, invoices: seesMoney ? file.invoices : [], grades: seesMarks ? file.grades : [], attendanceStats, averageScore: seesMarks ? gradeAgg._avg.score : null };
   }
 
   async update(user: AuthUser, id: string, dto: UpdateStudentDto) {

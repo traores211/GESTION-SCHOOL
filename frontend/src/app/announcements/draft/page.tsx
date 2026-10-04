@@ -11,6 +11,7 @@ interface Fields {
   tagline: string;
   description: string;
   primaryColor: string;
+  faviconUrl: string;
   history: string;
   values: string;
   directorName: string;
@@ -38,6 +39,7 @@ function toFields(source: Record<string, unknown>): Fields {
     tagline: text(source.tagline),
     description: text(source.description),
     primaryColor: text(source.primaryColor),
+    faviconUrl: text(source.faviconUrl),
     history: text(source.history),
     values: text(source.values),
     directorName: text(source.directorName),
@@ -57,6 +59,7 @@ function toDraft(f: Fields) {
     tagline: f.tagline.trim() || null,
     description: f.description.trim() || null,
     primaryColor: f.primaryColor || null,
+    faviconUrl: f.faviconUrl.trim() || null,
     history: f.history.trim() || null,
     values: f.values.trim() || null,
     directorName: f.directorName.trim() || null,
@@ -178,6 +181,10 @@ function DraftContent() {
               <span className="field-hint">Couleur par défaut</span>
             )}
           </div>
+        </div>
+        <div className="field full">
+          <label htmlFor="sd-favicon">Icône de l&apos;onglet (favicon)</label>
+          <input id="sd-favicon" type="url" className="input" placeholder="https://… (image carrée) ; à défaut, le logo est utilisé" value={fields.faviconUrl} onChange={(e) => set("faviconUrl", e.target.value)} />
         </div>
         {area("description", "Présentation de l'établissement")}
       </div>

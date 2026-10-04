@@ -6,7 +6,7 @@ import { IsDateString, IsIn, IsOptional, IsString, MaxLength } from 'class-valid
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { MANAGEMENT, OFFICE, TEACHING } from '../common/roles';
+import { FIELD, MANAGEMENT, OFFICE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { DOCUMENT_CATEGORIES, DocumentsService, MAX_DOCUMENT_BYTES, UploadedDocument } from './documents.service';
 
@@ -101,7 +101,7 @@ export class DocumentsController {
   // ---- staff
 
   @Get()
-  @Roles(...TEACHING)
+  @Roles(...FIELD)
   list(@CurrentUser() user: AuthUser, @Query() q: ListDto) {
     return this.documents.list(user, q, q.archived === 'true');
   }
@@ -129,7 +129,7 @@ export class DocumentsController {
   }
 
   @Get(':id/file')
-  @Roles(...TEACHING)
+  @Roles(...FIELD)
   async file(@CurrentUser() user: AuthUser, @Param('id') id: string, @Res() res: Response) {
     send(res, await this.documents.file(user, id));
   }

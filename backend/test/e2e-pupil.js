@@ -105,6 +105,12 @@ const cleanup = async () => {
     await parent('PUT', '/notifications/preferences', { muted: [] });
     await mark(11.5);
     ok((await count()) === 1, 'switched on again, it does');
+
+    console.log('Push notifications');
+    const push = await parent('GET', '/notifications/push');
+    ok(push.status === 200 && typeof push.body.enabled === 'boolean' && (push.body.enabled ? push.body.publicKey.length > 80 : push.body.publicKey === null), `the application says whether push is configured (${push.body?.enabled ? 'yes' : 'no: keys not set on this server'})`, push.body);
+    ok((await parent('POST', '/notifications/push/devices', { endpoint: 'http://169.254.169.254/latest/meta-data' })).status === 400, 'a device address that is not a push service of a browser is refused');
+    ok((await parent('POST', '/notifications/push/devices', {})).status === 400, 'and so is an empty request');
   } catch (e) {
     failures++;
     console.log('  ✘ unexpected error', e);

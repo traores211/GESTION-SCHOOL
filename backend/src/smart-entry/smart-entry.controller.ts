@@ -6,7 +6,7 @@ import { IsNumber, IsOptional, IsPositive, IsString, Max, MaxLength, MinLength }
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { MANAGEMENT, TEACHING } from '../common/roles';
+import { FIELD, MANAGEMENT } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { MAX_SHEET_BYTES, SmartEntryService } from './smart-entry.service';
 
@@ -48,13 +48,13 @@ export class SmartEntryController {
   constructor(private readonly smart: SmartEntryService) {}
 
   @Get('capabilities')
-  @Roles(...TEACHING)
+  @Roles(...FIELD)
   capabilities() {
     return { voice: true, image: this.smart.imageReading };
   }
 
   @Post('roll-call/parse')
-  @Roles(...TEACHING)
+  @Roles(...FIELD)
   @HttpCode(HttpStatus.OK)
   rollCall(@CurrentUser() user: AuthUser, @Body() dto: TranscriptDto) {
     return this.smart.rollCall(user, dto.classId, dto.transcript);

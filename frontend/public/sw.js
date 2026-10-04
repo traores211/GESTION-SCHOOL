@@ -51,6 +51,30 @@ async function networkFirst(request, isNavigation) {
   }
 }
 
+// Push: the server sends no content (nothing about a pupil travels through the push service).
+// The device shows a generic message; the notification itself is read in the application.
+self.addEventListener('push', (event) => {
+  event.waitUntil(
+    self.registration.showNotification('School ERP', {
+      body: "Vous avez une nouvelle notification de l'établissement.",
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: 'school-erp',
+      renotify: true,
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => 'focus' in c);
+      return open ? open.focus() : self.clients.openWindow('/');
+    }),
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;

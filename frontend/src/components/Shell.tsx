@@ -58,6 +58,9 @@ const ADMIN = ["SUPER_ADMIN", "ADMIN_ORGANISATION", "DIRECTOR"];
 const OFFICE = [...ADMIN, "SECRETARY"];
 const TEACHING = [...OFFICE, "ENSEIGNANT"];
 const STAFF = [...TEACHING, "COMPTABLE"];
+/** Supervisors and educators follow the pupils: gate, roll call, school life; no marks, no money. */
+const SUPERVISION = ["SURVEILLANT", "EDUCATEUR"];
+const FIELD = [...TEACHING, ...SUPERVISION];
 
 /** Mirrors the API role groups (backend/src/common/roles.ts): the API enforces them, the menu only hides. */
 const NAV: { group: string; items: NavItem[] }[] = [
@@ -72,14 +75,14 @@ const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "Scolarité",
     items: [
-      { href: "/students", label: "Élèves", icon: GraduationCap, roles: TEACHING },
-      { href: "/classes", label: "Classes", icon: School, roles: TEACHING },
-      { href: "/attendance", label: "Présence", icon: ClipboardCheck, roles: TEACHING },
-      { href: "/gate", label: "Entrées et sorties", icon: DoorOpen, roles: TEACHING },
-      { href: "/quick-entry", label: "Saisie rapide", icon: Mic, roles: TEACHING },
+      { href: "/students", label: "Élèves", icon: GraduationCap, roles: FIELD },
+      { href: "/classes", label: "Classes", icon: School, roles: FIELD },
+      { href: "/attendance", label: "Présence", icon: ClipboardCheck, roles: FIELD },
+      { href: "/gate", label: "Entrées et sorties", icon: DoorOpen, roles: FIELD },
+      { href: "/quick-entry", label: "Saisie rapide", icon: Mic, roles: FIELD },
       { href: "/grades", label: "Notes & bulletins", icon: BookOpen, roles: [...ADMIN, "ENSEIGNANT"] },
       { href: "/homework", label: "Cahier de textes", icon: BookOpenCheck, roles: TEACHING },
-      { href: "/discipline", label: "Vie scolaire", icon: Scale, roles: TEACHING },
+      { href: "/discipline", label: "Vie scolaire", icon: Scale, roles: FIELD },
       { href: "/inbox", label: "Messages des parents", icon: Inbox, roles: OFFICE },
       { href: "/admissions", label: "Admissions", icon: FileSignature, roles: OFFICE },
       { href: "/promotion", label: "Années & passage", icon: CalendarClock, roles: ADMIN },
@@ -252,7 +255,7 @@ export default function Shell({ title, children }: { title: string; children: Re
       </a>
       <div className="sidebar-backdrop" onClick={() => setNavOpen(false)} />
       <aside className="sidebar" id="app-sidebar" aria-label={t("Navigation principale")}>
-        <Link href={user && FAMILY.includes(user.role) ? "/portal" : "/dashboard"} className="sidebar-brand">
+        <Link href={user && FAMILY.includes(user.role) ? "/portal" : user && SUPERVISION.includes(user.role) ? "/gate" : "/dashboard"} className="sidebar-brand">
           <BrandMark />
           <span>
             <span className="sidebar-brand-text">School ERP</span>
