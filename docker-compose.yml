@@ -43,6 +43,25 @@ services:
     networks:
       - school-network
 
+  # Adminer: lightweight DB inspection tool for developers. Dev only (absent from
+  # docker-compose.prod.yml). Reachable at http://localhost:8080 once started with
+  # `docker compose --profile tools up adminer` so it does not take resources by default.
+  adminer:
+    image: adminer:4
+    container_name: school-adminer
+    profiles:
+      - tools
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha-dark
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - school-network
+
   # NestJS Backend
   backend:
     build:
@@ -65,6 +84,10 @@ services:
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-ZGV2LW9ubHktZGF0YS1lbmNyeXB0aW9uLWtleS0zMiE=}
       API_URL: http://localhost:4000
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:1300}
+      # SaaS portal hostname and the suffix under which schools get a free subdomain
+      # (<slug>.<suffix>). Leave empty in dev to fall back on localhost.
+      PLATFORM_HOSTNAME: ${PLATFORM_HOSTNAME:-}
+      PLATFORM_SUBDOMAIN_SUFFIX: ${PLATFORM_SUBDOMAIN_SUFFIX:-}
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "1000"
       # `nest start --watch` uses the TypeScript watcher: file events do not cross Windows bind mounts

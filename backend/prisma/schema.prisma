@@ -27,6 +27,7 @@ model Organisation {
   trialEndsAt       DateTime?
   isActive          Boolean  @default(true)
   schools           School[]
+  domains           SchoolDomain[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -109,6 +110,7 @@ model School {
   rooms                 Room[]
   timetableSessions     TimetableSession[]
   timetableImports      TimetableImport[]
+  domains               SchoolDomain[]
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -266,6 +268,8 @@ model User {
   notificationPrefs Json     @default("{}")
   /// Schools this account may work in; schoolId above is the one currently open.
   memberships       SchoolMembership[]
+  /// Custom domains added by this account (platform or group administrator).
+  createdDomains    SchoolDomain[]
 
   @@index([email])
   @@index([role])
@@ -285,6 +289,58 @@ model SchoolMembership {
 
   @@unique([userId, schoolId])
   @@index([schoolId])
+}
+
+/// Custom domain or alias pointing at a school: the HTTP Host header is resolved against this
+/// table before any tenant decision is taken. A row stays PENDING until its DNS has been verified
+/// (TXT challenge). Only one hostname can point at a school at a time, platform-wide.
+///
+/// kind:
+///   PLATFORM             — the main SaaS portal (mon-saas-ecole.ci), not school-scoped
+///   SUBDOMAIN            — subdomain of the platform (ecole1.mon-saas-ecole.ci), auto-trusted
+///   CUSTOM_DOMAIN        — fully custom hostname (mon-ecole-1.ci), needs DNS verification
+///   CUSTOM_DOMAIN_ALIAS  — an additional hostname pointing at the same school (www.mon-ecole-1.ci)
+///
+/// status:
+///   PENDING     — created, waiting for the DNS record
+///   VERIFYING   — a verification attempt is in flight
+///   ACTIVE      — verified and in use
+///   SUSPENDED   — temporarily disabled by the platform administrator
+///   FAILED      — last verification attempt failed; stays usable only if previously ACTIVE
+///   REMOVED     — soft-deleted; kept for audit
+model SchoolDomain {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  school             School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  organisationId     String
+  organisation       Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  hostname           String
+  kind               String   @default("CUSTOM_DOMAIN")
+  status             String   @default("PENDING")
+  isPrimary          Boolean  @default(false)
+  /// Secret token the school must publish as a DNS TXT record _school-verify.<hostname>
+  verificationToken  String
+  /// DNS_TXT | HTTP_FILE
+  verificationMethod String   @default("DNS_TXT")
+  verifiedAt         DateTime?
+  /// PENDING | ISSUED | FAILED | NOT_APPLICABLE (for internal subdomains)
+  sslStatus          String   @default("PENDING")
+  sslIssuedAt        DateTime?
+  lastCheckedAt      DateTime?
+  lastError          String?
+  notes              String?
+  createdById        String?
+  createdBy          User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // A hostname can only point at one school on the whole platform (prevents takeover).
+  @@unique([hostname])
+  // Only one primary domain per school; the partial unique constraint is created by the migration,
+  // Prisma does not model partial indexes but the DDL carries it (WHERE "isPrimary" = true).
+  @@index([schoolId])
+  @@index([organisationId])
+  @@index([status])
 }
 
 /// Rotating refresh token (stored hashed). A reused revoked token revokes its whole family.
