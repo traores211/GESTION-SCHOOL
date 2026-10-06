@@ -66,6 +66,16 @@ const call = (token, method, path, body, host) =>
   // Clean up any left-over row from a previous failed run.
   await prisma.schoolDomain.deleteMany({ where: { hostname: { in: ['e2e-domain-1.test', 'e2e-domain-takeover.test'] } } });
 
+  // The default plan (STARTER) caps customDomains to 0; grant an override on both organisations so
+  // this test exercises the domain logic, not the quota logic (which has its own e2e).
+  for (const o of [schoolA, schoolB]) {
+    await prisma.organisationQuotaOverride.upsert({
+      where: { organisationId: o.organisationId },
+      update: { customDomains: 10 },
+      create: { organisationId: o.organisationId, customDomains: 10 },
+    });
+  }
+
   console.log(`Direction A = ${dirA.email} (${schoolA.code})`);
   console.log(`Direction B = ${dirB.email} (${schoolB.code})`);
 
@@ -130,6 +140,8 @@ const call = (token, method, path, body, host) =>
     ok(logs.some((l) => l.action === 'CREATE') && logs.some((l) => l.action === 'DELETE'), 'CREATE and DELETE are present in the audit journal');
   } finally {
     await prisma.schoolDomain.deleteMany({ where: { hostname: { in: ['e2e-domain-1.test', 'e2e-domain-takeover.test'] } } });
+    // Remove the quota overrides we added at the start.
+    await prisma.organisationQuotaOverride.deleteMany({ where: { organisationId: { in: [schoolA.organisationId, schoolB.organisationId] } } });
     await prisma.$disconnect();
   }
 

@@ -6,12 +6,14 @@ import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { assertYearOpen } from '../common/year-guard';
 import { PUBLIC_USER } from '../common/sensitive-fields.interceptor';
+import { QuotaService } from '../platform/quota.service';
 
 @Injectable()
 export class ClassesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scope: TeacherScopeService,
+    private readonly quota: QuotaService,
   ) {}
 
   private async resolveAcademicYearId(schoolId: string, academicYearId?: string) {
@@ -27,9 +29,10 @@ export class ClassesService {
 
   async create(user: AuthUser, dto: CreateClassDto) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
+    await this.quota.assertCanCreate(user, 'classes');
     const academicYearId = await this.resolveAcademicYearId(user.schoolId, dto.academicYearId);
 
-    return this.prisma.class.create({
+    const created = await this.prisma.class.create({
       data: {
         schoolId: user.schoolId,
         academicYearId,
@@ -43,6 +46,9 @@ export class ClassesService {
       },
       include: { teacher: { include: { user: PUBLIC_USER } }, academicYear: true },
     });
+    const school = await this.prisma.school.findUnique({ where: { id: user.schoolId }, select: { organisationId: true } });
+    if (school) await this.quota.invalidate(school.organisationId);
+    return created;
   }
 
   private async roomOf(schoolId: string, roomId?: string | null) {

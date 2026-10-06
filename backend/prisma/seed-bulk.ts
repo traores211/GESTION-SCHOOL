@@ -684,8 +684,8 @@ async function main() {
 
   const northOrg = await prisma.organisation.upsert({
     where: { slug: 'reseau-nord' },
-    update: {},
-    create: { name: 'Réseau des Écoles Techniques du Nord', slug: 'reseau-nord', email: 'contact@reseau-nord.local', city: 'Korhogo' },
+    update: { subscriptionPlan: 'ENTERPRISE' },
+    create: { name: 'Réseau des Écoles Techniques du Nord', slug: 'reseau-nord', email: 'contact@reseau-nord.local', city: 'Korhogo', subscriptionPlan: 'ENTERPRISE' },
   });
 
   const plans: SchoolPlan[] = [

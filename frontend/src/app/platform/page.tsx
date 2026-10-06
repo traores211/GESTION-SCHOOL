@@ -1,10 +1,33 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Building2, History } from "lucide-react";
+import { Building2, Gauge, History } from "lucide-react";
 import Shell from "../../components/Shell";
 import { EmptyState, Modal, PageHeader, TableSkeleton, useFeedback } from "../../components/ui";
 import { api, errorMessage } from "../../lib/api";
+
+const QUOTA_KEYS = ["students", "staffUsers", "classes", "schools", "customDomains", "storageMb", "smsMonthly"] as const;
+type QuotaKey = (typeof QUOTA_KEYS)[number];
+const QUOTA_LABEL: Record<QuotaKey, string> = {
+  students: "Élèves",
+  staffUsers: "Comptes du personnel",
+  classes: "Classes",
+  schools: "Établissements",
+  customDomains: "Domaines personnalisés",
+  storageMb: "Stockage (Mo)",
+  smsMonthly: "SMS / mois",
+};
+
+interface QuotaOverrideForm {
+  students: string;
+  staffUsers: string;
+  classes: string;
+  schools: string;
+  customDomains: string;
+  storageMb: string;
+  smsMonthly: string;
+  notes: string;
+}
 
 type LifecycleStatus = "PROSPECT" | "PENDING" | "TRIAL" | "ACTIVE" | "SUSPENDED" | "EXPIRED" | "CLOSED";
 
@@ -66,6 +89,7 @@ function PlatformContent() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<{ organisations: number; schools: number; activeSchools: number; students: number; parents: number; teachers: number; admissionsInProgress: number } | null>(null);
   const [history, setHistory] = useState<{ org: Organisation; events: LifecycleEvent[] | null } | null>(null);
+  const [quotaEdit, setQuotaEdit] = useState<{ org: Organisation; form: QuotaOverrideForm } | null>(null);
 
   useEffect(() => {
     api.get<NonNullable<typeof stats>>("/dashboard/platform").then(setStats).catch(() => {});
@@ -130,6 +154,31 @@ function PlatformContent() {
   };
 
   const closeHistory = () => setHistory(null);
+
+  const openQuotas = (o: Organisation) => {
+    setQuotaEdit({ org: o, form: { students: "", staffUsers: "", classes: "", schools: "", customDomains: "", storageMb: "", smsMonthly: "", notes: "" } });
+  };
+  const closeQuotas = () => setQuotaEdit(null);
+  const saveQuotas = async () => {
+    if (!quotaEdit) return;
+    const parse = (s: string) => (s.trim() === "" ? null : Number(s));
+    try {
+      await api.patch(`/platform/organisations/${quotaEdit.org.id}/quota`, {
+        students: parse(quotaEdit.form.students),
+        staffUsers: parse(quotaEdit.form.staffUsers),
+        classes: parse(quotaEdit.form.classes),
+        schools: parse(quotaEdit.form.schools),
+        customDomains: parse(quotaEdit.form.customDomains),
+        storageMb: parse(quotaEdit.form.storageMb),
+        smsMonthly: parse(quotaEdit.form.smsMonthly),
+        notes: quotaEdit.form.notes || undefined,
+      });
+      feedback.success("Quotas mis à jour", quotaEdit.org.name);
+      closeQuotas();
+    } catch (err) {
+      feedback.error("Modification impossible", errorMessage(err));
+    }
+  };
 
   const quickActionLabel: Record<LifecycleStatus, string> = {
     PROSPECT: "Prospect",
@@ -243,6 +292,9 @@ function PlatformContent() {
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => openHistory(o)} aria-label={`Historique de ${o.name}`}>
                       <History size={14} /> Historique
                     </button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => openQuotas(o)} aria-label={`Quotas de ${o.name}`}>
+                      <Gauge size={14} /> Quotas
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -298,6 +350,45 @@ function PlatformContent() {
                 ))}
               </ol>
             )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={!!quotaEdit}
+        onClose={closeQuotas}
+        title={quotaEdit ? `Quotas — ${quotaEdit.org.name}` : ""}
+        description="Laissez un champ vide pour conserver le quota de la formule. Un nombre (y compris zéro) remplace le quota par défaut."
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={closeQuotas}>
+              Annuler
+            </button>
+            <button type="button" className="btn btn-primary" onClick={saveQuotas}>
+              Enregistrer
+            </button>
+          </>
+        }
+      >
+        {quotaEdit && (
+          <div style={{ display: "grid", gap: 10 }}>
+            {QUOTA_KEYS.map((key) => (
+              <label key={key} style={{ display: "grid", gap: 4 }}>
+                <span className="cell-sub">{QUOTA_LABEL[key]}</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  placeholder="— quota de la formule —"
+                  value={quotaEdit.form[key]}
+                  onChange={(e) => setQuotaEdit({ ...quotaEdit, form: { ...quotaEdit.form, [key]: e.target.value } })}
+                />
+              </label>
+            ))}
+            <label style={{ display: "grid", gap: 4 }}>
+              <span className="cell-sub">Notes (facultatives)</span>
+              <input className="input" value={quotaEdit.form.notes} onChange={(e) => setQuotaEdit({ ...quotaEdit, form: { ...quotaEdit.form, notes: e.target.value } })} />
+            </label>
           </div>
         )}
       </Modal>

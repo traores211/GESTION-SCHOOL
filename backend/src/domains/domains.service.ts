@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import type { Prisma, SchoolDomain } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { QuotaService } from '../platform/quota.service';
 import { DomainResolverService } from './domain-resolver.service';
 import { CreateDomainDto, UpdateDomainDto } from './domains.dto';
 import { checkDnsVerification, generateVerificationToken, verificationRecordName } from './verification';
@@ -22,6 +23,7 @@ export class DomainsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly resolver: DomainResolverService,
+    private readonly quota: QuotaService,
   ) {}
 
   // ----------------------------------------------------------------- read
@@ -62,6 +64,8 @@ export class DomainsService {
     if (existing) throw new ConflictException("Ce nom de domaine est déjà associé à un établissement");
 
     const kind = dto.kind ?? 'CUSTOM_DOMAIN';
+    // SUBDOMAIN of the platform does not count against the quota (we control the parent zone).
+    if (kind !== 'SUBDOMAIN') await this.quota.assertCanCreate(user, 'customDomains');
     // A subdomain of the platform doesn't need DNS verification (we control the parent zone).
     const auto = kind === 'SUBDOMAIN' && this.isPlatformSubdomain(hostname);
     const created = await this.prisma.schoolDomain.create({
@@ -82,6 +86,7 @@ export class DomainsService {
     });
     if (dto.isPrimary && auto) await this.enforceSinglePrimary(created.schoolId, created.id);
     await this.resolver.invalidate(created.hostname);
+    await this.quota.invalidate(school.organisationId);
     await this.auditEvent(user, 'CREATE', created.id, null, this.auditPayload(created));
     return this.get(user, created.id);
   }
@@ -123,6 +128,7 @@ export class DomainsService {
     await this.assertCanManage(user, row.organisationId);
     await this.prisma.schoolDomain.delete({ where: { id } });
     await this.resolver.invalidate(row.hostname);
+    await this.quota.invalidate(row.organisationId);
     await this.auditEvent(user, 'DELETE', row.id, this.auditPayload(row), null);
     return { ok: true };
   }

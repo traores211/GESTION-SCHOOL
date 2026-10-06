@@ -132,6 +132,8 @@ jobs:
         run: node test/e2e-domains.js
       - name: End-to-end — subscription lifecycle (state machine, timeline, auto-expiry)
         run: node test/e2e-lifecycle.js
+      - name: End-to-end — plan quotas (enforcement, per-organisation override)
+        run: node test/e2e-quotas.js
       - name: API log
         if: failure()
         run: tail -200 /tmp/api.log

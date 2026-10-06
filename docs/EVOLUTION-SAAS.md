@@ -12,7 +12,7 @@ Branche de travail : `feature/saas-multi-tenant`.
 |---|---|---|
 | **L1** | Domaines personnalisés par école (SchoolDomain, résolveur par Host, vérification DNS, écrans d'administration, Adminer en dev) | **Fait** |
 | **L2** | Machine à états école complète (PROSPECT / PENDING / TRIAL / ACTIVE / SUSPENDED / EXPIRED / CLOSED), transitions validées, timeline auditée, auto-expiry du trial, écran d'historique | **Fait** |
-| L3 | Plans & quotas (élèves, utilisateurs, enseignants, stockage, domaines, SMS) + enforcement | À faire |
+| **L3** | Plans & quotas (élèves, utilisateurs, enseignants, classes, écoles, domaines, stockage, SMS) + enforcement 409 QUOTA_EXCEEDED, overrides par organisation, écran super-admin | **Fait** |
 | L4 | Permissions fines (activation de la table `Permission` et `PermissionsGuard`) | À faire |
 | L5 | Nginx multi-vhost + certbot automatique + documentation opérateur | À faire |
 | L6 | Relâchement des uniques globaux (`User.email`, `School.code`, `Invoice.reference`, `Payment.transactionId`) → composites avec `organisationId` | À faire |
@@ -350,4 +350,150 @@ backend/test/e2e-lifecycle.js
 .github/workflows/ci.yml                              (étape e2e-lifecycle)
 frontend/src/app/platform/page.tsx                    (badges, actions dynamiques, timeline)
 docs/EVOLUTION-SAAS.md                                (ce fichier)
+```
+
+---
+
+## Lot 3 — Plans & quotas enforcement
+
+### Analyse
+
+Le brief §16 exige des plans SaaS (STARTER / STANDARD / PREMIUM / ENTERPRISE) avec limites sur
+nombre d'élèves, utilisateurs, enseignants, classes, stockage, campus, SMS, domaines
+personnalisés et flags fonctionnels (IA, statistiques, vitrine avancée). L'audit avait montré
+que la colonne `Organisation.subscriptionPlan` existait (`STARTER`, `PRO`, `ENTERPRISE`) mais
+qu'aucune limite n'était enforced nulle part : un compte sur l'offre la plus basse pouvait
+créer autant d'élèves qu'il voulait.
+
+### Modifications
+
+1. **`backend/src/platform/plans.ts`** — catalogue des plans en dur (3 plans, baseline cohérente
+   avec un établissement ivoirien moyen) : STARTER (300 élèves, 25 comptes personnel, 1 école,
+   0 domaine personnalisé, 1 Go, 500 SMS/mois), PRO (1 500 / 100 / 60 classes / 1 école /
+   1 domaine / 10 Go / 3 000 SMS, IA + vitrine avancée), ENTERPRISE (illimité sauf
+   10 domaines, toutes les options). Flags : `ai`, `advancedShowcase`, `advancedAnalytics`.
+2. **Nouvelle table `OrganisationQuotaOverride`** (clé primaire = `organisationId`, colonnes
+   nullables pour chaque quota + `notes`). Un `null` dit « conserver la valeur du plan » ; un
+   nombre (y compris 0) l'écrase. Les plans vivent en code, les overrides en base.
+3. **`QuotaService`** avec `report(user)` (vue d'ensemble), `assertCanCreate(user, kind)` (throw
+   409 `QUOTA_EXCEEDED` incluant le quota concerné, la limite et l'usage actuel),
+   `hasFeature(user, feature)` et `invalidate(organisationId)`. Cache Redis 30 s par
+   `(organisation, quota)` pour que des créations en rafale restent proches de la vérité.
+4. **Enforcement câblé** dans les 5 services qui créent des ressources comptabilisées :
+   `StudentsService.create` (quota `students`), `ClassesService.create` (`classes`),
+   `StaffService.create` (`staffUsers`), `GroupService.createSchool` (`schools`),
+   `DomainsService.create` (`customDomains`, sauf les sous-domaines auto de la plateforme). Chaque
+   create appelle `assertCanCreate` avant l'écriture et `invalidate` après.
+5. **Nouveaux endpoints** sur `PlatformController` :
+   - `GET  /api/subscription/quotas` — rapport d'usage pour le compte authentifié (plan, flags,
+     usage/limite/exceeded par quota).
+   - `GET  /api/platform/plans` — catalogue (SUPER_ADMIN).
+   - `PATCH /api/platform/organisations/:id/quota` — pose/retire les overrides (SUPER_ADMIN).
+6. **Écran `/platform`** — bouton « Quotas » par organisation, modal d'édition avec un champ par
+   quota (champ vide = baseline du plan, nombre = override).
+7. **Seeds** : `seed.ts` et `seed-bulk.ts` passent les organisations de démo en ENTERPRISE, pour
+   que les 2 575 élèves et la centaine de comptes de la seed-bulk n'excèdent pas les limites
+   STARTER par défaut.
+
+### Base de données
+
+Migration `20261006000200_organisation_quota_overrides` : table + relation vers Organisation
+(cascade). `prisma migrate diff` : no difference.
+
+### API (3 endpoints ajoutés)
+
+- `GET  /api/subscription/quotas` — self-service.
+- `GET  /api/platform/plans` — catalogue admin.
+- `PATCH /api/platform/organisations/:id/quota` — overrides admin.
+- Les 5 endpoints de création existants peuvent maintenant répondre `409 QUOTA_EXCEEDED` avec
+  `{ quota, limit, used }` en plus du message.
+
+### Frontend
+
+- Modal « Quotas » dans `/platform` avec un champ par quota et un champ notes. 0 nouvelle
+  dépendance npm.
+
+### Sécurité
+
+- `409 QUOTA_EXCEEDED` est distinct de `402 SUBSCRIPTION_REQUIRED` (lecture seule) : le premier
+  dit « votre formule est atteinte, négociez un upgrade », le second « votre abonnement est à
+  l'arrêt, payez ».
+- Seuls les SUPER_ADMIN peuvent écrire les overrides (contrôlé par `@Roles` et vérifié par le
+  test e2e).
+- Les plans vivent dans le code source : impossible pour un attaquant qui modifierait la base
+  d'octroyer de nouvelles capacités (il peut au mieux poser un override, ce qui est audité par
+  la table + les logs du service).
+- Rafraîchir le cache après chaque création d'une ressource comptée évite qu'une rafale de
+  créations exploite un quota expiré.
+
+### Tests
+
+- **Unitaires nouveaux** : `plans.spec.ts` (9 tests) — 3 plans baseline, STARTER capé, ENTERPRISE
+  largement illimité, fallback sur plan inconnu, merge d'override numérique, préservation du
+  baseline sur null, respect du 0, helper `isLimited`.
+- **E2E nouveau** : `backend/test/e2e-quotas.js` (10 assertions) — rapport `/subscription/quotas`
+  cohérent avec STARTER, refus 409 d'un domaine personnalisé (quota = 0), override SUPER_ADMIN
+  qui débloque la création, interdiction pour un non-SUPER_ADMIN, remise à zéro de l'override
+  qui restaure la limite baseline.
+- **Suite complète** : **281 tests unitaires** OK (33 suites, +9 vs L2), **30 tests frontend**
+  OK, scénarios **e2e-platform / e2e-lifecycle / e2e-tenancy / e2e-leaks / e2e-group /
+  e2e-domains** rejoués : aucun échec, aucune régression (après ajustement des tests
+  `e2e-group` et `e2e-domains` pour obtenir les overrides nécessaires — ce qui prouve que la
+  nouvelle contrainte est bien active).
+
+### Non-régression
+
+- Seules les méthodes `create` acquièrent l'enforcement ; les lectures, updates et deletes ne
+  sont pas touchés.
+- L'`AuditLog` continue d'enregistrer les actions normales ; les overrides n'écrivent pas
+  d'événement dédié (le journal générique les trace déjà).
+- Les anciennes données (orgs seed) ont été montées à ENTERPRISE lors du passage de la
+  migration + mise à jour one-shot ; les futures orgs d'un seed partent déjà en ENTERPRISE.
+
+### Choix explicites
+
+- **Plans en code, overrides en base** : un nouveau plan ou une refonte des quotas se livre
+  dans une release (relecture, revue, tests). Les overrides restent une action administrative
+  tracée.
+- **Quota `customDomains` compte le CUSTOM_DOMAIN et son ALIAS mais ignore SUBDOMAIN** : les
+  sous-domaines automatiques de la plateforme sont offerts par toutes les formules.
+- **Quota `schools` = STARTER à 1** : la gestion d'un groupe scolaire est explicitement un
+  argument commercial d'ENTERPRISE.
+- **Pas d'enforcement sur les updates** : un élève promu reste comptabilisé, aucune action
+  d'édition ne doit tomber à cause d'un quota.
+
+### Reste à faire
+
+- Afficher le rapport `/subscription/quotas` dans l'écran `/account` (vue utilisateur côté
+  école). Ajouter une alerte visible quand une limite est atteinte à ≥ 90 %.
+- Déclencher la vérification du quota `storageMb` lors de l'upload de documents (actuellement
+  le quota est comptabilisé mais pas enforcé sur l'upload). Lot à part : couvre tous les
+  fichiers (documents, pièces d'admission, photos de staff / élèves, vitrine).
+- Déclencher le quota `smsMonthly` dans le `SmsService` (actuellement comptabilisé via les
+  `MessageLog` existants, mais aucun refus avant envoi).
+
+### Chemins ajoutés / modifiés
+
+```
+backend/prisma/schema.prisma                           (OrganisationQuotaOverride + relation)
+backend/prisma/migrations/20261006000200_organisation_quota_overrides/migration.sql
+backend/prisma/seed.ts                                 (ENTERPRISE sur Demo School Group)
+backend/prisma/seed-bulk.ts                            (ENTERPRISE sur Réseau nord)
+backend/src/platform/plans.ts                          (catalogue, quotas, features)
+backend/src/platform/plans.spec.ts
+backend/src/platform/quota.service.ts
+backend/src/platform/platform.module.ts                (QuotaService + export)
+backend/src/platform/platform.service.ts               (setQuotaOverride)
+backend/src/platform/platform.controller.ts            (3 endpoints + QuotaOverrideDto)
+backend/src/platform/group.service.ts                  (assertCanCreate 'schools' + invalidate)
+backend/src/students/students.service.ts               (assertCanCreate 'students' + invalidate)
+backend/src/classes/classes.service.ts                 (assertCanCreate 'classes' + invalidate)
+backend/src/staff/staff.service.ts                     (assertCanCreate 'staffUsers' + invalidate)
+backend/src/domains/domains.service.ts                 (assertCanCreate 'customDomains' + invalidate)
+backend/test/e2e-quotas.js
+backend/test/e2e-domains.js                            (bump quota before test)
+backend/test/e2e-group.js                              (bump quota after signup)
+.github/workflows/ci.yml                               (étape e2e-quotas)
+frontend/src/app/platform/page.tsx                     (modal Quotas)
+docs/EVOLUTION-SAAS.md                                 (ce fichier)
 ```

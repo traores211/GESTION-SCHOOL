@@ -8,6 +8,7 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { Prisma } from '@prisma/client';
 import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
 import { SequenceService } from '../infra/sequence.service';
+import { QuotaService } from '../platform/quota.service';
 import { OFFICE, SUPERVISION } from '../common/roles';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class StudentsService {
     private readonly prisma: PrismaService,
     private readonly sequences: SequenceService,
     private readonly scope: TeacherScopeService,
+    private readonly quota: QuotaService,
   ) {}
 
   /** Platform-wide unique student number from an atomic counter (safe with simultaneous entries). */
@@ -27,10 +29,11 @@ export class StudentsService {
     if (!user.schoolId) {
       throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
     }
+    await this.quota.assertCanCreate(user, 'students');
     const { classId, entryDate, ...data } = dto;
     const matricule = await this.generateMatricule();
 
-    return this.prisma.student.create({
+    const created = await this.prisma.student.create({
       data: {
         ...data,
         dateOfBirth: new Date(dto.dateOfBirth),
@@ -45,6 +48,11 @@ export class StudentsService {
         enrollments: { include: { class: true }, orderBy: { enrollmentDate: 'desc' }, take: 1 },
       },
     });
+    // Count cache: a fresh read on next create respects the new value within 30 seconds anyway,
+    // but invalidation here keeps the back office's quota meter in sync at once.
+    const school = await this.prisma.school.findUnique({ where: { id: user.schoolId }, select: { organisationId: true } });
+    if (school) await this.quota.invalidate(school.organisationId);
+    return created;
   }
 
   /**

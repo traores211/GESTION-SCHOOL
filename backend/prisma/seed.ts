@@ -26,8 +26,10 @@ async function main() {
   // ---------- Organisation / School ----------
   const org = await prisma.organisation.upsert({
     where: { slug: 'demo-school' },
-    update: {},
-    create: { name: 'Demo School Group', slug: 'demo-school', email: 'contact@school.local' },
+    // ENTERPRISE on seed so the demo data (hundreds of pupils, several schools, dozens of staff)
+    // is above the STARTER caps of a self-service sign-up.
+    update: { subscriptionPlan: 'ENTERPRISE' },
+    create: { name: 'Demo School Group', slug: 'demo-school', email: 'contact@school.local', subscriptionPlan: 'ENTERPRISE' },
   });
 
   const schoolMarketing = {

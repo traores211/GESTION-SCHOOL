@@ -33,6 +33,11 @@ const cleanup = async () => {
     await cleanup();
     const signup = await post('/public/signup', { schoolName: `${TAG} Primaire`, city: 'Abidjan', firstName: 'Aminata', lastName: 'Chef', email: HEAD, password: PASSWORD, consent: true });
     ok(signup.status === 201, 'a school signs up: its head administers the group', signup.body);
+    // Multi-school groups are an ENTERPRISE feature; the sign-up defaults to STARTER (schools = 1).
+    // Grant an override so this test can exercise the group behaviour (its own quota e2e test
+    // covers the limit enforcement separately).
+    const org = await prisma.organisation.findFirst({ where: { email: HEAD } });
+    if (org) await prisma.organisationQuotaOverride.upsert({ where: { organisationId: org.id }, update: { schools: 10, staffUsers: 100 }, create: { organisationId: org.id, schools: 10, staffUsers: 100 } });
     const head = client(await login(HEAD, PASSWORD));
     const outsider = client(await login('admin@school.local', 'admin123'));
     const secretaryOther = client(await login('secretaire@school.local', 'secret123'));

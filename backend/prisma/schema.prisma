@@ -36,6 +36,7 @@ model Organisation {
   schools           School[]
   domains           SchoolDomain[]
   lifecycleEvents   SchoolLifecycleEvent[]
+  quotaOverride     OrganisationQuotaOverride?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -351,6 +352,23 @@ model SchoolDomain {
   @@index([schoolId])
   @@index([organisationId])
   @@index([status])
+}
+
+/// Per-organisation overrides on top of the baseline plan quotas. Plans themselves live in code
+/// (platform/plans.ts); this table lets the editor grant extra capacity to one customer without
+/// touching the shared defaults. A null column means "keep the plan default".
+model OrganisationQuotaOverride {
+  organisationId    String   @id
+  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  students          Int?
+  staffUsers        Int?
+  classes           Int?
+  schools           Int?
+  customDomains     Int?
+  storageMb         Int?
+  smsMonthly        Int?
+  notes             String?
+  updatedAt         DateTime @updatedAt
 }
 
 /// One transition of the subscription state machine (PROSPECT → PENDING → TRIAL → ACTIVE …).

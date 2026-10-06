@@ -10,6 +10,9 @@ import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { PlatformService } from './platform.service';
 import { LifecycleService } from './lifecycle.service';
 import { LIFECYCLE_STATES } from './lifecycle';
+import { QuotaService } from './quota.service';
+import { PLANS, PLAN_IDS, QUOTA_KEYS } from './plans';
+import { IsInt, Min } from 'class-validator';
 
 class SignupDto {
   @IsString()
@@ -90,6 +93,20 @@ class SchoolActiveDto {
   isActive!: boolean;
 }
 
+/** Partial override of the quotas: null (or missing) means "fall back to the plan baseline". */
+class QuotaOverrideDto {
+  @IsOptional() @IsInt() @Min(0) students?: number | null;
+  @IsOptional() @IsInt() @Min(0) staffUsers?: number | null;
+  @IsOptional() @IsInt() @Min(0) classes?: number | null;
+  @IsOptional() @IsInt() @Min(0) schools?: number | null;
+  @IsOptional() @IsInt() @Min(0) customDomains?: number | null;
+  @IsOptional() @IsInt() @Min(0) storageMb?: number | null;
+  @IsOptional() @IsInt() @Min(0) smsMonthly?: number | null;
+
+  @IsOptional() @IsString() @MaxLength(500)
+  notes?: string;
+}
+
 @Controller()
 @ApiTags('Platform')
 export class PlatformController {
@@ -97,6 +114,7 @@ export class PlatformController {
     private readonly platform: PlatformService,
     private readonly limiter: LoginRateLimiter,
     private readonly lifecycle: LifecycleService,
+    private readonly quota: QuotaService,
   ) {}
 
   @Get('public/signup')
@@ -164,5 +182,35 @@ export class PlatformController {
   @ApiBearerAuth()
   history(@Param('id') id: string) {
     return this.lifecycle.history(id);
+  }
+
+  // ------------------------------------------------------------ quotas
+
+  /** Quotas, usage and feature flags of the current user's organisation. */
+  @Get('subscription/quotas')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async myQuotas(@CurrentUser() user: AuthUser) {
+    return (await this.quota.report(user)) ?? { plan: 'STARTER', planLabel: 'Starter', features: PLANS.STARTER.features, quotas: [] };
+  }
+
+  /** Catalogue of plans and their baseline quotas (for the back-office picker). */
+  @Get('platform/plans')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  plans() {
+    return PLAN_IDS.map((id) => PLANS[id]);
+  }
+
+  /** Set the per-organisation overrides on top of the plan baseline. */
+  @Patch('platform/organisations/:id/quota')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  async setQuotaOverride(@Param('id') id: string, @Body() dto: QuotaOverrideDto) {
+    const data = Object.fromEntries(QUOTA_KEYS.map((k) => [k, dto[k] ?? null]));
+    await this.platform.setQuotaOverride(id, { ...data, notes: dto.notes ?? null });
+    return { ok: true };
   }
 }

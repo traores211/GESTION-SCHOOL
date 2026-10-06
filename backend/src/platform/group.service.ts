@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { RedisService } from '../infra/redis.service';
 import { schoolCode, schoolYear } from './subscription-rules';
+import { QuotaService } from './quota.service';
 
 /** Roles that reach every school of their group (or of the platform) without a membership. */
 const GROUP_ADMINS = ['SUPER_ADMIN', 'ADMIN_ORGANISATION'];
@@ -30,6 +31,7 @@ export class GroupService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: RedisService,
+    @Inject(forwardRef(() => QuotaService)) private readonly quota: QuotaService,
   ) {}
 
   private async account(userId: string) {
@@ -113,6 +115,7 @@ export class GroupService {
 
   /** A new school in the group, ready to use: current school year with three terms. */
   async createSchool(user: AuthUser, dto: SchoolInput) {
+    await this.quota.assertCanCreate(user, 'schools');
     const organisationId = await this.organisationOf(user);
     const name = dto.name.trim();
     if (await this.prisma.school.findFirst({ where: { organisationId, name: { equals: name, mode: 'insensitive' } } })) throw new ConflictException('Un établissement du groupe porte déjà ce nom');
@@ -127,6 +130,7 @@ export class GroupService {
       await tx.academicYear.create({ data: { schoolId: created.id, name: year.name, startDate: year.startDate, endDate: year.endDate, isCurrent: true, terms: { create: year.terms } } });
       return created;
     });
+    await this.quota.invalidate(organisationId);
     return { id: school.id, name: school.name, code: school.code, city: school.city, isActive: school.isActive };
   }
 

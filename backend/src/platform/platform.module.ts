@@ -7,12 +7,13 @@ import { GroupController } from './group.controller';
 import { GroupService } from './group.service';
 import { SubscriptionInterceptor } from './subscription.interceptor';
 import { LifecycleService } from './lifecycle.service';
+import { QuotaService } from './quota.service';
 
 @Global()
 @Module({
   imports: [AuthModule],
   controllers: [PlatformController, GroupController],
-  providers: [PlatformService, GroupService, LifecycleService, { provide: APP_INTERCEPTOR, useClass: SubscriptionInterceptor }],
-  exports: [PlatformService, GroupService, LifecycleService],
+  providers: [PlatformService, GroupService, LifecycleService, QuotaService, { provide: APP_INTERCEPTOR, useClass: SubscriptionInterceptor }],
+  exports: [PlatformService, GroupService, LifecycleService, QuotaService],
 })
 export class PlatformModule {}

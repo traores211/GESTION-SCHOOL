@@ -11,6 +11,7 @@ import { AuthUser } from '../common/current-user.decorator';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { passwordProblem } from '../auth/password-policy';
 import { TokenService } from '../auth/token.service';
+import { QuotaService } from '../platform/quota.service';
 
 /** 14-character temporary password that satisfies the password policy (letters and digits). */
 function randomPassword() {
@@ -25,10 +26,12 @@ export class StaffService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokens: TokenService,
+    private readonly quota: QuotaService,
   ) {}
 
   async create(user: AuthUser, dto: CreateStaffDto) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
+    await this.quota.assertCanCreate(user, 'staffUsers');
 
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Un compte existe déjà avec cet email');
@@ -62,6 +65,8 @@ export class StaffService {
       include: { staffMember: true },
     });
 
+    const school = await this.prisma.school.findUnique({ where: { id: user.schoolId }, select: { organisationId: true } });
+    if (school) await this.quota.invalidate(school.organisationId);
     return { ...created, temporaryPassword: dto.password ? undefined : plainPassword, password: undefined, totpSecret: undefined };
   }
 

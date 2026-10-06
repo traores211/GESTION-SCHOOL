@@ -133,6 +133,32 @@ export class PlatformService {
     await this.cache.del(...schoolIds.map((id) => `subscription:${id}`));
   }
 
+  /**
+   * Writes per-organisation quota overrides. A null column removes the override and falls back to
+   * the plan baseline. Platform administrators call this to grant extra capacity to one customer
+   * without changing the shared plans in code.
+   */
+  async setQuotaOverride(organisationId: string, data: { students?: number | null; staffUsers?: number | null; classes?: number | null; schools?: number | null; customDomains?: number | null; storageMb?: number | null; smsMonthly?: number | null; notes?: string | null }) {
+    const org = await this.prisma.organisation.findUnique({ where: { id: organisationId }, select: { id: true } });
+    if (!org) throw new NotFoundException('Organisation introuvable');
+    const payload = {
+      students: data.students ?? null,
+      staffUsers: data.staffUsers ?? null,
+      classes: data.classes ?? null,
+      schools: data.schools ?? null,
+      customDomains: data.customDomains ?? null,
+      storageMb: data.storageMb ?? null,
+      smsMonthly: data.smsMonthly ?? null,
+      notes: data.notes ?? null,
+    };
+    await this.prisma.organisationQuotaOverride.upsert({
+      where: { organisationId },
+      update: payload,
+      create: { organisationId, ...payload },
+    });
+    await this.cache.del(`quota:org-of-user:*`); // best-effort; the per-user cache is 30 s anyway
+  }
+
   // ---------------------------------------------------------------- platform administration
 
   async organisations() {
