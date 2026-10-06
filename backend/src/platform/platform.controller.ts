@@ -8,6 +8,8 @@ import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { PlatformService } from './platform.service';
+import { LifecycleService } from './lifecycle.service';
+import { LIFECYCLE_STATES } from './lifecycle';
 
 class SignupDto {
   @IsString()
@@ -48,8 +50,8 @@ class SignupDto {
 
 class UpdateOrganisationDto {
   @IsOptional()
-  @IsIn(['TRIAL', 'ACTIVE', 'SUSPENDED'])
-  status?: 'TRIAL' | 'ACTIVE' | 'SUSPENDED';
+  @IsIn([...LIFECYCLE_STATES])
+  status?: (typeof LIFECYCLE_STATES)[number];
 
   @IsOptional()
   @IsIn(['STARTER', 'PRO', 'ENTERPRISE'])
@@ -58,6 +60,29 @@ class UpdateOrganisationDto {
   @IsOptional()
   @IsDateString()
   trialEndsAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  message?: string;
+}
+
+class TransitionDto {
+  @IsIn([...LIFECYCLE_STATES])
+  to!: (typeof LIFECYCLE_STATES)[number];
+
+  @IsOptional()
+  @IsIn(['STARTER', 'PRO', 'ENTERPRISE'])
+  plan?: string;
+
+  @IsOptional()
+  @IsDateString()
+  trialEndsAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  message?: string;
 }
 
 class SchoolActiveDto {
@@ -71,6 +96,7 @@ export class PlatformController {
   constructor(
     private readonly platform: PlatformService,
     private readonly limiter: LoginRateLimiter,
+    private readonly lifecycle: LifecycleService,
   ) {}
 
   @Get('public/signup')
@@ -112,7 +138,31 @@ export class PlatformController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN')
   @ApiBearerAuth()
-  update(@Param('id') id: string, @Body() dto: UpdateOrganisationDto) {
-    return this.platform.updateOrganisation(id, dto);
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateOrganisationDto) {
+    return this.platform.updateOrganisation(user, id, dto);
+  }
+
+  /**
+   * Explicit state-machine transition: the server validates it against the allowed moves and
+   * writes a lifecycle event. Prefer this endpoint over PATCH when the back office needs to
+   * record a reason or a free-text message with the change.
+   */
+  @Post('platform/organisations/:id/transition')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  transition(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: TransitionDto) {
+    // Both endpoints share the same service entry; translate the explicit `to` field onto the
+    // generic `status` the service expects.
+    return this.platform.updateOrganisation(user, id, { status: dto.to, plan: dto.plan, trialEndsAt: dto.trialEndsAt, message: dto.message });
+  }
+
+  /** History of subscription transitions of an organisation (newest first). */
+  @Get('platform/organisations/:id/history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  history(@Param('id') id: string) {
+    return this.lifecycle.history(id);
   }
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, forwardRef } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
@@ -6,6 +6,8 @@ import { RedisService } from '../infra/redis.service';
 import { MailService } from '../infra/mail.service';
 import { passwordProblem } from '../auth/password-policy';
 import { SubscriptionState, TRIAL_DAYS, schoolCode, schoolYear, slugify, subscriptionState } from './subscription-rules';
+import { LifecycleReason, LifecycleState, isLifecycleState } from './lifecycle';
+import { LifecycleService } from './lifecycle.service';
 
 export interface SignupInput {
   schoolName: string;
@@ -31,6 +33,8 @@ export class PlatformService {
     private readonly prisma: PrismaService,
     private readonly cache: RedisService,
     private readonly mail: MailService,
+    // Forward-ref kept short: LifecycleService uses RedisService, PlatformService uses LifecycleService.
+    @Inject(forwardRef(() => LifecycleService)) private readonly lifecycle: LifecycleService,
   ) {}
 
   /** Open in development; in production only when SIGNUP_ENABLED=true. */
@@ -69,6 +73,7 @@ export class PlatformService {
     });
 
     this.logger.log(`Nouvel établissement inscrit : ${created.school.name} (${created.school.code})`);
+    await this.lifecycle.recordSignup(created.org.id, 'STARTER', trialEndsAt, created.user.id);
     await this.mail
       .send({
         to: email,
@@ -81,16 +86,51 @@ export class PlatformService {
 
   /** Subscription of a school, cached for a minute (it is read on every write request). */
   async stateOfSchool(schoolId: string): Promise<SubscriptionState> {
-    const state = await this.cache.remember(`subscription:${schoolId}`, CACHE_SECONDS, async () => {
-      const school = await this.prisma.school.findUnique({ where: { id: schoolId }, select: { organisation: { select: { subscriptionStatus: true, subscriptionPlan: true, trialEndsAt: true } } } });
-      return school?.organisation ?? { subscriptionStatus: 'ACTIVE', subscriptionPlan: 'STARTER', trialEndsAt: null };
+    // Fresh DB read each time the trial is about to expire; the cache otherwise saves ~60s of
+    // reads. Reading the row (not the whole organisation) keeps this call cheap.
+    const cached = await this.cache.get(`subscription:${schoolId}`);
+    let state: { organisationId: string | null; subscriptionStatus: string; subscriptionPlan: string; trialEndsAt: string | Date | null };
+    if (cached) {
+      state = JSON.parse(cached);
+    } else {
+      const school = await this.prisma.school.findUnique({ where: { id: schoolId }, select: { organisationId: true, organisation: { select: { subscriptionStatus: true, subscriptionPlan: true, trialEndsAt: true } } } });
+      state = school?.organisation
+        ? { organisationId: school.organisationId, ...school.organisation }
+        : { organisationId: null, subscriptionStatus: 'ACTIVE', subscriptionPlan: 'STARTER', trialEndsAt: null };
+      await this.cache.set(`subscription:${schoolId}`, JSON.stringify(state), CACHE_SECONDS);
+    }
+
+    const computed = subscriptionState({
+      subscriptionStatus: state.subscriptionStatus,
+      subscriptionPlan: state.subscriptionPlan,
+      trialEndsAt: state.trialEndsAt ? new Date(state.trialEndsAt) : null,
     });
-    return subscriptionState({ ...state, trialEndsAt: state.trialEndsAt ? new Date(state.trialEndsAt) : null });
+
+    // Lazy expiry: a TRIAL whose end date is past gets promoted to EXPIRED so the timeline shows
+    // the real state. Done synchronously (write + cache invalidation) so the caller sees the new
+    // status on its next read without waiting for a background task to catch up.
+    if (state.organisationId && computed.status === 'TRIAL' && computed.readOnly) {
+      const promoted = await this.lifecycle.autoExpireIfNeeded(state.organisationId).catch(() => false);
+      if (promoted) {
+        return subscriptionState({
+          subscriptionStatus: 'EXPIRED',
+          subscriptionPlan: state.subscriptionPlan,
+          trialEndsAt: state.trialEndsAt ? new Date(state.trialEndsAt) : null,
+        });
+      }
+    }
+    return computed;
   }
 
   async mySubscription(user: AuthUser) {
     if (!user.schoolId) return subscriptionState({ subscriptionStatus: 'ACTIVE', subscriptionPlan: 'STARTER', trialEndsAt: null });
     return this.stateOfSchool(user.schoolId);
+  }
+
+  /** Drop the per-school subscription cache (used by lifecycle writes and by test harnesses). */
+  async invalidateSubscriptionCache(schoolIds: string[]) {
+    if (!schoolIds.length) return;
+    await this.cache.del(...schoolIds.map((id) => `subscription:${id}`));
   }
 
   // ---------------------------------------------------------------- platform administration
@@ -121,18 +161,57 @@ export class PlatformService {
     return updated;
   }
 
-  async updateOrganisation(id: string, dto: { status?: 'TRIAL' | 'ACTIVE' | 'SUSPENDED'; plan?: string; trialEndsAt?: string }) {
+  async updateOrganisation(user: AuthUser, id: string, dto: { status?: LifecycleState; plan?: string; trialEndsAt?: string; message?: string }) {
     const org = await this.prisma.organisation.findUnique({ where: { id }, include: { schools: { select: { id: true } } } });
     if (!org) throw new NotFoundException('Organisation introuvable');
-    const updated = await this.prisma.organisation.update({
-      where: { id },
-      data: {
-        ...(dto.status ? { subscriptionStatus: dto.status } : {}),
-        ...(dto.plan ? { subscriptionPlan: dto.plan } : {}),
-        ...(dto.trialEndsAt ? { trialEndsAt: new Date(dto.trialEndsAt) } : {}),
-      },
+
+    // Nothing changed → return the current state without writing an event.
+    if (!dto.status && !dto.plan && !dto.trialEndsAt) {
+      return { id: org.id, name: org.name, ...subscriptionState(org) };
+    }
+
+    // Any status / plan / trial change goes through the lifecycle machine, so it is validated
+    // against the allowed transitions and recorded on the timeline. Pure plan changes (same
+    // state) are handled too.
+    const current = (isLifecycleState(org.subscriptionStatus) ? org.subscriptionStatus : 'ACTIVE') as LifecycleState;
+    const target: LifecycleState = dto.status ?? current;
+    const reason: LifecycleReason = this.reasonFor(current, target, { plan: dto.plan, trialEndsAt: dto.trialEndsAt });
+    await this.lifecycle.transition(user, id, {
+      to: target,
+      reason,
+      plan: dto.plan,
+      trialEndsAt: dto.trialEndsAt ? new Date(dto.trialEndsAt) : undefined,
+      message: dto.message,
     });
-    await this.cache.del(...org.schools.map((s) => `subscription:${s.id}`));
-    return { id: updated.id, name: updated.name, ...subscriptionState(updated) };
+
+    const refreshed = await this.prisma.organisation.findUniqueOrThrow({ where: { id } });
+    return { id: refreshed.id, name: refreshed.name, ...subscriptionState(refreshed) };
+  }
+
+  /** Pick the right lifecycle reason label for a (from, to, data) tuple. Pure, no I/O. */
+  private reasonFor(from: LifecycleState, to: LifecycleState, data: { plan?: string; trialEndsAt?: string }): LifecycleReason {
+    if (from === to) {
+      if (data.trialEndsAt && to === 'TRIAL') return 'EXTEND_TRIAL';
+      if (data.plan) return 'PLAN_CHANGE';
+      return 'ACTIVATE';
+    }
+    switch (to) {
+      case 'TRIAL':
+        return from === 'ACTIVE' ? 'EXTEND_TRIAL' : 'START_TRIAL';
+      case 'ACTIVE':
+        return from === 'SUSPENDED' || from === 'EXPIRED' ? 'REOPEN' : 'ACTIVATE';
+      case 'SUSPENDED':
+        return 'SUSPEND';
+      case 'EXPIRED':
+        return 'EXPIRE';
+      case 'CLOSED':
+        return 'CLOSE';
+      case 'PENDING':
+        return 'VALIDATE';
+      case 'PROSPECT':
+        return 'VALIDATE';
+      default:
+        return 'ACTIVATE';
+    }
   }
 }

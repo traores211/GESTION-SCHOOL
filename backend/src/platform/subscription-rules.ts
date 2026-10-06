@@ -1,6 +1,13 @@
 /** Subscription rules, pure so they are unit tested. */
 
-export type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED';
+import { LIFECYCLE_STATES, LifecycleState, isLifecycleState, isReadOnly } from './lifecycle';
+
+/**
+ * Status values exposed to the rest of the application. Historically only TRIAL / ACTIVE /
+ * SUSPENDED existed; the lifecycle machine (PROSPECT, PENDING, EXPIRED, CLOSED) added more. All
+ * are kept here so dashboards and the subscription interceptor can read a single enum.
+ */
+export type SubscriptionStatus = LifecycleState;
 
 export interface SubscriptionState {
   status: SubscriptionStatus;
@@ -8,18 +15,40 @@ export interface SubscriptionState {
   trialEndsAt: Date | null;
   /** Whole days left in the trial (0 on the last day); null outside a trial. */
   daysLeft: number | null;
-  /** True when the school can only read its data (trial over or subscription suspended). */
+  /** True when the school can only read its data (trial over, subscription suspended, closed). */
   readOnly: boolean;
+  /** True when the organisation accounts may still sign in (false only for CLOSED). */
+  loginAllowed: boolean;
 }
 
 export const TRIAL_DAYS = Number(process.env.TRIAL_DAYS || 30);
 
 export function subscriptionState(org: { subscriptionStatus: string; subscriptionPlan: string; trialEndsAt: Date | null }, now = new Date()): SubscriptionState {
-  const status = (['TRIAL', 'ACTIVE', 'SUSPENDED'].includes(org.subscriptionStatus) ? org.subscriptionStatus : 'ACTIVE') as SubscriptionStatus;
+  // Unknown values fall back to ACTIVE: a bug in the database never locks a school out.
+  const status: LifecycleState = isLifecycleState(org.subscriptionStatus) ? org.subscriptionStatus : 'ACTIVE';
   const inTrial = status === 'TRIAL' && org.trialEndsAt !== null;
   const daysLeft = inTrial ? Math.max(0, Math.ceil((org.trialEndsAt!.getTime() - now.getTime()) / 86400000)) : null;
   const trialOver = inTrial && org.trialEndsAt!.getTime() <= now.getTime();
-  return { status, plan: org.subscriptionPlan, trialEndsAt: org.trialEndsAt, daysLeft, readOnly: status === 'SUSPENDED' || trialOver };
+  return {
+    status,
+    plan: org.subscriptionPlan,
+    trialEndsAt: org.trialEndsAt,
+    daysLeft,
+    // A TRIAL whose end date is past reads as read-only straight away, even before the state
+    // machine lazily promotes it to EXPIRED on the next back-office read.
+    readOnly: isReadOnly(status) || trialOver,
+    loginAllowed: status !== 'CLOSED',
+  };
+}
+
+/** True when the organisation accepts writes right now (negation of SubscriptionState.readOnly). */
+export function isWritable(org: { subscriptionStatus: string; subscriptionPlan: string; trialEndsAt: Date | null }, now = new Date()): boolean {
+  return !subscriptionState(org, now).readOnly;
+}
+
+/** List the possible subscription states, in display order (used by the back office). */
+export function listStates(): readonly SubscriptionStatus[] {
+  return LIFECYCLE_STATES;
 }
 
 /** "Groupe Scolaire La Réussite" → "groupe-scolaire-la-reussite" */

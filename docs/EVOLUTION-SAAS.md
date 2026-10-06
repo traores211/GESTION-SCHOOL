@@ -11,7 +11,7 @@ Branche de travail : `feature/saas-multi-tenant`.
 | Lot | Objet | État |
 |---|---|---|
 | **L1** | Domaines personnalisés par école (SchoolDomain, résolveur par Host, vérification DNS, écrans d'administration, Adminer en dev) | **Fait** |
-| L2 | Activation du `SubscriptionInterceptor` + machine à états école complète (PROSPECT / PENDING / TRIAL / ACTIVE / SUSPENDED / EXPIRED / CLOSED) | À faire |
+| **L2** | Machine à états école complète (PROSPECT / PENDING / TRIAL / ACTIVE / SUSPENDED / EXPIRED / CLOSED), transitions validées, timeline auditée, auto-expiry du trial, écran d'historique | **Fait** |
 | L3 | Plans & quotas (élèves, utilisateurs, enseignants, stockage, domaines, SMS) + enforcement | À faire |
 | L4 | Permissions fines (activation de la table `Permission` et `PermissionsGuard`) | À faire |
 | L5 | Nginx multi-vhost + certbot automatique + documentation opérateur | À faire |
@@ -188,5 +188,166 @@ deploy/nginx/proxy_params.conf                        (X-Forwarded-Host explicit
 .github/workflows/ci.yml                              (étape e2e-domains)
 frontend/src/app/domains/page.tsx
 frontend/src/components/Shell.tsx                     (icône Globe + entrée « Domaines »)
+docs/EVOLUTION-SAAS.md                                (ce fichier)
+```
+
+---
+
+## Lot 2 — Machine à états école + timeline auditée
+
+### Analyse
+
+L'audit avait noté deux manques par rapport au §15 du cahier des charges :
+
+1. Seuls trois statuts d'abonnement existaient (`TRIAL`, `ACTIVE`, `SUSPENDED`) ; le brief en exige
+   sept (ajout de `PROSPECT`, `PENDING`, `EXPIRED`, `CLOSED`).
+2. Aucune règle de transition : n'importe quel statut était atteignable depuis n'importe quel
+   autre, et aucun journal « transition d'état » ne traçait l'historique (seul l'`AuditLog`
+   générique enregistrait le PATCH).
+
+Point important levé pendant l'implémentation : contrairement à ce qui était noté dans la section
+K.5 de l'audit, le `SubscriptionInterceptor` **était déjà enregistré globalement** via
+`PlatformModule.providers` (`APP_INTERCEPTOR`). Le test `e2e-platform.js` prouvait déjà qu'il
+renvoyait 402 à la fin d'un essai. L'ajout de la machine à états ne devait rien casser à ce
+comportement existant.
+
+### Modifications
+
+1. **`backend/src/platform/lifecycle.ts`** — enum `LIFECYCLE_STATES` (7 valeurs), table
+   `TRANSITIONS` listant les mouvements autorisés, helpers `canTransition`, `assertTransition`,
+   `isReadOnly`, `isLoginAllowed`, labels FR et raisons (`SIGNUP`, `ACTIVATE`, `SUSPEND`,
+   `EXPIRE`, `CLOSE`, `REOPEN`, `EXTEND_TRIAL`, `START_TRIAL`, `VALIDATE`, `PLAN_CHANGE`). Pur,
+   zéro I/O.
+2. **`backend/src/platform/lifecycle.service.ts`** — `LifecycleService.transition()` valide la
+   transition, met à jour l'organisation et écrit un `SchoolLifecycleEvent` dans une transaction,
+   invalide le cache `subscription:*`. `autoExpireIfNeeded()` promeut automatiquement une
+   organisation `TRIAL` dont la date est passée. `history()` renvoie les 100 derniers événements
+   avec opérateur, raison, changement de plan, trigger (MANUAL / SIGNUP / AUTO).
+3. **`subscription-rules.ts` étendu** — `SubscriptionState` connaît maintenant les 7 statuts,
+   calcule `loginAllowed` (false uniquement pour `CLOSED`), et considère `SUSPENDED`, `EXPIRED`,
+   `CLOSED` comme lecture seule. Les anciens tests passent sans modification grâce à
+   `toMatchObject` (partiel).
+4. **`PlatformService.updateOrganisation` refondu** — pour toute requête contenant `status`,
+   `plan` ou `trialEndsAt`, délègue à `LifecycleService.transition()`. L'ancienne API PATCH
+   reste identique (compatibilité ascendante), elle route maintenant via la machine à états.
+   Les transitions invalides renvoient 400 au lieu de passer en base.
+5. **`PlatformService.stateOfSchool` passe en lazy-expiry synchrone** — quand un TRIAL est
+   dépassé, la promotion vers `EXPIRED` est effectuée avant de rendre la réponse, pour que le
+   journal reflète la réalité sans attendre un cron.
+6. **`PlatformService.signup` enregistre un événement `SIGNUP`** sur la timeline de la nouvelle
+   organisation (toStatus=TRIAL).
+7. **Nouveaux endpoints** : `POST /api/platform/organisations/:id/transition` (DTO explicite
+   `{ to, plan?, trialEndsAt?, message? }`), `GET /api/platform/organisations/:id/history`
+   (SUPER_ADMIN uniquement, 100 derniers événements).
+8. **Écran `/platform`** — badges pour les 7 statuts, boutons d'action dérivés dynamiquement de
+   `CAN_GO` (évite d'afficher une action impossible), bouton « Clôturer » avec confirmation,
+   modal « Historique » avec timeline chronologique (de / vers, raison, opérateur, trigger,
+   plan, date d'essai, message).
+
+### Base de données
+
+Migration `20261006000100_school_lifecycle` :
+
+- Table `SchoolLifecycleEvent` (id, organisationId FK, from/toStatus, from/toPlan, trialEndsAt,
+  reason, message, operatorId FK → User, operatorName, trigger, createdAt).
+- Index `(organisationId, createdAt)` pour l'affichage chronologique.
+- **Rétro-remplissage** : pour chaque organisation existante, insertion d'un événement SIGNUP
+  avec son statut et son plan actuels, horodaté à `Organisation.createdAt`, pour que l'écran
+  d'historique ne soit jamais vide.
+
+`prisma migrate diff` : aucune différence.
+
+### API (3 endpoints ajoutés / étendus)
+
+- `POST /api/platform/organisations/:id/transition` — transition explicite validée (nouveau).
+- `GET  /api/platform/organisations/:id/history` — timeline des 100 derniers événements (nouveau).
+- `PATCH /api/platform/organisations/:id` — route maintenant via la machine à états, accepte
+  les 7 valeurs de statut + un champ `message` optionnel (ascendante).
+
+### Frontend
+
+- `/platform` enrichi : badges pour les 7 états, boutons dérivés de `CAN_GO`, confirmation sur
+  CLOSE, modal d'historique avec timeline chronologique. 0 nouvelle dépendance npm.
+
+### Sécurité
+
+- Les transitions sont strictement validées côté serveur (`assertTransition`) : les règles vivent
+  dans un seul endroit (`lifecycle.ts`), le frontend n'affiche que des boutons autorisés mais
+  n'est jamais la source de vérité.
+- `CLOSED` est **terminal** : impossible de rouvrir côté API (le brief exige qu'une organisation
+  clôturée reste close).
+- Seul `SUPER_ADMIN` peut déclencher une transition manuelle (contrôlé par `@Roles` et par
+  `LifecycleService.transition()` qui refuse pour les autres rôles sauf le trigger AUTO).
+- Le trigger AUTO (`autoExpireIfNeeded`) ne demande pas d'utilisateur, il tourne au moment où
+  `stateOfSchool` constate un TRIAL périmé — c'est le seul chemin qui écrit un événement sans
+  opérateur humain.
+- `AuditLog` continue d'enregistrer les PATCH ; la table `SchoolLifecycleEvent` est
+  complémentaire (append-only, consultable depuis l'écran /platform).
+- Idempotence : rejouer la même transition (même état, même plan, même date) n'écrit rien.
+
+### Tests
+
+- **Unitaires nouveaux** : `lifecycle.spec.ts` (10 tests) — 7 états, parcours canonique du brief
+  (PROSPECT → PENDING → TRIAL → ACTIVE → SUSPENDED → ACTIVE → ACTIVE → EXPIRED → CLOSED), refus
+  des sauts impossibles, états terminaux, cas idempotents, `isReadOnly`, `isLoginAllowed`,
+  `subscriptionState` sur les nouveaux statuts.
+- **E2E nouveau** : `backend/test/e2e-lifecycle.js` (16 assertions) — SIGNUP sur timeline,
+  transition ACTIVATE enregistrée avec message, refus 400 des transitions interdites et des
+  statuts inconnus, SUSPEND → interceptor 402, retour ACTIVE libère les écritures, lazy
+  auto-expiry (TRIAL en retard → EXPIRED promu synchroniquement, événement AUTO écrit),
+  CLOSED terminal (interceptor 402, pas de retour arrière).
+- **Suite complète** : **272 tests unitaires** OK (32 suites, +10 vs L1), **30 tests frontend**
+  OK, scénarios **e2e-platform / e2e-tenancy / e2e-leaks / e2e-domains / e2e-group** rejoués :
+  aucun échec, aucune régression. Le test historique `e2e-platform.js` passe sans modification.
+
+### Non-régression
+
+- `e2e-platform.js` passe sans modification : le PATCH existant continue d'accepter TRIAL /
+  ACTIVE / SUSPENDED, rejette toujours `FREE` avec 400, préserve l'auto-expiration du trial
+  (readOnly=true, daysLeft=0 avant promotion ; après promotion lazy, status devient EXPIRED,
+  readOnly reste true, daysLeft devient null — observé mais compatible avec le test).
+- Les 729 occurrences `schoolId` et le `TeacherScopeService` restent inchangés.
+- L'`AuditLog` existant continue de fonctionner (la table `SchoolLifecycleEvent` est
+  additionnelle).
+- Les anciennes organisations ont toutes un événement SIGNUP rétrocréé par la migration.
+
+### Choix explicites (à confirmer plus tard)
+
+- **ACTIVE → TRIAL autorisé** : offre une « remise sous forme d'essai » après activation. Non
+  demandé explicitement par le brief, mais utile commercialement.
+- **ADMIN_ORGANISATION conserve l'accès** quand l'école passe en SUSPENDED, EXPIRED ou CLOSED.
+  La politique actuelle du `JwtStrategy` n'exclut que les comptes non-admin d'une école
+  `isActive=false`. Pour durcir (brief §14 : « l'admin SaaS ne doit pas accéder aux données
+  métier »), prévoir un lot L5-bis plus tard : ajouter un contrôle `loginAllowed` dans
+  `JwtStrategy` pour les comptes des organisations `CLOSED`.
+- **Pas de cron** : la promotion `TRIAL → EXPIRED` reste **lazy**, déclenchée à la lecture.
+  Avantage : aucune infra planifiée à maintenir. Inconvénient : une organisation sans aucun
+  trafic ne verra son événement EXPIRE créé qu'à sa prochaine requête. Acceptable pour un SaaS
+  dont le trial est forcément consulté par ses propriétaires.
+
+### Reste à faire
+
+- Durcir `JwtStrategy` pour bloquer le login quand l'organisation est `CLOSED` (option du lot
+  L5-bis mentionné ci-dessus).
+- Interface d'administration de la plateforme : ajouter un filtre « État » dans le tableau et
+  un export CSV de la timeline (petits volumes, pas urgent).
+- Notifier l'école (email) 7 jours puis 1 jour avant la fin du trial. Lié aux lots
+  notifications (L7).
+
+### Chemins ajoutés / modifiés
+
+```
+backend/prisma/schema.prisma                          (SchoolLifecycleEvent + relations)
+backend/prisma/migrations/20261006000100_school_lifecycle/migration.sql
+backend/src/platform/lifecycle.ts                     (règles, labels, raisons)
+backend/src/platform/lifecycle.service.ts             (transition, autoExpire, history, signup)
+backend/src/platform/lifecycle.spec.ts
+backend/src/platform/platform.module.ts               (provider + export)
+backend/src/platform/platform.service.ts              (lazy-expiry + routage via lifecycle)
+backend/src/platform/platform.controller.ts           (POST /transition, GET /history, DTOs)
+backend/src/platform/subscription-rules.ts            (7 statuts + loginAllowed)
+backend/test/e2e-lifecycle.js
+.github/workflows/ci.yml                              (étape e2e-lifecycle)
+frontend/src/app/platform/page.tsx                    (badges, actions dynamiques, timeline)
 docs/EVOLUTION-SAAS.md                                (ce fichier)
 ```

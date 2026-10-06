@@ -22,12 +22,20 @@ model Organisation {
   city              String?
   logo              String?
   subscriptionPlan  String   @default("STARTER") // STARTER, PRO, ENTERPRISE
-  /// TRIAL (free trial until trialEndsAt), ACTIVE (subscription in order), SUSPENDED (read-only)
+  /// Lifecycle machine. Values and allowed transitions live in platform/lifecycle.ts.
+  /// PROSPECT  — created by the editor, not yet aware
+  /// PENDING   — signed up, waiting for validation
+  /// TRIAL     — free trial until trialEndsAt
+  /// ACTIVE    — paying subscription in order
+  /// SUSPENDED — temporarily shut (read-only)
+  /// EXPIRED   — trial ended (read-only); kept distinct from SUSPENDED so dashboards can tell them apart
+  /// CLOSED    — permanently closed (read-only); the data stays for the retention period
   subscriptionStatus String  @default("ACTIVE")
   trialEndsAt       DateTime?
   isActive          Boolean  @default(true)
   schools           School[]
   domains           SchoolDomain[]
+  lifecycleEvents   SchoolLifecycleEvent[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -270,6 +278,8 @@ model User {
   memberships       SchoolMembership[]
   /// Custom domains added by this account (platform or group administrator).
   createdDomains    SchoolDomain[]
+  /// Lifecycle transitions this account made (sign-up, platform administrator).
+  lifecycleTransitions SchoolLifecycleEvent[]
 
   @@index([email])
   @@index([role])
@@ -341,6 +351,34 @@ model SchoolDomain {
   @@index([schoolId])
   @@index([organisationId])
   @@index([status])
+}
+
+/// One transition of the subscription state machine (PROSPECT → PENDING → TRIAL → ACTIVE …).
+/// Appended to on every allowed transition; never updated or deleted (SUPER_ADMIN can clean up
+/// test data manually if needed). The audit journal has its own entries too; this table is kept
+/// separate because it carries lifecycle-only metadata (trial dates, plan, operator reason).
+model SchoolLifecycleEvent {
+  id                String   @id @default(cuid())
+  organisationId    String
+  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  /// Previous status; null for the very first event (sign-up or creation).
+  fromStatus        String?
+  toStatus          String
+  /// Previous plan; included so a lifecycle timeline can show plan changes without joining audit.
+  fromPlan          String?
+  toPlan            String?
+  trialEndsAt       DateTime?
+  /// SIGNUP, VALIDATE, START_TRIAL, EXTEND_TRIAL, ACTIVATE, SUSPEND, EXPIRE, CLOSE, REOPEN
+  reason            String
+  message           String?
+  operatorId        String?
+  operator          User?    @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  operatorName      String?
+  /// How the transition was triggered: MANUAL (admin), SIGNUP (self-service), AUTO (trial expiry).
+  trigger           String   @default("MANUAL")
+  createdAt         DateTime @default(now())
+
+  @@index([organisationId, createdAt])
 }
 
 /// Rotating refresh token (stored hashed). A reused revoked token revokes its whole family.
