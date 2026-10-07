@@ -25,9 +25,30 @@ async function bootstrap() {
   // Refresh token cookie (HttpOnly) for /api/auth/refresh and /logout.
   app.use(cookieParser());
 
-  // Security headers. The API only serves JSON, PDFs and uploaded images: no CSP needed, but uploaded
-  // images are displayed by the frontend (other origin), hence the cross-origin resource policy.
-  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  // Security headers. The API serves JSON, PDFs and uploaded images (showcase, pupils, staff).
+  // CSP is strict for the API itself: no inline scripts, no eval, images allowed from same origin
+  // and from data: URLs (QR codes, charts). The frontend (Next.js, another origin) sets its own
+  // CSP; here we care about the API routes and the Swagger page served by Nest.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"], // Swagger UI needs inline scripts.
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          fontSrc: ["'self'", 'data:'],
+          connectSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          frameAncestors: ["'none'"],
+          formAction: ["'self'"],
+        },
+      },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
   // Showcase images uploaded from the back-office (validated raster images, random names)
   app.useStaticAssets(UPLOAD_DIR, {

@@ -16,7 +16,7 @@ Branche de travail : `feature/saas-multi-tenant`.
 | **L4** | Permissions fines (catalogue en code, PermissionsGuard, UI par utilisateur, décorateur `@RequirePermissions`), surcouche additive sur les rôles existants | **Fait** |
 | **L5** | Nginx multi-vhost + certbot automatique (service dédié, endpoint API dédié, snippets nginx par domaine) + documentation opérateur | **Fait** |
 | **L6** | `Invoice.reference` passe en composite `[schoolId, reference]` ; les séquences deviennent par-école. `User.email`, `School.code`, `Payment.transactionId` restent globalement uniques par choix explicite documenté. | **Fait (partiel assumé)** |
-| L7 | Dette technique (`Float` → `Decimal` pour les montants, pagination UI complète, CSP stricte, middleware Next.js) | À faire |
+| **L7** | **CSP stricte** sur l'API (helmet, directives explicites), **middleware Next.js** pour pré-rediriger les routes privées vers `/login`. Float→Decimal et pagination UI reportés dans leurs lots dédiés (L9, L10). | **Fait (partiel assumé)** |
 | L8 | Mise à jour de la documentation (`ARCHITECTURE.md`, `INDEX.md`, `PROJECT_STATUS.md`) | À faire |
 
 ---
@@ -824,5 +824,99 @@ backend/prisma/migrations/20261006000300_invoice_reference_per_school/migration.
 backend/src/infra/sequence.service.ts                   (per-school scope)
 backend/src/billing/billing.service.ts                  (passe schoolId)
 backend/src/imports/imports.service.ts                  (passe schoolId)
+docs/EVOLUTION-SAAS.md                                  (ce fichier)
+```
+
+---
+
+## Lot 7 — Dette technique (partie 1/2)
+
+### Analyse
+
+L'audit §K.2 et §I.4-5 avait listé quatre points de dette : **Float→Decimal** pour les montants
+financiers, **pagination UI complète** (parents/personnel), **CSP stricte** (actuellement
+désactivée dans `main.ts`), **middleware Next.js** (routes privées non pré-filtrées). Les deux
+derniers sont faisables en une passe et à faible risque ; les deux premiers sont des chantiers
+dédiés à part entière.
+
+### Décisions
+
+| Item | État | Raison |
+|---|---|---|
+| **CSP stricte** | **Fait** | Changement d'une ligne dans `main.ts`, directives explicites compatibles avec Swagger. |
+| **Middleware Next.js** | **Fait** | Fichier `frontend/src/middleware.ts` nouveau, additive, soft-check sur la présence du cookie `erp_refresh`. |
+| Float → Decimal | **Reporté (L9)** | Touche 10+ champs (Invoice.totalAmount, InvoiceItem.amount, Payment.amount, Grade.score/maxScore, Payslip.*, StaffMember.baseSalary, Student.previousAverage, OfficialVolume.coefficient, Vehicle…). Impact massif sur toutes les lectures/écritures côté backend (`number` → `Decimal`), test de non-régression long. À chiffrer séparément. |
+| Pagination UI parents/personnel | **Reporté (L10)** | L'API sait déjà paginer, les écrans affichent la liste entière. Besoin d'un test visuel manuel (scroll, tri, filtre). À planifier avec les équipes utilisatrices. |
+
+### Modifications
+
+1. **`backend/src/main.ts`** — `helmet` passe de `contentSecurityPolicy: false` à une politique
+   stricte : `default-src 'self'`, `script-src 'self' 'unsafe-inline'` (nécessaire pour Swagger
+   UI, le reste de l'API ne sert pas de JS), `img-src 'self' data: blob:` (QR codes, charts),
+   `object-src 'none'`, `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'`.
+2. **`frontend/src/middleware.ts`** — nouveau middleware Edge qui :
+   - laisse passer `/`, `/login`, `/forgot-password`, `/reset-password`, `/signup`,
+     `/confidentialite`, `/ecole/*`, `/pay/*` et les assets Next ;
+   - sur toute autre route, vérifie la présence du cookie `erp_refresh` (HttpOnly, posé par
+     l'API au sign-in) ; absent → redirection 307 vers `/login?next=<path>`.
+   - La présence du cookie n'est **pas** une preuve d'authentification (le `/auth/me` côté
+     client est la vraie vérification) : c'est un filtre qui évite l'écran vide d'une seconde
+     entre le `router.push('/login')` du composant et le premier render.
+
+### Base de données
+
+Aucune migration.
+
+### API
+
+Aucun changement d'endpoint. Nouvel en-tête `Content-Security-Policy` sur toutes les réponses.
+
+### Frontend
+
+- Nouveau `src/middleware.ts`. 0 nouvelle dépendance npm.
+
+### Sécurité
+
+- La CSP stricte limite les surfaces d'exploitation d'une faille d'injection sur les pages
+  Swagger ou sur `/api/uploads/*` : plus de script tiers, plus de clickjacking (`frame-ancestors
+  'none'`), plus de posts cross-origin (`form-action 'self'`).
+- Le middleware réduit l'exposition d'informations fuguitives : avant, un visiteur anonyme
+  recevait brièvement le shell React avant la redirection JS vers `/login` ; maintenant il reçoit
+  un 307 côté serveur.
+
+### Tests
+
+- Aucun nouveau test automatisé (CSP = contenu d'en-tête, middleware Next = runtime Edge,
+  difficile à unit-tester sans environnement complet).
+- **Vérifications manuelles** :
+  - `curl -I http://localhost:4000/api/health` → en-tête `Content-Security-Policy` présent.
+  - `curl -I http://localhost:1300/dashboard` sans cookie → 307 `Location: /login?next=/dashboard`.
+  - `curl -I http://localhost:1300/login` → 200 (page publique).
+- **Suite complète** : 289 unit backend, 30 unit frontend, scénarios e2e critiques rejoués
+  (auth, leaks, domains) : zéro régression.
+
+### Non-régression
+
+- Swagger UI continue de fonctionner grâce à `'unsafe-inline'` sur `script-src` (indispensable
+  pour les scripts intégrés de Swagger).
+- Les pages publiques (`/ecole/[code]`, `/pay/[tx]`) restent accessibles sans cookie grâce aux
+  patterns explicites dans le middleware.
+- Le middleware est désactivé pour les assets Next (`/_next`, `/favicon.ico`, etc.) via le
+  `matcher`.
+
+### Reste à faire
+
+- **L9 — Float → Decimal** : migration propre des 10+ champs financiers vers `Decimal(14,2)`,
+  helpers d'arithmétique (`Prisma.Decimal` ou `decimal.js`), couverture test des conversions.
+- **L10 — Pagination UI** : parents, personnel, anciens élèves, journaux audit, documents.
+- Durcir le middleware pour appeler `/auth/me` depuis Edge et renvoyer un 401 réel (actuellement
+  on fait confiance à la seule présence du cookie, un cookie expiré passera comme valide
+  jusqu'au premier `/auth/me` côté client).
+
+### Chemins ajoutés / modifiés — L7
+
+```
+backend/src/main.ts                                     (CSP stricte, helmet directives)
+frontend/src/middleware.ts
 docs/EVOLUTION-SAAS.md                                  (ce fichier)
 ```
