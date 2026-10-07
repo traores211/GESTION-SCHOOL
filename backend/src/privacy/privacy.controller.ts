@@ -6,6 +6,7 @@ import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import { MANAGEMENT } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
+import { PermissionsGuard } from '../permissions/permissions.guard';
 import { PrivacyService } from './privacy.service';
 
 class PrivacySettingsDto {
@@ -32,7 +33,7 @@ class AnonymizeDto {
 /** Personal data rights: reserved to the management of the school; every call is in the audit journal. */
 @Controller('privacy')
 @ApiTags('Privacy')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(...MANAGEMENT)
 @ApiBearerAuth()
 export class PrivacyController {

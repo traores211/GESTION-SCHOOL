@@ -134,6 +134,8 @@ jobs:
         run: node test/e2e-lifecycle.js
       - name: End-to-end — plan quotas (enforcement, per-organisation override)
         run: node test/e2e-quotas.js
+      - name: End-to-end — fine-grained permissions (catalogue, grants, guard)
+        run: node test/e2e-permissions.js
       - name: API log
         if: failure()
         run: tail -200 /tmp/api.log

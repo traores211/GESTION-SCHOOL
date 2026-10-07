@@ -7,6 +7,8 @@ import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import { FINANCE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequirePermissions } from '../permissions/require-permissions.decorator';
 import { PayrollService } from './payroll.service';
 import { GeneratePayslipsDto } from './dto/generate-payslips.dto';
 import { UpdatePayslipDto } from './dto/update-payslip.dto';
@@ -17,7 +19,7 @@ function formatFCFA(amount: number) {
 
 @Controller('payroll')
 @ApiTags('Payroll')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(...FINANCE)
 @ApiBearerAuth()
 export class PayrollController {
@@ -44,11 +46,13 @@ export class PayrollController {
   }
 
   @Patch(':id/validate')
+  @RequirePermissions('payroll:validate')
   validate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.payrollService.validate(user, id);
   }
 
   @Patch(':id/pay')
+  @RequirePermissions('payroll:validate')
   pay(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.payrollService.pay(user, id);
   }

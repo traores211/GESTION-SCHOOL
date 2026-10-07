@@ -23,6 +23,7 @@ export const AREA_LABELS: Record<string, string> = {
   showcase: 'Vitrine',
   'academic-years': 'Années scolaires',
   domains: 'Domaines',
+  permissions: 'Permissions',
 };
 
 @Injectable()

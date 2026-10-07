@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Copy, LoaderCircle, UserPlus, UserRound } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Copy, LoaderCircle, Shield, UserPlus, UserRound } from "lucide-react";
 import Shell from "../../components/Shell";
 import { Avatar, EmptyState, FormError, Modal, PageHeader, Pagination, SearchInput, SortHeader, TableSkeleton, useFeedback } from "../../components/ui";
 import { api, errorMessage } from "../../lib/api";
@@ -195,6 +196,11 @@ export default function StaffPage() {
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => setFileOf(s.id)} aria-label={`Dossier de ${s.firstName} ${s.lastName}`}>
                         Dossier
                       </button>
+                      {canManage && (
+                        <Link href={`/users/${s.id}/permissions`} className="btn btn-ghost btn-sm" aria-label={`Permissions de ${s.firstName} ${s.lastName}`}>
+                          <Shield size={14} /> Permissions
+                        </Link>
+                      )}
                       {canManage && s.status !== "ACTIVE" && (
                         <button type="button" className="btn btn-outline btn-sm" onClick={() => setStatus(s, "ACTIVE")}>
                           Réactiver

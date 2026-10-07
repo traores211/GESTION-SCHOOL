@@ -13,7 +13,7 @@ Branche de travail : `feature/saas-multi-tenant`.
 | **L1** | Domaines personnalisés par école (SchoolDomain, résolveur par Host, vérification DNS, écrans d'administration, Adminer en dev) | **Fait** |
 | **L2** | Machine à états école complète (PROSPECT / PENDING / TRIAL / ACTIVE / SUSPENDED / EXPIRED / CLOSED), transitions validées, timeline auditée, auto-expiry du trial, écran d'historique | **Fait** |
 | **L3** | Plans & quotas (élèves, utilisateurs, enseignants, classes, écoles, domaines, stockage, SMS) + enforcement 409 QUOTA_EXCEEDED, overrides par organisation, écran super-admin | **Fait** |
-| L4 | Permissions fines (activation de la table `Permission` et `PermissionsGuard`) | À faire |
+| **L4** | Permissions fines (catalogue en code, PermissionsGuard, UI par utilisateur, décorateur `@RequirePermissions`), surcouche additive sur les rôles existants | **Fait** |
 | L5 | Nginx multi-vhost + certbot automatique + documentation opérateur | À faire |
 | L6 | Relâchement des uniques globaux (`User.email`, `School.code`, `Invoice.reference`, `Payment.transactionId`) → composites avec `organisationId` | À faire |
 | L7 | Dette technique (`Float` → `Decimal` pour les montants, pagination UI complète, CSP stricte, middleware Next.js) | À faire |
@@ -472,7 +472,7 @@ Migration `20261006000200_organisation_quota_overrides` : table + relation vers 
 - Déclencher le quota `smsMonthly` dans le `SmsService` (actuellement comptabilisé via les
   `MessageLog` existants, mais aucun refus avant envoi).
 
-### Chemins ajoutés / modifiés
+### Chemins ajoutés / modifiés (L3)
 
 ```
 backend/prisma/schema.prisma                           (OrganisationQuotaOverride + relation)
@@ -495,5 +495,127 @@ backend/test/e2e-domains.js                            (bump quota before test)
 backend/test/e2e-group.js                              (bump quota after signup)
 .github/workflows/ci.yml                               (étape e2e-quotas)
 frontend/src/app/platform/page.tsx                     (modal Quotas)
+docs/EVOLUTION-SAAS.md                                 (ce fichier)
+```
+
+---
+
+## Lot 4 — Permissions fines
+
+### Analyse
+
+L'audit (§G) a montré que le modèle `Permission (resource, action)` existait dans Prisma depuis
+`0_init` mais n'était utilisé nulle part : les rôles seuls décidaient de tout. Objectif : ajouter
+une surcouche optionnelle qui laisse les rôles continuer à faire leur travail
+(**compatibilité ascendante totale**) et permet d'accorder ou de retirer des permissions
+atomiques à un compte précis.
+
+### Modifications
+
+1. **`backend/src/permissions/catalog.ts`** — 17 permissions typées, groupées en 5 domaines
+   (Scolarité, Vie scolaire, Finances, Communication, Administration). Chaque entrée carrie son
+   `(resource, action)`, un libellé et une description FR, et la liste des **rôles qui
+   l'impliquent** (ne pas forcer un admin à cocher explicitement ce qu'il a déjà par son rôle).
+2. **`permissions.service.ts`** — `catalog()`, `permissionsOf(userId)` (cache Redis 60 s),
+   `report(operator, userId)`, `set(operator, userId, keys)` (remplace tout, idempotent),
+   `userHas(userId, role, key)` pour les contrôles programmatiques. L'écriture upserte la table
+   `Permission` à la demande et met à jour la pivot `_PermissionToUser` ; chaque écriture laisse
+   une trace dans `AuditLog` (`resource='permissions'`).
+3. **`require-permissions.decorator.ts` + `permissions.guard.ts`** — décorateur
+   `@RequirePermissions('billing:refund', ...)` à poser sur une méthode ou un contrôleur. Le
+   guard **laisse passer SUPER_ADMIN**, puis vérifie que l'utilisateur possède toutes les
+   permissions requises, soit par implication de rôle, soit par grant explicite en base. Sans
+   le décorateur, no-op : zéro impact sur le code existant.
+4. **Scope d'écriture** : seul SUPER_ADMIN et ADMIN_ORGANISATION peuvent accorder des
+   permissions (pas DIRECTOR). ADMIN_ORGANISATION est borné aux comptes des écoles de sa propre
+   organisation.
+5. **Endpoints** : `GET /api/permissions/catalog`, `GET /api/users/:id/permissions`,
+   `PUT /api/users/:id/permissions`.
+6. **Démonstration** : `PermissionsGuard` posé sur `PrivacyController` et `PayrollController`
+   (contrôleurs sensibles). `@RequirePermissions('payroll:validate')` sur `/payroll/:id/validate`
+   et `/payroll/:id/pay`. Les rôles qui l'ont déjà par implication (SUPER_ADMIN, DIRECTOR,
+   COMPTABLE) ne sont pas touchés → zéro régression sur les comportements existants.
+7. **UI** : nouvelle page `/users/[id]/permissions` accessible depuis la liste `/staff` via un
+   bouton « Permissions » (visible pour SUPER_ADMIN et ADMIN_ORGANISATION). Groupage par
+   domaine, cases cochées + désactivées quand la permission est accordée par le rôle (avec
+   badge « Rôle »), checkbox active sinon, bouton Enregistrer actif uniquement si modifié.
+
+### Base de données
+
+**Aucune migration** : le modèle `Permission` et la pivot `_PermissionToUser` existent depuis
+`0_init`. Les lignes sont upsertées à la demande lors du premier grant.
+
+### API (3 endpoints ajoutés)
+
+- `GET  /api/permissions/catalog` — permissions regroupées par domaine (SUPER_ADMIN / ADMIN_ORGANISATION / DIRECTOR).
+- `GET  /api/users/:id/permissions` — rapport (SUPER_ADMIN / ADMIN_ORGANISATION, scopé à l'organisation).
+- `PUT  /api/users/:id/permissions` — remplace la liste explicite des permissions (idem).
+
+### Frontend
+
+- Page `/users/[id]/permissions` (Shell + liste groupée).
+- Bouton « Permissions » dans la ligne `/staff` pour les rôles admin. 0 nouvelle dépendance npm.
+
+### Sécurité
+
+- **Compatibilité ascendante totale** : sans `@RequirePermissions`, le guard est un no-op. Les
+  38 contrôleurs existants restent inchangés.
+- **SUPER_ADMIN by-pass** le guard : opérateur plateforme reste toujours capable d'agir.
+- **Isolation inter-organisation** sur les écritures de permissions.
+- **Audit systématique** : chaque PUT écrit une ligne dans `AuditLog` avec les clés accordées.
+- **Catalogue en code, grants en base** : nouvelle permission = release + revue ; grants =
+  opération admin tracée.
+- Validation stricte : clés inconnues refusées 400.
+
+### Tests
+
+- **Unitaires nouveaux** : `catalog.spec.ts` (8 tests) — ≥ 12 permissions, format `resource:action`,
+  unicité, recherche par clé, type-guard `isPermissionKey`, cohérence des rôles implicites avec
+  l'enum `UserRole`, `roleImpliesPermission`.
+- **E2E nouveau** : `backend/test/e2e-permissions.js` (11 assertions) — catalogue, lecture du
+  rapport, implication par rôle, guard laisse passer un COMPTABLE sur /payroll/validate (service
+  répond 404 pour l'id inexistant → preuve que le guard n'a pas refusé), SECRETARY refusé par
+  RolesGuard avant même le PermissionsGuard, grant PUT, audit entry écrite, refus 400 d'une
+  clé inconnue, réinitialisation.
+- **Suite complète** : **289 tests unitaires** OK (34 suites, +8 vs L3), **30 tests frontend**
+  OK, scénarios **e2e-privacy / e2e-platform / e2e-tenancy / e2e-leaks** rejoués : aucun échec,
+  aucune régression.
+
+### Non-régression
+
+- `PrivacyController` et `PayrollController` ont gagné `PermissionsGuard` au niveau classe ;
+  comme toutes les permissions concernées sont impliquées par les rôles ciblés (MANAGEMENT /
+  FINANCE), aucun comportement observable ne change tant qu'aucun admin n'édite les permissions
+  individuellement.
+- La table `Permission` était vide : zéro impact sur les comptes existants.
+
+### Reste à faire
+
+- Poser `@RequirePermissions` sur davantage de routes sensibles (export notes, suppression
+  classe, publication vitrine). À faire au fur et à mesure que la discussion commerciale fera
+  émerger les besoins de granularité fine (lot ad hoc).
+- Grouper les permissions par **rôle de référence** (preset : « Comptable étendu »,
+  « Secrétaire sans accès finances »…) : fonctionnalité facultative, à budgéter séparément.
+- Un écran plateforme listant les comptes qui ont des grants non standard, pour que l'admin
+  SaaS puisse auditer rapidement les écarts par rapport à la norme.
+
+### Chemins ajoutés / modifiés (L4)
+
+```
+backend/src/permissions/catalog.ts
+backend/src/permissions/catalog.spec.ts
+backend/src/permissions/permissions.service.ts
+backend/src/permissions/permissions.controller.ts
+backend/src/permissions/permissions.module.ts
+backend/src/permissions/permissions.guard.ts
+backend/src/permissions/require-permissions.decorator.ts
+backend/src/app.module.ts                              (import PermissionsModule)
+backend/src/audit/audit.service.ts                     (AREA_LABELS.permissions)
+backend/src/privacy/privacy.controller.ts              (PermissionsGuard au niveau classe)
+backend/src/payroll/payroll.controller.ts              (@RequirePermissions sur validate / pay)
+backend/test/e2e-permissions.js
+.github/workflows/ci.yml                               (étape e2e-permissions)
+frontend/src/app/users/[id]/permissions/page.tsx
+frontend/src/app/staff/page.tsx                        (bouton « Permissions »)
 docs/EVOLUTION-SAAS.md                                 (ce fichier)
 ```
