@@ -1,0 +1,3 @@
+# Per-domain nginx snippets are written here by deploy/certbot/renew.sh when a new Let's Encrypt
+# certificate is issued. This directory stays empty in source control; its content is generated
+# at run time and persisted in the nginx container through a bind mount or a named volume.

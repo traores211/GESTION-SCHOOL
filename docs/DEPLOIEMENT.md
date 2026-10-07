@@ -20,16 +20,63 @@ openssl rand -base64 32   # DATA_ENCRYPTION_KEY (exactement 32 octets)
 - **Refus au démarrage** : l'API ne démarre pas si un secret manque, s'il est trop court ou s'il garde une valeur d'exemple (`src/infra/env.ts`). Docker Compose refuse aussi de démarrer si une variable obligatoire est vide.
 - **Copies à conserver hors du serveur** (gestionnaire de mots de passe) : `BACKUP_PASSPHRASE` et `DATA_ENCRYPTION_KEY`. Sans elles, les sauvegardes et les données chiffrées sont illisibles.
 
-## 2. Certificat HTTPS
+## 2. Certificats HTTPS
 
-Les certificats sont lus dans `deploy/certs/fullchain.pem` et `deploy/certs/privkey.pem`. Avec Let's Encrypt :
+### 2.1 Certificat par défaut
+
+Nginx utilise `deploy/certs/fullchain.pem` et `deploy/certs/privkey.pem` comme certificat de secours (hôte inconnu, nouveau domaine en attente). Vous pouvez démarrer avec un certificat auto-signé pour la première mise en route :
 
 ```bash
-docker run --rm -p 80:80 -v "$PWD/deploy/certs:/etc/letsencrypt" certbot/certbot certonly --standalone -d ecole.example.ci --agree-tos -m admin@example.ci
-cp deploy/certs/live/ecole.example.ci/fullchain.pem deploy/certs/live/ecole.example.ci/privkey.pem deploy/certs/
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout deploy/certs/privkey.pem -out deploy/certs/fullchain.pem \
+  -subj "/CN=mon-saas-ecole.ci"
 ```
 
-Renouvellement : relancez la commande tous les 60 jours (tâche cron), puis `docker compose -f docker-compose.prod.yml exec nginx nginx -s reload`.
+Remplacez-le dès que possible par un certificat Let's Encrypt pour le domaine principal de la plateforme :
+
+```bash
+docker run --rm -p 80:80 -v "$PWD/deploy/certs:/etc/letsencrypt" certbot/certbot \
+  certonly --standalone -d mon-saas-ecole.ci --agree-tos -m admin@example.ci
+cp deploy/certs/live/mon-saas-ecole.ci/fullchain.pem deploy/certs/live/mon-saas-ecole.ci/privkey.pem deploy/certs/
+```
+
+### 2.2 Certificats automatiques des domaines d'école
+
+Chaque établissement peut utiliser son propre domaine (ex. `mon-ecole-1.ci`) : la plateforme stocke le mapping dans `SchoolDomain` et nginx accepte n'importe quel hôte. Les certificats Let's Encrypt sont obtenus par le service `certbot` dédié.
+
+**Prérequis** :
+
+1. Le domaine pointe (A/AAAA) vers l'IP du serveur.
+2. L'école a terminé la vérification DNS TXT dans l'écran « Domaines » (statut `ACTIVE`).
+3. Les variables `CERTBOT_TOKEN` et `CERTBOT_EMAIL` sont renseignées dans `.env.production`.
+
+**Première émission (manuelle)** :
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production --profile certbot run --rm certbot renew-now
+```
+
+Le script :
+
+- appelle `GET /api/platform/certbot/hostnames` (bearer `CERTBOT_TOKEN`) pour obtenir la liste des domaines `ACTIVE` ;
+- lance `certbot certonly --webroot` pour chaque hôte ;
+- écrit un fichier `deploy/nginx/sites/<host>.conf` (via volume partagé) ;
+- demande à nginx de recharger sa configuration.
+
+**Renouvellement automatique** — ajouter une tâche cron sur l'hôte :
+
+```cron
+0 2 * * *  cd /opt/school-erp && docker compose -f docker-compose.prod.yml --env-file .env.production --profile certbot run --rm certbot renew-now >> /var/log/school-certbot.log 2>&1
+```
+
+Ou lancer le service en mode permanent :
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production --profile certbot up -d certbot
+# Puis le container boucle (renew-cron) et renouvelle chaque nuit à 02h00.
+```
+
+**Test contre le serveur de staging** (sans toucher au quota de prod) : `CERTBOT_STAGING=true` dans l'env.
 
 ## 3. Démarrer
 

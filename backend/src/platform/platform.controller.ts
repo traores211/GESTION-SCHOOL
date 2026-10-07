@@ -1,7 +1,9 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpException, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Equals, IsBoolean, IsDateString, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { timingSafeEqual } from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { LoginRateLimiter } from '../auth/login-rate-limiter';
 import { Roles } from '../common/roles.decorator';
@@ -115,6 +117,7 @@ export class PlatformController {
     private readonly limiter: LoginRateLimiter,
     private readonly lifecycle: LifecycleService,
     private readonly quota: QuotaService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('public/signup')
@@ -212,5 +215,28 @@ export class PlatformController {
     const data = Object.fromEntries(QUOTA_KEYS.map((k) => [k, dto[k] ?? null]));
     await this.platform.setQuotaOverride(id, { ...data, notes: dto.notes ?? null });
     return { ok: true };
+  }
+
+  /**
+   * Hostnames of every ACTIVE custom domain or subdomain. Consumed by the certbot container
+   * (deploy/certbot/renew.sh) to obtain or renew Let's Encrypt certificates. Protected by a
+   * shared bearer token (CERTBOT_TOKEN env). Keeps the response minimal to avoid leaking the
+   * identity of schools to a compromised certbot token.
+   */
+  @Get('platform/certbot/hostnames')
+  async certbotHostnames(@Headers('authorization') authorization: string | undefined) {
+    const token = process.env.CERTBOT_TOKEN;
+    if (!token) throw new HttpException('CERTBOT_TOKEN non configuré sur le serveur', HttpStatus.SERVICE_UNAVAILABLE);
+    const given = Buffer.from(authorization?.replace(/^Bearer\s+/i, '') ?? '');
+    const expected = Buffer.from(token);
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+      throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
+    }
+    const rows = await this.prisma.schoolDomain.findMany({
+      where: { status: 'ACTIVE', kind: { in: ['CUSTOM_DOMAIN', 'CUSTOM_DOMAIN_ALIAS', 'SUBDOMAIN'] } },
+      select: { hostname: true },
+      orderBy: { hostname: 'asc' },
+    });
+    return { hostnames: rows.map((r) => r.hostname) };
   }
 }

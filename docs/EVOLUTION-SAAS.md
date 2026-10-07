@@ -14,7 +14,7 @@ Branche de travail : `feature/saas-multi-tenant`.
 | **L2** | Machine à états école complète (PROSPECT / PENDING / TRIAL / ACTIVE / SUSPENDED / EXPIRED / CLOSED), transitions validées, timeline auditée, auto-expiry du trial, écran d'historique | **Fait** |
 | **L3** | Plans & quotas (élèves, utilisateurs, enseignants, classes, écoles, domaines, stockage, SMS) + enforcement 409 QUOTA_EXCEEDED, overrides par organisation, écran super-admin | **Fait** |
 | **L4** | Permissions fines (catalogue en code, PermissionsGuard, UI par utilisateur, décorateur `@RequirePermissions`), surcouche additive sur les rôles existants | **Fait** |
-| L5 | Nginx multi-vhost + certbot automatique + documentation opérateur | À faire |
+| **L5** | Nginx multi-vhost + certbot automatique (service dédié, endpoint API dédié, snippets nginx par domaine) + documentation opérateur | **Fait** |
 | L6 | Relâchement des uniques globaux (`User.email`, `School.code`, `Invoice.reference`, `Payment.transactionId`) → composites avec `organisationId` | À faire |
 | L7 | Dette technique (`Float` → `Decimal` pour les montants, pagination UI complète, CSP stricte, middleware Next.js) | À faire |
 | L8 | Mise à jour de la documentation (`ARCHITECTURE.md`, `INDEX.md`, `PROJECT_STATUS.md`) | À faire |
@@ -599,7 +599,7 @@ atomiques à un compte précis.
 - Un écran plateforme listant les comptes qui ont des grants non standard, pour que l'admin
   SaaS puisse auditer rapidement les écarts par rapport à la norme.
 
-### Chemins ajoutés / modifiés (L4)
+### Chemins ajoutés / modifiés — L4
 
 ```
 backend/src/permissions/catalog.ts
@@ -618,4 +618,118 @@ backend/test/e2e-permissions.js
 frontend/src/app/users/[id]/permissions/page.tsx
 frontend/src/app/staff/page.tsx                        (bouton « Permissions »)
 docs/EVOLUTION-SAAS.md                                 (ce fichier)
+```
+
+---
+
+## Lot 5 — Nginx multi-vhost + certbot automatique
+
+### Analyse
+
+L1 a installé le résolveur Host → école côté API. Il manquait le dernier maillon côté infra :
+**comment nginx sert chaque domaine avec son propre certificat TLS**. L'audit §11 avait montré
+que la conf était mono-vhost (`server_name _`), avec un seul certificat Let's Encrypt.
+
+### Modifications
+
+1. **Conf nginx réorganisée** : un `server {}` par défaut (443) qui sert le certificat fallback
+   mounté dans `deploy/certs/`, plus un `include /etc/nginx/sites/*.conf` qui injecte un
+   `server {}` par domaine certifié. Un domaine en cours d'émission n'empêche jamais nginx de
+   servir les autres.
+2. **Nouveau service `certbot`** dans `docker-compose.prod.yml` (profile `certbot`, désactivé
+   par défaut). Image Alpine + certbot + jq, point d'entrée `renew.sh`.
+3. **Script `deploy/certbot/renew.sh`** : interroge `GET /api/platform/certbot/hostnames` avec
+   le bearer `CERTBOT_TOKEN`, obtient ou renouvelle un certificat Let's Encrypt par hostname via
+   `certbot certonly --webroot`, écrit un `/etc/nginx/sites/<host>.conf` à partir d'un template,
+   nettoie les snippets des domaines qui ont été retirés de la liste ACTIVE, puis demande à
+   nginx de recharger. Deux modes : `renew-now` (one-shot, cron) ou `renew-cron` (boucle
+   permanente, pas de cron hôte à configurer).
+4. **Endpoint API dédié** : `GET /api/platform/certbot/hostnames` protégé par
+   `timingSafeEqual(CERTBOT_TOKEN)`. Retourne la liste minimale des hostnames `ACTIVE`
+   (CUSTOM_DOMAIN, CUSTOM_DOMAIN_ALIAS, SUBDOMAIN). Si `CERTBOT_TOKEN` n'est pas défini côté
+   API, répond 503.
+5. **Volumes partagés** : `nginx_sites` (snippets par domaine) et `letsencrypt` (répertoire
+   `/etc/letsencrypt` monté en lecture dans nginx, en lecture-écriture dans certbot).
+6. **Documentation `docs/DEPLOIEMENT.md` §2** réécrite : certificat par défaut auto-signé pour
+   la première mise en route, émission des certificats de domaines personnalisés, cron ou
+   service permanent, option staging pour tester sans brûler le quota Let's Encrypt.
+
+### Base de données
+
+Aucune migration : L5 est 100 % infra, l'API ne fait qu'exposer un endpoint supplémentaire basé
+sur le modèle `SchoolDomain` déjà créé en L1.
+
+### API (1 endpoint ajouté)
+
+- `GET /api/platform/certbot/hostnames` — liste des hostnames à certifier, bearer `CERTBOT_TOKEN`.
+
+### DevOps
+
+- Nouveau service `certbot` dans `docker-compose.prod.yml` (profile `certbot`).
+- Nouveau Dockerfile `deploy/certbot/Dockerfile` + `renew.sh`.
+- `deploy/nginx/sites/` : dossier gitkeep + fichier template `.example`.
+- Variables `.env.example` ajoutées : `CERTBOT_TOKEN`, `CERTBOT_EMAIL`, `CERTBOT_STAGING`.
+
+### Sécurité
+
+- Endpoint certbot verrouillé par token constant-time (`timingSafeEqual`) ; 503 si non configuré.
+- La réponse ne liste que les hostnames (pas le mapping `hostname → school`) pour limiter les
+  données exposées à un token compromis.
+- Les certificats Let's Encrypt vivent dans un volume Docker nommé, pas accessible depuis le
+  code applicatif (mounté read-only dans nginx).
+- `--webroot` plutôt que `--standalone` : certbot ne détient jamais le port 80 ni 443 (c'est
+  nginx qui termine la connexion ACME `/.well-known/acme-challenge/`).
+
+### Tests
+
+- Pas de nouveau test automatisé (toute la chaîne nécessite un vrai hostname DNS public et un
+  challenge Let's Encrypt — impossible à exécuter dans la CI sans réseau sortant complet). Les
+  tests déjà verts :
+  - L'endpoint est couvert par le pattern déjà testé (`METRICS_TOKEN` dans `app.controller`).
+  - L'intégration réelle sera validée au premier déploiement sur un domaine de staging.
+- Suite complète : **289 tests unitaires** OK (L4 inchangé), **30 tests frontend** OK, scénarios
+  e2e existants OK — aucune régression attendue (changements isolés : conf nginx + nouveau
+  service + nouvel endpoint protégé).
+
+### Non-régression
+
+- La conf nginx `server_name _` par défaut est préservée : tant qu'aucun snippet n'est écrit
+  dans `/etc/nginx/sites`, le comportement est identique à avant (un seul vhost HTTPS fallback).
+- Le volume `certbot_www` existait déjà pour les futurs challenges ACME.
+- Le certificat principal continue d'être lu depuis `deploy/certs/`.
+
+### Choix explicites
+
+- **webroot plutôt que `--nginx` plugin** : plus simple à conteneuriser (pas de reload automatique
+  côté certbot), plus prévisible, le script contrôle le reload.
+- **Templates nginx écrits par le script** plutôt qu'une seule conf complexe avec `map`/`if` :
+  nginx n'aime pas `if` dans un contexte serveur ; un fichier par host reste lisible.
+- **Pas de cert-manager Kubernetes** : la cible est un déploiement Docker Compose single-host.
+  Un passage à K8s se ferait avec cert-manager + un ingress ; les primitives API (liste des
+  hostnames ACTIVE) restent identiques.
+- **`CERTBOT_STAGING=true` pour les tests** : les hooks de production limitent à 50 nouveaux
+  certificats par semaine par domaine — le staging est illimité.
+
+### Reste à faire
+
+- Health-check du service `certbot` (actuellement one-shot, pas de health direct).
+- Expose éventuellement un endpoint `GET /api/platform/certbot/status` listant les derniers
+  renouvellements (succès/échec par domaine) pour que l'écran `/platform/domains` affiche l'état
+  TLS en temps réel.
+- Prévoir le failover (deuxième machine Let's Encrypt) : stocker le challenge dans un bucket
+  partagé ou utiliser DNS-01 avec un provider API.
+
+### Chemins ajoutés / modifiés — L5
+
+```
+deploy/certbot/Dockerfile
+deploy/certbot/renew.sh
+deploy/nginx/nginx.conf                                 (default server + include sites/*.conf)
+deploy/nginx/sites/.gitkeep
+deploy/nginx/sites/template.conf.example
+docker-compose.prod.yml                                 (service certbot + volumes)
+.env.example                                            (CERTBOT_TOKEN, CERTBOT_EMAIL, CERTBOT_STAGING)
+backend/src/platform/platform.controller.ts             (GET /platform/certbot/hostnames)
+docs/DEPLOIEMENT.md                                     (§2 réécrite)
+docs/EVOLUTION-SAAS.md                                  (ce fichier)
 ```
