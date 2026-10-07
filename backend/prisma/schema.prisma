@@ -449,7 +449,8 @@ model StaffMember {
   position          String   // "Teacher", "Secretary", etc.
   department        String?
   hireDate          DateTime
-  baseSalary        Float?
+  /// FCFA (Decimal(14,2) in DB, serialised as number by PrismaService.toNumber middleware).
+  baseSalary        Decimal? @db.Decimal(14, 2)
   matricule         String?  // Staff number used to match timetable planning imports
   weeklyMaxMinutes  Int?     // Teaching load ceiling (obligation de service); null = no ceiling
   /// Personnel file. category: ENSEIGNANT, SURVEILLANT, EDUCATEUR, ADMINISTRATION, DIRECTION, COMPTABILITE, SECRETARIAT, TECHNIQUE, SECURITE, AUTRE
@@ -1061,7 +1062,8 @@ model Invoice {
   /// Unique within a school: two schools of the SaaS may both use "INV-2026-00001" without clash.
   reference         String
   label             String
-  totalAmount       Float
+  /// FCFA (Decimal(14,2) in DB, serialised as number by PrismaService.toNumber middleware).
+  totalAmount       Decimal  @db.Decimal(14, 2)
   dueDate           DateTime
   status            InvoiceStatus @default(PENDING)
   items             InvoiceItem[]
@@ -1084,7 +1086,8 @@ model InvoiceItem {
   invoiceId         String
   invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   label             String
-  amount            Float
+  /// FCFA (Decimal(14,2) in DB, serialised as number).
+  amount            Decimal  @db.Decimal(14, 2)
 
   @@index([invoiceId])
 }
@@ -1097,7 +1100,8 @@ model Payment {
   student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   transactionId     String   @unique @default(cuid())
   reference         String?
-  amount            Float
+  /// FCFA (Decimal(14,2) in DB, serialised as number).
+  amount            Decimal  @db.Decimal(14, 2)
   method            PaymentMethod
   status            PaymentStatus @default(SUCCESS)
   receivedById      String?
@@ -1248,7 +1252,8 @@ model TransportRoute {
   vehicleId         String?
   vehicle           Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   departureTime     String?  // "06:30"
-  monthlyFee        Float    @default(0)
+  /// FCFA (Decimal(14,2) in DB, serialised as number).
+  monthlyFee        Decimal  @default(0) @db.Decimal(14, 2)
   subscriptions     TransportSubscription[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -1288,10 +1293,11 @@ model Payslip {
   staffMemberId     String
   staffMember       StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
   period            String   // "2026-01"
-  baseSalary        Float
-  bonuses           Float    @default(0)
-  deductions        Float    @default(0)
-  netSalary         Float
+  /// FCFA (Decimal(14,2) in DB, serialised as number).
+  baseSalary        Decimal  @db.Decimal(14, 2)
+  bonuses           Decimal  @default(0) @db.Decimal(14, 2)
+  deductions        Decimal  @default(0) @db.Decimal(14, 2)
+  netSalary         Decimal  @db.Decimal(14, 2)
   status            PayslipStatus @default(DRAFT)
   paidAt            DateTime?
   createdAt         DateTime @default(now())

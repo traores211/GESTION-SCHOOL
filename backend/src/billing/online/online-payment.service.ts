@@ -70,7 +70,7 @@ export class OnlinePaymentService {
   }
 
   private async createLink(
-    invoice: { id: string; reference: string; label: string; studentId: string; totalAmount: number; status: string; payments: { id: string; amount: number; status: string; paidAt: Date }[] },
+    invoice: { id: string; reference: string; label: string; studentId: string; totalAmount: number | { toNumber(): number }; status: string; payments: { id: string; amount: number | { toNumber(): number }; status: string; paidAt: Date }[] },
     requested: number | undefined,
     initiatedById: string,
     customer: { name?: string; phone?: string; email?: string },
@@ -128,10 +128,10 @@ export class OnlinePaymentService {
     }
   }
 
-  private linkOf(payment: { transactionId: string; amount: number; checkoutUrl: string | null; provider: string | null }) {
+  private linkOf(payment: { transactionId: string; amount: number | { toNumber(): number }; checkoutUrl: string | null; provider: string | null }) {
     return {
       transactionId: payment.transactionId,
-      amount: payment.amount,
+      amount: Number(payment.amount),
       provider: payment.provider,
       /** Gateway checkout page (where the money is actually paid). */
       checkoutUrl: payment.checkoutUrl,
@@ -155,7 +155,7 @@ export class OnlinePaymentService {
     return {
       transactionId: p.transactionId,
       status: p.status,
-      amount: p.amount,
+      amount: Number(p.amount),
       invoiceReference: p.invoice.reference,
       label: p.invoice.label,
       schoolName: p.invoice.school.name,
@@ -178,7 +178,7 @@ export class OnlinePaymentService {
     const verdict = await this.gateway.verify(transactionId);
     if (verdict.status === 'PENDING') return 'PENDING';
 
-    if (verdict.status === 'SUCCESS' && verdict.amount !== undefined && Math.round(verdict.amount) !== Math.round(payment.amount)) {
+    if (verdict.status === 'SUCCESS' && verdict.amount !== undefined && Math.round(verdict.amount) !== Math.round(Number(payment.amount))) {
       this.logger.error(`Paiement ${transactionId} : montant confirmé ${verdict.amount} différent du montant attendu ${payment.amount}`);
       await this.prisma.payment.updateMany({ where: { id: payment.id, status: 'PENDING' }, data: { status: 'FAILED' } });
       return 'FAILED';
@@ -198,7 +198,7 @@ export class OnlinePaymentService {
       return count > 0;
     });
     if (updated && verdict.status === 'SUCCESS') {
-      await this.billing.notifyPaymentReceived(payment.invoiceId, payment.amount, payment.id).catch((err: Error) => this.logger.warn(`Notification du paiement ${transactionId} : ${err.message}`));
+      await this.billing.notifyPaymentReceived(payment.invoiceId, Number(payment.amount), payment.id).catch((err: Error) => this.logger.warn(`Notification du paiement ${transactionId} : ${err.message}`));
     }
     return verdict.status;
   }

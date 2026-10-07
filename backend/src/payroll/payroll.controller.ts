@@ -85,9 +85,9 @@ export class PayrollController {
     y += 20;
 
     const rows = [
-      ['Salaire de base', formatFCFA(payslip.baseSalary)],
-      ['Primes', formatFCFA(payslip.bonuses)],
-      ['Retenues', `- ${formatFCFA(payslip.deductions)}`],
+      ['Salaire de base', formatFCFA(Number(payslip.baseSalary))],
+      ['Primes', formatFCFA(Number(payslip.bonuses))],
+      ['Retenues', `- ${formatFCFA(Number(payslip.deductions))}`],
     ];
     doc.fillColor('#000');
     rows.forEach(([label, value], index) => {
@@ -101,7 +101,7 @@ export class PayrollController {
 
     doc.moveDown(2);
     doc.fontSize(13).fillColor('#009A44');
-    doc.text(`Salaire net à payer : ${formatFCFA(payslip.netSalary)}`);
+    doc.text(`Salaire net à payer : ${formatFCFA(Number(payslip.netSalary))}`);
     doc.fillColor('#666').fontSize(9);
     doc.text(`Statut : ${payslip.status}${payslip.paidAt ? ` — payé le ${new Date(payslip.paidAt).toLocaleDateString('fr-FR')}` : ''}`);
 

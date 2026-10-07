@@ -78,7 +78,7 @@ function uploader(token) {
     const staffCsv = `Nom,Prénoms,E-mail,Fonction,Rôle,Salaire de base\n${NAME},Jean,jean.import@test.local,Professeur de SVT,Professeur,250 000\n${NAME},Paul,pas-un-email,Surveillant,,\n${NAME},Admin,admin@school.local,Directeur,Directeur,`;
     const staff = await upload('staff', staffCsv, { commit: true });
     const user = await prisma.user.findUnique({ where: { email: 'jean.import@test.local' }, include: { staffMember: true } });
-    ok(staff.body.imported === 1 && staff.body.errors === 1 && staff.body.skipped === 1 && user.role === 'ENSEIGNANT' && user.staffMember.baseSalary === 250000, 'staff created (comma-separated file), invalid e-mail refused, existing account skipped', staff.body);
+    ok(staff.body.imported === 1 && staff.body.errors === 1 && staff.body.skipped === 1 && user.role === 'ENSEIGNANT' && Number(user.staffMember.baseSalary) === 250000, 'staff created (comma-separated file), invalid e-mail refused, existing account skipped', staff.body);
     const signIn = await fetch(`${BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'jean.import@test.local', password: '' }) });
     ok(signIn.status >= 400, 'imported accounts have no usable password until the person sets one');
 
@@ -86,7 +86,7 @@ function uploader(token) {
     const m = created[0].matricule;
     const balances = await upload('balances', `Matricule;Montant;Libellé;Échéance\n${m};75 000 FCFA;Solde 2025-2026;31/10/2026\n${m};abc;;\nINCONNU;5000;;`, { commit: true });
     const invoice = await prisma.invoice.findFirst({ where: { studentId: created[0].id }, include: { items: true } });
-    ok(balances.body.imported === 1 && balances.body.errors === 2 && invoice.totalAmount === 75000 && invoice.label === 'Solde 2025-2026' && /^INV-/.test(invoice.reference) && invoice.items.length === 1, `invoice ${invoice?.reference} created for the balance`, balances.body);
+    ok(balances.body.imported === 1 && balances.body.errors === 2 && Number(invoice.totalAmount) === 75000 && invoice.label === 'Solde 2025-2026' && /^INV-/.test(invoice.reference) && invoice.items.length === 1, `invoice ${invoice?.reference} created for the balance`, balances.body);
     ok((await upload('balances', `Matricule;Montant;Libellé\n${m};75000;Solde 2025-2026`, { commit: true })).body.skipped === 1, 'the same balance is not invoiced twice');
 
     console.log('Marks');

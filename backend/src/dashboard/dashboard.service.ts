@@ -287,15 +287,16 @@ export class DashboardService {
     // ---------- Finance ----------
     const today = startOfDay(now);
     const invoiceRows = invoices.map((inv) => {
-      const paid = inv.payments.reduce((sum, p) => sum + p.amount, 0);
-      const outstanding = Math.max(inv.totalAmount - paid, 0);
+      const paid = inv.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const totalAmount = Number(inv.totalAmount);
+      const outstanding = Math.max(totalAmount - paid, 0);
       let effectiveStatus: EffectiveInvoiceStatus;
       if (inv.status === 'CANCELLED' || inv.status === 'DRAFT') effectiveStatus = inv.status;
       else if (outstanding <= 0) effectiveStatus = 'PAID';
       else if (inv.dueDate < today) effectiveStatus = 'OVERDUE';
       else if (paid > 0) effectiveStatus = 'PARTIALLY_PAID';
       else effectiveStatus = 'PENDING';
-      return { ...inv, paid, outstanding, effectiveStatus };
+      return { ...inv, totalAmount, paid, outstanding, effectiveStatus };
     });
     const billable = invoiceRows.filter((inv) => inv.effectiveStatus !== 'CANCELLED' && inv.effectiveStatus !== 'DRAFT');
     const totalInvoiced = billable.reduce((sum, inv) => sum + inv.totalAmount, 0);
@@ -330,7 +331,7 @@ export class DashboardService {
     }
     for (const p of monthlyPayments) {
       const key = monthKey(p.paidAt);
-      if (months.has(key)) months.set(key, (months.get(key) || 0) + p.amount);
+      if (months.has(key)) months.set(key, (months.get(key) || 0) + Number(p.amount));
     }
     const collectionsByMonth = [...months.entries()].map(([month, amount], i, all) => ({
       month,
@@ -338,8 +339,8 @@ export class DashboardService {
       variation: i > 0 ? variation(amount, all[i - 1][1]) : null,
     }));
 
-    const collectedAmount = collected._sum.amount || 0;
-    const previousCollectedAmount = previousCollected._sum.amount || 0;
+    const collectedAmount = Number(collected._sum.amount || 0);
+    const previousCollectedAmount = Number(previousCollected._sum.amount || 0);
 
     // ---------- Admissions ----------
     const admissionCounts = Object.fromEntries(admissions.map((row) => [row.status, row._count]));
@@ -449,7 +450,7 @@ export class DashboardService {
       attendanceByClass,
       collectionsByMonth,
       paymentsByMethod: paymentsByMethod
-        .map((row) => ({ method: row.method, amount: row._sum.amount || 0, count: row._count }))
+        .map((row) => ({ method: row.method, amount: Number(row._sum.amount || 0), count: row._count }))
         .sort((a, b) => b.amount - a.amount),
       invoicesByStatus,
       overdueInvoices,

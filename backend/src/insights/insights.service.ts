@@ -45,7 +45,7 @@ export class InsightsService implements OnModuleInit {
     const count = (status: string) => attendance.find((a) => a.status === status)?._count ?? 0;
     return {
       attendance: { marked: attendance.reduce((s, a) => s + a._count, 0), present: count('PRESENT') + count('RETARD'), unjustified: count('ABSENT') },
-      collected: payments._sum.amount ?? 0,
+      collected: Number(payments._sum.amount ?? 0),
       marksEntered,
       newApplications,
       smsSent,
@@ -69,7 +69,7 @@ export class InsightsService implements OnModuleInit {
       this.prisma.academicYear.findFirst({ where: { schoolId, isCurrent: true }, include: { terms: true } }),
     ]);
 
-    const open = invoices.map((i) => ({ dueDate: i.dueDate, left: Math.max(0, i.totalAmount - i.payments.reduce((s, p) => s + p.amount, 0)) })).filter((i) => i.left > 0);
+    const open = invoices.map((i) => ({ dueDate: i.dueDate, left: Math.max(0, Number(i.totalAmount) - i.payments.reduce((s, p) => s + Number(p.amount), 0)) })).filter((i) => i.left > 0);
     const late = open.filter((i) => i.dueDate < to);
     const fresh = late.filter((i) => i.dueDate >= from);
 
@@ -121,10 +121,10 @@ export class InsightsService implements OnModuleInit {
     });
     return collectionForecast(
       invoices.map((i) => ({
-        totalAmount: i.totalAmount,
+        totalAmount: Number(i.totalAmount),
         dueDate: i.dueDate,
         status: i.status,
-        paid: i.payments.reduce((s, p) => s + p.amount, 0),
+        paid: i.payments.reduce((s, p) => s + Number(p.amount), 0),
         lastPaidAt: i.payments.length ? new Date(Math.max(...i.payments.map((p) => p.paidAt.getTime()))) : null,
       })),
     );

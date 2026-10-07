@@ -296,7 +296,7 @@ export class ImportsService {
       const rowLabel = student ? `${student.lastName} ${student.firstName} · ${amount?.toLocaleString('fr-FR') ?? '?'} FCFA` : v.matricule || `Ligne ${line}`;
       if (messages.length || !student || !amount || !dueDate) return { line, label: rowLabel, status: 'error', messages };
       const identity = `${student.id}|${key(label)}|${amount}`;
-      if (seen.has(identity) || student.invoices.some((i) => key(i.label) === key(label) && Math.round(i.totalAmount) === amount)) {
+      if (seen.has(identity) || student.invoices.some((i) => key(i.label) === key(label) && Math.round(Number(i.totalAmount)) === amount)) {
         return { line, label: rowLabel, status: 'skipped', messages: [`Une facture « ${label} » de ce montant existe déjà pour cet élève`] };
       }
       seen.add(identity);

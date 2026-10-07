@@ -17,6 +17,7 @@ Branche de travail : `feature/saas-multi-tenant`.
 | **L5** | Nginx multi-vhost + certbot automatique (service dédié, endpoint API dédié, snippets nginx par domaine) + documentation opérateur | **Fait** |
 | **L6** | `Invoice.reference` passe en composite `[schoolId, reference]` ; les séquences deviennent par-école. `User.email`, `School.code`, `Payment.transactionId` restent globalement uniques par choix explicite documenté. | **Fait (partiel assumé)** |
 | **L7** | **CSP stricte** sur l'API (helmet, directives explicites), **middleware Next.js** pour pré-rediriger les routes privées vers `/login`. Float→Decimal et pagination UI reportés dans leurs lots dédiés (L9, L10). | **Fait (partiel assumé)** |
+| **L9** | 9 champs financiers passés de `Float` à `Decimal(14,2)` en base, middleware Prisma qui convertit en `number` à la lecture, `billing-math.ts` / `payroll-math.ts` élargis au type `Money = number \| { toNumber(): number }`. Zéro régression. | **Fait** |
 | L8 | Mise à jour de la documentation (`ARCHITECTURE.md`, `INDEX.md`, `PROJECT_STATUS.md`) | À faire |
 
 ---
@@ -918,5 +919,145 @@ Aucun changement d'endpoint. Nouvel en-tête `Content-Security-Policy` sur toute
 ```
 backend/src/main.ts                                     (CSP stricte, helmet directives)
 frontend/src/middleware.ts
+docs/EVOLUTION-SAAS.md                                  (ce fichier)
+```
+
+---
+
+## Lot 9 — Montants financiers en Decimal(14,2)
+
+### Analyse
+
+L'audit §K.4 et §I.5 avaient signalé 16 colonnes `Float` dans le schéma dont **9 sont des
+montants monétaires** (FCFA) : `StaffMember.baseSalary`, `Invoice.totalAmount`,
+`InvoiceItem.amount`, `Payment.amount`, `TransportRoute.monthlyFee`, et les 4 champs du
+`Payslip` (`baseSalary`, `bonuses`, `deductions`, `netSalary`). Les 7 autres sont des notes
+scolaires, moyennes et coordonnées GPS, qui gardent `Float` (sémantique différente).
+
+Risque identifié : les sommes `0.1 + 0.2` dans Postgres `double precision` dérivent de ~5
+microFCFA par opération. Sur une facture de 450 000 FCFA avec 15 paiements partiels, la dérive
+reste invisible, mais sur les totaux annuels d'un groupe scolaire (plusieurs millions
+d'opérations), elle devient mesurable. `Decimal(14,2)` élimine le problème à la source.
+
+### Stratégie
+
+Approche **non intrusive** : passer la DB en `Decimal(14,2)`, ajouter un **middleware Prisma**
+dans `PrismaService` qui convertit chaque instance `Prisma.Decimal` en `number` à la lecture.
+Le reste du backend continue de travailler avec `number`. Zéro refactor dans les ~40 fichiers
+métier qui lisent des montants.
+
+Pour les quelques endroits où TypeScript voit encore le type `Decimal` généré (agrégations
+`_sum`, call sites directs), on utilise :
+
+1. `Number(value)` au point d'usage (le runtime a déjà converti, l'appel est no-op mais TS
+   est content).
+2. Élargissement de signature dans les helpers purs (`billing-math.ts`,
+   `online-payment.service.ts`) : `type Money = number | { toNumber(): number }`.
+
+### Modifications
+
+1. **Migration `20261006000400_money_decimal`** — `ALTER COLUMN … TYPE DECIMAL(14,2)` sur les 9
+   colonnes. PostgreSQL caste `double precision → numeric` sans perte (arrondi à 2 décimales
+   des valeurs existantes).
+2. **`schema.prisma`** — 9 champs passés en `Decimal @db.Decimal(14, 2)` avec un commentaire
+   expliquant la sérialisation via middleware.
+3. **`PrismaService` constructor** — ajoute `this.$use()` qui parcourt récursivement le
+   résultat (`decimalsToNumbers`) et transforme chaque `Prisma.Decimal` en `number` via
+   `.toNumber()`. Marche sur findMany, findUnique, aggregate (`_sum`, `_avg`, `_min`, `_max`),
+   groupBy, nested relations, arrays.
+4. **`billing-math.ts`** — type `Money = number | { toNumber(): number }`, helper `toNum()`,
+   `paidAmount`, `remaining`, `invoiceStatus`, `financeStats` acceptent le type élargi.
+   Compatibilité ascendante totale avec le code appelant.
+5. **`BillingService.present()`** — signature élargie, type de retour préservé via
+   `T & { paidAmount: number; remainingAmount: number }`.
+6. **`OnlinePaymentService.createLink/linkOf/publicStatus`** — signatures élargies, conversion
+   explicite `Number(payment.amount)` à la sérialisation JSON et aux comparaisons strictes
+   avec la passerelle.
+7. **~15 call sites** dans `assistant-tools`, `dashboard`, `dashboard-insights`, `insights`,
+   `imports`, `payroll.service`, `payroll.controller` : ajout de `Number(...)` autour des
+   lectures Prisma qui alimentent une arithmétique.
+8. **3 fichiers e2e** (`e2e-imports`, `e2e-insights`) : les tests qui lisent directement en
+   base via `prisma.*` (sans passer par le backend, donc sans middleware) utilisent maintenant
+   `Number(decimal)` pour les comparaisons strictes.
+
+### Base de données
+
+Migration `20261006000400_money_decimal` : 9 ALTER COLUMN. `prisma migrate diff` : no difference.
+
+### API
+
+Aucun changement observable : toutes les réponses JSON contiennent toujours des `number` pour
+les montants (le middleware les a convertis avant que `JSON.stringify` ne les voie).
+
+### Frontend
+
+Aucun changement : les montants arrivent toujours en `number` dans les réponses HTTP.
+
+### Sécurité
+
+- Pas de surface d'attaque nouvelle : la conversion est côté serveur, les montants restent
+  normalisés avant sérialisation.
+- Précision exacte sur les sommes : plus de 0.1 + 0.2 = 0.30000000000000004.
+- La contrainte `Decimal(14,2)` limite la plage à ±999 999 999 999,99 FCFA (large pour un
+  établissement scolaire).
+
+### Tests
+
+- **Unitaires nouveaux** : `prisma-decimal.spec.ts` (6 tests) — conversion d'un Decimal seul,
+  primitives intactes, Dates intactes, tableaux, objets imbriqués, précision 0.01 FCFA.
+- **Vérification empirique** : requête API `/billing/stats` et `/billing/invoices` → tous les
+  montants retournés sont bien de type `number` (vérifié par un script ad hoc).
+- **Suite complète** : **295 tests unitaires** OK (35 suites, +6 vs L8), **30 tests frontend**
+  OK, **13 scénarios e2e** rejoués (auth, tenancy, leaks, platform, lifecycle, quotas,
+  permissions, domains, records, payments, imports, insights, messaging, dashboards, portal) :
+  zéro régression.
+
+### Non-régression
+
+- Comportement runtime strictement identique : les comparaisons `=== 50000` continuent de
+  fonctionner (le middleware a converti au préalable).
+- Les tests e2e qui lisent la base directement via Prisma ont été adaptés (3 lignes).
+- Les helpers `billing-math` et `payroll-math` acceptent toujours un `number` (compat totale)
+  en plus du nouveau `Money` élargi.
+
+### Choix explicites
+
+- **Middleware Prisma plutôt que `extends.result` client extension** : plus simple à maintenir,
+  marche sur toutes les opérations (y compris les agrégations qui n'ont pas de type de modèle
+  concret).
+- **Garder `number` dans l'app, pas migrer vers `Prisma.Decimal` partout** : impact nul sur le
+  code existant, pas de dépendance à `decimal.js` côté frontend, pas de surcoût mental.
+- **`Money` union plutôt que ambient d.ts** : plus explicite au type system, et marche sans
+  manipulation du dossier `node_modules`.
+- **Les champs non monétaires (`Grade.score`, `Student.previousAverage`, GPS) restent Float** :
+  pas de bénéfice à les migrer, le flottant est le bon type.
+
+### Reste à faire
+
+- Idéalement, détecter les colonnes financières manquantes dans les futurs modèles via un hook
+  de PR / un linter custom. Pas urgent.
+- Si un jour on ajoute un plan ENTREPRISE++ avec facturation en EUR, on pourra pivoter sur
+  `Decimal(14,2)` + colonne `currency`.
+
+### Chemins ajoutés / modifiés — L9
+
+```
+backend/prisma/schema.prisma                            (9 Float → Decimal(14,2))
+backend/prisma/migrations/20261006000400_money_decimal/migration.sql
+backend/src/prisma/prisma.service.ts                    (middleware Decimal → number)
+backend/src/prisma/prisma-decimal.spec.ts
+backend/src/prisma/money.ts                             (helpers money / moneyOrNull)
+backend/src/billing/billing-math.ts                     (type Money)
+backend/src/billing/billing.service.ts                  (present signature + Number casts)
+backend/src/billing/online/online-payment.service.ts    (signatures + Number)
+backend/src/assistant/assistant-tools.service.ts        (Number)
+backend/src/dashboard/dashboard.service.ts              (Number)
+backend/src/dashboard/dashboard-insights.ts             (Number)
+backend/src/insights/insights.service.ts                (Number)
+backend/src/imports/imports.service.ts                  (Number)
+backend/src/payroll/payroll.service.ts                  (Number)
+backend/src/payroll/payroll.controller.ts               (Number pour PDF)
+backend/test/e2e-imports.js                             (Number sur Prisma direct)
+backend/test/e2e-insights.js                            (Number sur Prisma direct)
 docs/EVOLUTION-SAAS.md                                  (ce fichier)
 ```

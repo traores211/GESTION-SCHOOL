@@ -51,7 +51,7 @@ export class BillingService {
   }
 
   /** Invoice with its amounts already computed (paid, left to pay). */
-  private present<T extends { totalAmount: number; payments: { amount: number; status: string; paidAt: Date }[] }>(invoice: T) {
+  private present<T extends { totalAmount: number | { toNumber(): number }; payments: { amount: number | { toNumber(): number }; status: string; paidAt: Date }[] }>(invoice: T): T & { paidAmount: number; remainingAmount: number } {
     return { ...invoice, paidAmount: paidAmount(invoice.payments), remainingAmount: remaining(invoice.totalAmount, invoice.payments) };
   }
 
@@ -223,8 +223,8 @@ export class BillingService {
       rows = [];
       for (const p of payments) {
         const base = [p.transactionId, p.invoice.reference, p.invoice.label, p.student.matricule, `${p.student.lastName} ${p.student.firstName}`, PAYMENT_METHOD_LABELS[p.method] ?? p.method];
-        if (p.paidAt >= from && p.paidAt < end) rows.push([day(p.paidAt), ...base, Math.round(p.amount), '', '']);
-        if (p.status === 'REFUNDED' && p.refundedAt && p.refundedAt >= from && p.refundedAt < end) rows.push([day(p.refundedAt), ...base, '', Math.round(p.amount), p.refundReason ?? '']);
+        if (p.paidAt >= from && p.paidAt < end) rows.push([day(p.paidAt), ...base, Math.round(Number(p.amount)), '', '']);
+        if (p.status === 'REFUNDED' && p.refundedAt && p.refundedAt >= from && p.refundedAt < end) rows.push([day(p.refundedAt), ...base, '', Math.round(Number(p.amount)), p.refundReason ?? '']);
       }
       const received = rows.reduce((s: number, r) => s + (Number(r[7]) || 0), 0);
       const refunded = rows.reduce((s: number, r) => s + (Number(r[8]) || 0), 0);
@@ -244,7 +244,7 @@ export class BillingService {
         i.student.matricule,
         `${i.student.lastName} ${i.student.firstName}`,
         day(i.dueDate),
-        Math.round(i.totalAmount),
+        Math.round(Number(i.totalAmount)),
         paidAmount(i.payments),
         i.status === 'CANCELLED' ? 0 : remaining(i.totalAmount, i.payments),
         INVOICE_STATUS_LABELS[i.status] ?? i.status,

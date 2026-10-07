@@ -32,7 +32,7 @@ const client = (token) => (method, path, body) =>
     const from = new Date(weekly.body.from);
     const admin = await prisma.user.findUnique({ where: { email: 'admin@school.local' } });
     const collected = await prisma.payment.aggregate({ where: { status: 'SUCCESS', paidAt: { gte: from }, invoice: { schoolId: admin.schoolId } }, _sum: { amount: true } });
-    ok(f.thisWeek.collected === (collected._sum.amount ?? 0) && from.getDay() === 1, `money collected since Monday matches the payments table (${f.thisWeek.collected} FCFA)`);
+    ok(f.thisWeek.collected === Number(collected._sum.amount ?? 0) && from.getDay() === 1, `money collected since Monday matches the payments table (${f.thisWeek.collected} FCFA)`);
     const previous = await api('GET', '/insights/weekly?week=previous');
     ok(previous.status === 200 && new Date(previous.body.to) < from && new Date(previous.body.from).getDay() === 1, 'the previous week is available, Monday to Sunday');
     ok((await secretary('GET', '/insights/weekly')).status === 403 && (await parent('GET', '/insights/weekly')).status === 403, 'reserved to the management');
@@ -50,7 +50,7 @@ const client = (token) => (method, path, body) =>
     ok(forecast.status === 200 && b.length === 4 && b.reduce((s, x) => s + x.outstanding, 0) === forecast.body.outstanding && b.reduce((s, x) => s + x.expected, 0) === forecast.body.expected, `outstanding ${forecast.body.outstanding} FCFA, expected ${forecast.body.expected} FCFA (${forecast.body.basis}, ${forecast.body.historySize} past invoices)`, forecast.body);
     ok(b.every((x) => x.rate >= 0 && x.rate <= 1 && x.expected <= x.outstanding) && forecast.body.atRisk === forecast.body.outstanding - forecast.body.expected, 'rates between 0 and 1, expected never above what is due');
     const open = await prisma.invoice.findMany({ where: { schoolId: admin.schoolId, status: { notIn: ['CANCELLED', 'DRAFT'] } }, include: { payments: { where: { status: 'SUCCESS' } } } });
-    const due = open.reduce((s, i) => s + Math.max(0, i.totalAmount - i.payments.reduce((p, x) => p + x.amount, 0)), 0);
+    const due = open.reduce((s, i) => s + Math.max(0, Number(i.totalAmount) - i.payments.reduce((p, x) => p + Number(x.amount), 0)), 0);
     ok(Math.round(due) === forecast.body.outstanding, 'the outstanding amount matches the invoices table');
     ok((await secretary('GET', '/insights/forecast')).status === 403, 'the forecast is for the management and the accountant');
 

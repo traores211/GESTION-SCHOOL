@@ -61,9 +61,9 @@ export class AssistantToolsService {
         select: { totalAmount: true, payments: { where: { status: 'SUCCESS' }, select: { amount: true } } },
       }),
     ]);
-    const outstanding = overdue.map((i) => i.totalAmount - i.payments.reduce((s, p) => s + p.amount, 0)).filter((v) => v > 0);
-    const totalInvoiced = invoiced._sum.totalAmount || 0;
-    const totalPaid = paid._sum.amount || 0;
+    const outstanding = overdue.map((i) => Number(i.totalAmount) - i.payments.reduce((s, p) => s + Number(p.amount), 0)).filter((v) => v > 0);
+    const totalInvoiced = Number(invoiced._sum.totalAmount || 0);
+    const totalPaid = Number(paid._sum.amount || 0);
     return {
       total_facture_fcfa: totalInvoiced,
       total_encaisse_fcfa: totalPaid,
@@ -150,8 +150,9 @@ export class AssistantToolsService {
         orderBy: { dueDate: 'asc' },
       });
       const rows = invoices.map((i) => {
-        const paid = i.payments.reduce((s, p) => s + p.amount, 0);
-        return { reference: i.reference, libelle: i.label, montant_fcfa: i.totalAmount, paye_fcfa: paid, reste_fcfa: Math.max(0, i.totalAmount - paid), echeance: i.dueDate.toISOString().slice(0, 10) };
+        const paid = i.payments.reduce((s, p) => s + Number(p.amount), 0);
+        const total = Number(i.totalAmount);
+        return { reference: i.reference, libelle: i.label, montant_fcfa: total, paye_fcfa: paid, reste_fcfa: Math.max(0, total - paid), echeance: i.dueDate.toISOString().slice(0, 10) };
       });
       result.scolarite = { factures: rows, reste_du_total_fcfa: rows.reduce((s, r) => s + r.reste_fcfa, 0) };
     }
@@ -177,7 +178,7 @@ export class AssistantToolsService {
         reference: i.reference,
         eleve: `${i.student.lastName} ${i.student.firstName}`,
         matricule: i.student.matricule,
-        reste_fcfa: i.totalAmount - i.payments.reduce((s, p) => s + p.amount, 0),
+        reste_fcfa: Number(i.totalAmount) - i.payments.reduce((s, p) => s + Number(p.amount), 0),
         echeance: i.dueDate.toISOString().slice(0, 10),
         jours_de_retard: Math.floor((Date.now() - i.dueDate.getTime()) / DAY_MS),
         telephone_parent: i.student.parents[0]?.phone ?? null,

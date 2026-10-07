@@ -67,9 +67,9 @@ export class PayrollService {
     const problem = payslipProblem(payslip.status, 'edit');
     if (problem) throw new BadRequestException(problem);
 
-    const bonuses = dto.bonuses ?? payslip.bonuses;
-    const deductions = dto.deductions ?? payslip.deductions;
-    const result = netSalary(payslip.baseSalary, bonuses, deductions);
+    const bonuses = Number(dto.bonuses ?? payslip.bonuses);
+    const deductions = Number(dto.deductions ?? payslip.deductions);
+    const result = netSalary(Number(payslip.baseSalary), bonuses, deductions);
     if ('error' in result) throw new BadRequestException(result.error);
 
     // A validated slip that changes goes back to draft: it must be validated again before payment.
@@ -97,8 +97,8 @@ export class PayrollService {
     if (!user.schoolId) return { totalGross: 0, totalNet: 0, count: 0, paidCount: 0 };
     const payslips = await this.prisma.payslip.findMany({ where: { schoolId: user.schoolId, period } });
     return {
-      totalGross: payslips.reduce((s, p) => s + p.baseSalary + p.bonuses, 0),
-      totalNet: payslips.reduce((s, p) => s + p.netSalary, 0),
+      totalGross: payslips.reduce((s, p) => s + Number(p.baseSalary) + Number(p.bonuses), 0),
+      totalNet: payslips.reduce((s, p) => s + Number(p.netSalary), 0),
       count: payslips.length,
       paidCount: payslips.filter((p) => p.status === 'PAID').length,
     };

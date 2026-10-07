@@ -1,8 +1,31 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { ENCRYPTED_FIELDS, decryptResult, encryptData, loadKey } from '../infra/field-crypto';
 
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+
+/**
+ * Walk a Prisma result and convert every `Prisma.Decimal` instance to a plain JavaScript number.
+ * Decimal columns in Postgres (numeric(14,2)) give us exact storage of FCFA amounts (no float
+ * drift), while the rest of the application code keeps working with `number`. The conversion
+ * covers nested relations, arrays, aggregate payloads (`_sum`, `_avg`, `_min`, `_max`) and
+ * groupBy results. Primitive values and dates are returned untouched.
+ */
+function decimalsToNumbers(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (Prisma.Decimal.isDecimal(value)) return (value as Prisma.Decimal).toNumber();
+  if (value instanceof Date) return value;
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) value[i] = decimalsToNumbers(value[i]);
+    return value;
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    for (const k of Object.keys(obj)) obj[k] = decimalsToNumbers(obj[k]);
+    return obj;
+  }
+  return value;
+}
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -15,6 +38,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     super();
+
+    // Monetary columns are stored as Decimal(14,2) but the rest of the app works with `number`.
+    // Convert on the way out, before anything else sees the result. Runs even when encryption is
+    // off, so the behaviour is identical in dev and in prod.
+    this.$use(async (params, next) => {
+      const result = await next(params);
+      return decimalsToNumbers(result);
+    });
+
     const key = loadKey();
     this.encrypting = !!key;
     if (!key) {

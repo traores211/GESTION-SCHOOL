@@ -294,11 +294,11 @@ export async function computeInsights(prisma: PrismaService, scope: InsightScope
   }
   for (const inv of invoices) {
     const m = months.get(monthKey(inv.dueDate));
-    if (m) m.due += inv.totalAmount;
+    if (m) m.due += Number(inv.totalAmount);
   }
   for (const p of payments) {
     const m = months.get(monthKey(p.paidAt));
-    if (m) m.collected += p.amount;
+    if (m) m.collected += Number(p.amount);
   }
   let dueCumul = 0;
   let collectedCumul = 0;
@@ -312,8 +312,8 @@ export async function computeInsights(prisma: PrismaService, scope: InsightScope
   const payrollMonths = new Map<string, { paid: number; pending: number; payslips: number }>();
   for (const row of payslips) {
     const entry = payrollMonths.get(row.period) || { paid: 0, pending: 0, payslips: 0 };
-    if (row.status === 'PAID') entry.paid += row._sum.netSalary || 0;
-    else entry.pending += row._sum.netSalary || 0;
+    if (row.status === 'PAID') entry.paid += Number(row._sum.netSalary || 0);
+    else entry.pending += Number(row._sum.netSalary || 0);
     entry.payslips += row._count;
     payrollMonths.set(row.period, entry);
   }
@@ -362,8 +362,8 @@ async function compareSchools(prisma: PrismaService, schoolId: string, from: Dat
       ]);
       const counts = Object.fromEntries(attendance.map((r) => [r.status, r._count]));
       const total = (counts.PRESENT || 0) + (counts.RETARD || 0) + (counts.ABSENT || 0) + (counts.ABSENCE_JUSTIFIEE || 0);
-      const invoicedAmount = invoiced._sum.totalAmount || 0;
-      const paidAmount = paid._sum.amount || 0;
+      const invoicedAmount = Number(invoiced._sum.totalAmount || 0);
+      const paidAmount = Number(paid._sum.amount || 0);
       return {
         schoolId: s.id,
         name: s.name,
