@@ -64,8 +64,9 @@ export class BillingService {
     const academicYearId = await this.resolveCurrentYear(schoolId);
     const totalAmount = dto.items.reduce((sum, item) => sum + item.amount, 0);
     const invoice = await this.prisma.$transaction(async (tx) => {
-      // Platform-wide unique reference from an atomic counter (no collision between schools or users).
-      const reference = await this.sequences.invoiceReference(tx);
+      // Per-school reference from an atomic counter: two schools of the SaaS may both number
+      // their first invoice INV-2026-00001 without colliding.
+      const reference = await this.sequences.invoiceReference(schoolId, tx);
       return tx.invoice.create({
         data: {
           schoolId,

@@ -1058,7 +1058,8 @@ model Invoice {
   student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   academicYearId    String
   academicYear      AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  reference         String   @unique
+  /// Unique within a school: two schools of the SaaS may both use "INV-2026-00001" without clash.
+  reference         String
   label             String
   totalAmount       Float
   dueDate           DateTime
@@ -1071,6 +1072,7 @@ model Invoice {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  @@unique([schoolId, reference])
   @@index([schoolId])
   @@index([studentId])
   @@index([academicYearId])

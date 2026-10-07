@@ -313,7 +313,7 @@ export class ImportsService {
                 schoolId,
                 studentId: student.id,
                 academicYearId: year.id,
-                reference: await this.sequences.invoiceReference(tx),
+                reference: await this.sequences.invoiceReference(schoolId, tx),
                 label,
                 totalAmount: amount,
                 dueDate,

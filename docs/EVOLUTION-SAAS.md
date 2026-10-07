@@ -15,7 +15,7 @@ Branche de travail : `feature/saas-multi-tenant`.
 | **L3** | Plans & quotas (élèves, utilisateurs, enseignants, classes, écoles, domaines, stockage, SMS) + enforcement 409 QUOTA_EXCEEDED, overrides par organisation, écran super-admin | **Fait** |
 | **L4** | Permissions fines (catalogue en code, PermissionsGuard, UI par utilisateur, décorateur `@RequirePermissions`), surcouche additive sur les rôles existants | **Fait** |
 | **L5** | Nginx multi-vhost + certbot automatique (service dédié, endpoint API dédié, snippets nginx par domaine) + documentation opérateur | **Fait** |
-| L6 | Relâchement des uniques globaux (`User.email`, `School.code`, `Invoice.reference`, `Payment.transactionId`) → composites avec `organisationId` | À faire |
+| **L6** | `Invoice.reference` passe en composite `[schoolId, reference]` ; les séquences deviennent par-école. `User.email`, `School.code`, `Payment.transactionId` restent globalement uniques par choix explicite documenté. | **Fait (partiel assumé)** |
 | L7 | Dette technique (`Float` → `Decimal` pour les montants, pagination UI complète, CSP stricte, middleware Next.js) | À faire |
 | L8 | Mise à jour de la documentation (`ARCHITECTURE.md`, `INDEX.md`, `PROJECT_STATUS.md`) | À faire |
 
@@ -719,7 +719,7 @@ sur le modèle `SchoolDomain` déjà créé en L1.
 - Prévoir le failover (deuxième machine Let's Encrypt) : stocker le challenge dans un bucket
   partagé ou utiliser DNS-01 avec un provider API.
 
-### Chemins ajoutés / modifiés — L5
+### Chemins ajoutés / modifiés — L5 (bis)
 
 ```
 deploy/certbot/Dockerfile
@@ -731,5 +731,98 @@ docker-compose.prod.yml                                 (service certbot + volum
 .env.example                                            (CERTBOT_TOKEN, CERTBOT_EMAIL, CERTBOT_STAGING)
 backend/src/platform/platform.controller.ts             (GET /platform/certbot/hostnames)
 docs/DEPLOIEMENT.md                                     (§2 réécrite)
+docs/EVOLUTION-SAAS.md                                  (ce fichier)
+```
+
+---
+
+## Lot 6 — Uniques globaux relâchés (partiellement, assumé)
+
+### Analyse
+
+L'audit §K.3-5 avait signalé quatre contraintes `@unique` globales incompatibles avec un vrai
+SaaS multi-tenant : `User.email`, `School.code`, `Invoice.reference`, `Payment.transactionId`.
+Chaque relâchement a été évalué individuellement.
+
+### Décisions
+
+| Contrainte | État final | Raison |
+|---|---|---|
+| `User.email` | **Conservée** `@unique` global | Le login (`findUnique({ email })`), le reset de mot de passe et le signup l'utilisent partout. Refactor estimé 1-2 jours à part entière, risque élevé sur un chemin critique. À reprendre dans un lot dédié « multi-identité » (un email → N comptes dans N orgs) lorsqu'un prospect réel en aura besoin. |
+| `School.code` | **Conservée** `@unique` global | Le code sert d'identifiant **dans l'URL publique** (`/ecole/[code]/showcase`, `/ecole/[code]/inscription`). Le relâcher imposerait un refactor massif de la vitrine (basculer sur `[organisationSlug]/[schoolCode]/*`). Un `@@unique([organisationId, code])` existe déjà en défense en profondeur. |
+| **`Invoice.reference`** | **Relâchée** → `@@unique([schoolId, reference])` | Référence 100 % interne, jamais dans une URL publique, pas de dépendance externe. Deux écoles du SaaS peuvent désormais numéroter leur première facture `INV-2026-00001` sans collision. |
+| `Payment.transactionId` | **Conservée** `@unique` global | Le CinetPay webhook (`/api/payments/:tx/...`) utilise cet ID comme identifiant unique opaque. Les passerelles de paiement garantissent déjà l'unicité globale ; relâcher ouvrirait une attaque de type « payment hijacking » entre tenants. |
+
+### Modifications
+
+1. **`backend/prisma/schema.prisma`** — `Invoice.reference` perd `@unique`, gagne
+   `@@unique([schoolId, reference])`.
+2. **Migration `20261006000300_invoice_reference_per_school`** — `DROP INDEX
+   Invoice_reference_key` + `CREATE UNIQUE INDEX Invoice_schoolId_reference_key`. Pas de data
+   migration (les données existantes sont déjà uniques globalement, ce qui est **plus strict**
+   que le nouvel invariant per-school).
+3. **`SequenceService.invoiceReference(schoolId, …)`** — nouvelle signature, scope de la
+   séquence et de la requête de lecture par école. La clé de cache Redis devient
+   `invoice:<schoolId>:<year>`.
+4. **`SequenceService.matricule(…, schoolId?)`** — accepte un `schoolId` optionnel pour
+   refléter la réalité `@@unique([schoolId, matricule])` déjà en place. Le commentaire
+   « unique across the platform » (obsolète depuis la migration multi-écoles) est corrigé.
+5. **Callers mis à jour** : `billing.service.createInvoice` et
+   `imports.service.generateInvoice` passent `schoolId`.
+
+### Base de données
+
+Migration `20261006000300_invoice_reference_per_school` (index swap, zéro ligne touchée).
+`prisma migrate diff` : no difference.
+
+### API
+
+Aucun changement d'API observable : la génération de la référence reste interne,
+`Invoice.reference` reste dans toutes les réponses.
+
+### Frontend
+
+Aucun changement.
+
+### Sécurité
+
+- `Payment.transactionId` reste unique global → les webhooks de paiement sont sûrs.
+- `User.email` reste unique global → aucun risque d'ambiguïté de login.
+- `School.code` reste unique global → les URL publiques restent sans ambiguïté.
+- Le changement est **plus permissif** (invariant per-school plus faible que global) : aucune
+  donnée existante n'est invalide, aucune contrainte n'est en défaut.
+
+### Tests
+
+- Aucun nouveau test (changement DB pur, callers triviaux).
+- **Suite complète** : 289 unit backend, 30 unit frontend, **9 scénarios e2e critiques rejoués**
+  (platform, lifecycle, tenancy, leaks, domains, group, quotas, permissions, **records**,
+  **imports**, **payments**) : tous verts. Zéro régression.
+
+### Non-régression
+
+- Pendant l'exécution, j'ai découvert une **fragilité pré-existante** du test
+  `e2e-payments.js` : il suppose que `admin@school.local` est à DEMO-001, mais `e2e-group.js`
+  déplace cet admin vers une autre école via `switch-school` sans jamais le restaurer. Le fix
+  est trivial (restaurer `admin.schoolId` dans un `finally` de `e2e-group.js`) mais hors scope
+  L6 — ouvre une petite dette technique à traiter en L7 si pertinent.
+
+### Reste à faire
+
+- Relâcher `User.email` : nécessite de passer tout `findUnique({ email })` en `findFirst({
+  email, organisationId })` et de propager un `organisationId` dans la session de login (ex. via
+  un sous-domaine, un sélecteur, un path préfixé). Lot séparé, non chiffré.
+- `School.code` → composite `[organisationId, code]` seul : exige une refonte des URL de la
+  vitrine (sous-domaine ou préfixe). À coupler avec L1 (chaque école aura son domaine, les
+  codes n'auront plus besoin d'être globalement uniques).
+
+### Chemins ajoutés / modifiés — L6
+
+```
+backend/prisma/schema.prisma                            (Invoice.reference composite)
+backend/prisma/migrations/20261006000300_invoice_reference_per_school/migration.sql
+backend/src/infra/sequence.service.ts                   (per-school scope)
+backend/src/billing/billing.service.ts                  (passe schoolId)
+backend/src/imports/imports.service.ts                  (passe schoolId)
 docs/EVOLUTION-SAAS.md                                  (ce fichier)
 ```

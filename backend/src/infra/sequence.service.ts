@@ -35,21 +35,31 @@ export class SequenceService {
     }, 0);
   }
 
-  /** "INV-2026-00019": next invoice reference (unique across the platform). */
-  async invoiceReference(db: Db = this.prisma, year = new Date().getFullYear()) {
+  /**
+   * "INV-2026-00019": next invoice reference. Scoped to one school: two schools of the SaaS may
+   * both have "INV-2026-00001" without colliding (the DB enforces `(schoolId, reference)`
+   * uniqueness).
+   */
+  async invoiceReference(schoolId: string, db: Db = this.prisma, year = new Date().getFullYear()) {
     const prefix = `INV-${year}-`;
-    const n = await this.next(`invoice:${year}`, async () => {
-      const rows = await db.invoice.findMany({ where: { reference: { startsWith: prefix } }, select: { reference: true } });
+    const n = await this.next(`invoice:${schoolId}:${year}`, async () => {
+      const rows = await db.invoice.findMany({ where: { schoolId, reference: { startsWith: prefix } }, select: { reference: true } });
       return SequenceService.maxSuffix(rows.map((r) => r.reference), prefix);
     }, db);
     return `${prefix}${String(n).padStart(5, '0')}`;
   }
 
-  /** "2026-0431": next student number (unique across the platform). */
-  async matricule(db: Db = this.prisma, year = new Date().getFullYear()) {
+  /**
+   * "2026-0431": next student number. Scoped to one school (the schema enforces
+   * `(schoolId, matricule)` uniqueness since the multi-school refactor).
+   */
+  async matricule(db: Db = this.prisma, year = new Date().getFullYear(), schoolId?: string) {
     const prefix = `${year}-`;
-    const n = await this.next(`matricule:${year}`, async () => {
-      const rows = await db.student.findMany({ where: { matricule: { startsWith: prefix } }, select: { matricule: true } });
+    const where: { schoolId?: string; matricule: { startsWith: string } } = { matricule: { startsWith: prefix } };
+    if (schoolId) where.schoolId = schoolId;
+    const key = schoolId ? `matricule:${schoolId}:${year}` : `matricule:${year}`;
+    const n = await this.next(key, async () => {
+      const rows = await db.student.findMany({ where, select: { matricule: true } });
       return SequenceService.maxSuffix(rows.map((r) => r.matricule), prefix);
     }, db);
     return `${prefix}${String(n).padStart(4, '0')}`;
