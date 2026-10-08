@@ -49,3 +49,8 @@ frontend/playwright-report/
 
 # Uploaded files (local dev)
 backend/uploads/
+
+# Local tool state (Claude Code worktrees, Impeccable review captures)
+.claude/worktrees/
+frontend/.impeccable/questions/
+frontend/.impeccable/review/
