@@ -1,8 +1,11 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference -- pdfjs-dist 3 ships no types for its legacy build
 /// <reference path="../../../types/pdfjs.d.ts" />
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.js';
+import * as pdfjsModule from 'pdfjs-dist/legacy/build/pdf.js';
 import { DetectedFile, DocumentParser, FileKind, ParsedDocument, ParsedTable } from '../types';
 import { PositionedText, tableFromPositions } from './layout';
+
+// CommonJS build: loaded as an ES module (the unit tests), its exports arrive under `default`.
+const pdfjs = (pdfjsModule as { default?: typeof pdfjsModule }).default ?? pdfjsModule;
 
 interface PdfTextItem {
   str?: string;

@@ -59,7 +59,7 @@ jobs:
       - name: Types
         run: npx tsc --noEmit -p tsconfig.json
       - name: Unit tests
-        run: npx jest --runInBand --ci
+        run: npm test -- --runInBand --ci
       - name: Migrations on an empty database
         run: sh scripts/migrate.sh
       - name: Migrations match the Prisma schema
