@@ -65,7 +65,12 @@ jobs:
       - name: Migrations match the Prisma schema
         run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
       - name: Demo data
-        run: npx prisma db seed
+        # The end-to-end checks expect DEMO-001 with every level: the volume seed adds them, then the
+        # timetable is generated again for the full set of classes.
+        run: |
+          npx prisma db seed
+          npm run seed:bulk
+          npx ts-node prisma/seed-planning.ts --force
       - name: Start the API
         run: |
           npm run build
@@ -210,6 +215,8 @@ jobs:
           npx prisma generate
           sh scripts/migrate.sh
           npx prisma db seed
+          npm run seed:bulk
+          npx ts-node prisma/seed-planning.ts --force
           npm run seed:admissions
           npm run build
           nohup node dist/main > /tmp/api.log 2>&1 &
@@ -218,8 +225,9 @@ jobs:
         working-directory: frontend
         run: |
           npm ci --no-audit --no-fund
-          npm run build
-          nohup npx next start -p 3000 > /tmp/web.log 2>&1 &
+          # The job runs with NODE_ENV=development for the API; `next build` only prerenders in production mode.
+          NODE_ENV=production npm run build
+          NODE_ENV=production nohup npx next start -p 3000 > /tmp/web.log 2>&1 &
           for i in $(seq 1 60); do curl -fs http://localhost:3000/login > /dev/null && break; sleep 2; done
       - name: Browser
         working-directory: frontend

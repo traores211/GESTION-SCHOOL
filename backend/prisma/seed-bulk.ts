@@ -642,7 +642,7 @@ async function seedSchool(plan: SchoolPlan, passwordHash: string) {
   for (const s of staffOfSchool) {
     for (const period of months) {
       if (existingSlips.has(`${s.id}:${period}`)) continue;
-      const base = s.baseSalary || 200000;
+      const base = Number(s.baseSalary) || 200000;
       const bonuses = rand() < 0.25 ? int(1, 6) * 5000 : 0;
       const deductions = Math.round(base * 0.063); // CNPS employee share
       const isCurrent = period === currentPeriod;
