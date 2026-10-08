@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, PartialType } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import { ALL_STAFF, MANAGEMENT } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
+import { PageQueryDto } from '../common/pagination';
 import { AnnouncementsService } from './announcements.service';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 
@@ -26,8 +27,8 @@ export class AnnouncementsController {
 
   @Roles(...ALL_STAFF)
   @Get()
-  findAll(@CurrentUser() user: AuthUser) {
-    return this.announcementsService.findAll(user);
+  findAll(@CurrentUser() user: AuthUser, @Query() page: PageQueryDto) {
+    return this.announcementsService.findAll(user, page);
   }
 
   @Patch(':id')

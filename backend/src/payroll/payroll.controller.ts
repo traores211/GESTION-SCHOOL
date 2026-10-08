@@ -9,6 +9,7 @@ import { FINANCE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequirePermissions } from '../permissions/require-permissions.decorator';
+import { PageQueryDto } from '../common/pagination';
 import { PayrollService } from './payroll.service';
 import { GeneratePayslipsDto } from './dto/generate-payslips.dto';
 import { UpdatePayslipDto } from './dto/update-payslip.dto';
@@ -31,8 +32,8 @@ export class PayrollController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query('period') period?: string) {
-    return this.payrollService.findAll(user, period);
+  findAll(@CurrentUser() user: AuthUser, @Query('period') period: string | undefined, @Query() page: PageQueryDto) {
+    return this.payrollService.findAll(user, period, page);
   }
 
   @Get('stats')

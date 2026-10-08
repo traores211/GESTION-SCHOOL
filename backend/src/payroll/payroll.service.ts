@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
 import { UpdatePayslipDto } from './dto/update-payslip.dto';
 import { PERIOD_PATTERN, netSalary, payslipProblem } from './payroll-math';
 import { PUBLIC_USER } from '../common/sensitive-fields.interceptor';
@@ -43,13 +45,36 @@ export class PayrollService {
     return results;
   }
 
-  findAll(user: AuthUser, period?: string) {
+  /** Payslips of the school. Paged when `page.page` is given; bare array otherwise. */
+  async findAll(user: AuthUser, period?: string, page?: PageQueryDto) {
     if (!user.schoolId) return [];
-    return this.prisma.payslip.findMany({
-      where: { schoolId: user.schoolId, ...(period ? { period } : {}) },
-      include: { staffMember: { include: { user: PUBLIC_USER } } },
-      orderBy: [{ period: 'desc' }, { staffMember: { user: { lastName: 'asc' } } }],
-    });
+    const where: Prisma.PayslipWhereInput = {
+      schoolId: user.schoolId,
+      ...(period ? { period } : {}),
+      ...(page?.q
+        ? {
+            staffMember: {
+              user: {
+                OR: [
+                  { firstName: { contains: page.q, mode: 'insensitive' } },
+                  { lastName: { contains: page.q, mode: 'insensitive' } },
+                  { email: { contains: page.q, mode: 'insensitive' } },
+                ],
+              },
+            },
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.payslip.findMany({
+        where,
+        include: { staffMember: { include: { user: PUBLIC_USER } } },
+        orderBy: [{ period: 'desc' }, { staffMember: { user: { lastName: 'asc' } } }],
+        ...pageArgs(page),
+      }),
+      page?.page ? this.prisma.payslip.count({ where }) : Promise.resolve(0),
+    ]);
+    return pageResult(page, items, total);
   }
 
   async findOne(user: AuthUser, id: string) {
