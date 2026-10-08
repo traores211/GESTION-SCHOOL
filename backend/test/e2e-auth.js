@@ -39,7 +39,11 @@ const get = (path, token) => fetch(`${BASE}${path}`, { headers: { Authorization:
     const body = await login.json();
     const c1 = cookieOf(login);
     ok(login.status === 200 && body.accessToken && c1, 'access token in the body, refresh token in a cookie');
-    ok(/HttpOnly/i.test(login.headers.get('set-cookie')) && /Path=\/api\/auth/i.test(login.headers.get('set-cookie')), 'cookie is HttpOnly and limited to /api/auth');
+    const cookies = login.headers.getSetCookie();
+    const refreshCookie = cookies.find((c) => c.startsWith('erp_refresh=')) || '';
+    const marker = cookies.find((c) => c.startsWith('erp_session=')) || '';
+    ok(/HttpOnly/i.test(refreshCookie) && /Path=\/api\/auth/i.test(refreshCookie), 'cookie is HttpOnly and limited to /api/auth');
+    ok(/^erp_session=1;/.test(marker) && /Path=\/(;|$)/i.test(marker), 'session marker without secret, sent on every page');
     const me = await (await get('/auth/me', body.accessToken)).json();
     ok(me.sessions?.length >= 1 && me.totpRecommended === true, `profile with ${me.sessions?.length} session(s), 2FA recommended for the director`);
     const r1 = await post('/auth/refresh', null, { cookie: c1 });

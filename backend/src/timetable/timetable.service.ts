@@ -341,8 +341,12 @@ export class TimetableService {
       notes: dto.notes !== undefined ? dto.notes : existing.notes,
     };
     const klass = await this.assertRefs(schoolId, merged);
-    const report = await this.report(schoolId, klass.academicYearId, { ...merged, id });
-    if (!report.ok) refuse(report, 'Modification refusée');
+    // Renaming or annotating a lesson does not move it: the rules are only applied when its slot,
+    // class, subject, teacher, room or term changes (an imported lesson may already break one).
+    const SCHEDULING = ['classId', 'subjectId', 'teacherId', 'roomId', 'termId', 'dayOfWeek', 'startTime', 'endTime'] as const;
+    const rescheduled = SCHEDULING.some((key) => merged[key] !== existing[key]);
+    const report = rescheduled ? await this.report(schoolId, klass.academicYearId, { ...merged, id }) : null;
+    if (report && !report.ok) refuse(report, 'Modification refusée');
     const batch = this.planning.newBatch();
     const updated = await this.prisma.$transaction(async (tx) => {
       const before = await tx.timetableSession.findUniqueOrThrow({ where: { id }, include: SESSION_INCLUDE });
@@ -352,7 +356,7 @@ export class TimetableService {
       ]);
       return row;
     });
-    return { ...this.present(updated, []), warnings: report.warnings };
+    return { ...this.present(updated, []), warnings: report?.warnings ?? [] };
   }
 
   /**

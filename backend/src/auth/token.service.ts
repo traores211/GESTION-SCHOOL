@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../infra/redis.service';
 
 export const REFRESH_COOKIE = 'erp_refresh';
+/** Carries no secret: tells the web app's middleware that a session probably exists (the refresh cookie is not sent on pages). */
+export const SESSION_COOKIE = 'erp_session';
 export const ACCESS_TTL = process.env.ACCESS_TOKEN_TTL || '15m';
 export const REFRESH_TTL_DAYS = Number(process.env.REFRESH_TOKEN_DAYS || 30);
 

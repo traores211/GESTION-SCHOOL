@@ -10,20 +10,11 @@ import { expect, signIn, test } from "./fixtures";
 async function audit(page: Page, name: string) {
   // Charts load after the page: without them the dashboard would be audited half-empty.
   if (name.startsWith("/dashboard")) await page.locator(".recharts-surface").first().waitFor({ timeout: 20_000 }).catch(() => undefined);
-  // Entrance animations fade content in: measured mid-way they look like low contrast. Wait for
-  // the finite ones to end (spinners and other endless animations are left alone).
+  // Entrance animations fade content in: measured mid-way they look like low contrast. Waiting for
+  // the running ones is not enough, an empty state that renders during the audit starts a new fade,
+  // so animations and transitions jump straight to their end state.
+  await page.addStyleTag({ content: "*, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; transition-delay: 0s !important; }" });
   await page.waitForTimeout(300);
-  await page.evaluate(() =>
-    Promise.race([
-      Promise.all(
-        document
-          .getAnimations()
-          .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
-          .map((a) => a.finished.catch(() => undefined)),
-      ),
-      new Promise((resolve) => setTimeout(resolve, 3000)),
-    ]),
-  );
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("nextjs-portal").analyze();
   const problems = results.violations.map((v) => `${v.id} (${v.impact}) ×${v.nodes.length}: ${v.help}\n    ${v.nodes.slice(0, 3).map((n) => `${n.target.join(" ")}${n.any[0]?.message ? ` — ${n.any[0].message}` : ""}`).join("\n    ")}`);
   // Soft: one run lists the problems of every screen instead of stopping at the first one.
@@ -43,7 +34,8 @@ test.describe("accessibility", () => {
   }
 
   test("staff screens, light theme", async ({ page }) => {
-    test.setTimeout(240_000);
+    // 17 screens: about 15 s each against `next dev` in the local containers.
+    test.setTimeout(480_000);
     await signIn(page);
     for (const path of STAFF_PAGES) {
       await page.goto(path);

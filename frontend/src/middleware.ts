@@ -1,51 +1,62 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Routes that must stay public (no authentication required). Includes the sign-in, the
- * password-reset flow, the self-service sign-up, the public showcase of each school and the
- * public page of an online payment.
+ * Private pages, by first path segment. Everything else is public (sign-in, password reset,
+ * sign-up, school showcase, online payment) or does not exist, and falls through to Next so an
+ * unknown address shows the 404 page instead of the sign-in.
  *
- * Everything else that lives under `/` is treated as protected: the middleware does a soft
- * check for the refresh cookie `erp_refresh`. The cookie is HttpOnly and set at sign-in by the
- * API; its presence is not a proof of authentication (the client still validates by calling
- * `/auth/me`), it is only a hint that lets us redirect anonymous visitors to `/login` without
- * showing an empty shell for a split second.
+ * On a private page the middleware does a soft check for the cookie `erp_session`, set at sign-in
+ * by the API next to the refresh token (which is limited to `/api/auth` and never sent on pages).
+ * It carries no secret and its presence is not a proof of authentication (the client still
+ * validates by calling `/auth/me`): it is only a hint that lets us redirect anonymous visitors to
+ * `/login` without showing an empty shell for a split second.
+ *
+ * A private page missing from this list only loses that early redirect; the API still refuses.
  */
-const PUBLIC_ROUTES = [
-  /^\/$/,
-  /^\/login(?:\/|$)/,
-  /^\/forgot-password(?:\/|$)/,
-  /^\/reset-password(?:\/|$)/,
-  /^\/signup(?:\/|$)/,
-  /^\/confidentialite(?:\/|$)/,
-  /^\/ecole\/[^/]+(?:\/|$)/, // showcase, admissions, suivi
-  /^\/pay\/[^/]+(?:\/|$)/,   // public payment page
-];
+const PRIVATE_SECTIONS = new Set([
+  "account",
+  "admissions",
+  "announcements",
+  "attendance",
+  "audit",
+  "billing",
+  "classes",
+  "dashboard",
+  "discipline",
+  "domains",
+  "gate",
+  "grades",
+  "homework",
+  "imports",
+  "inbox",
+  "insights",
+  "messaging",
+  "parents",
+  "payroll",
+  "platform",
+  "portal",
+  "privacy",
+  "promotion",
+  "quick-entry",
+  "schools",
+  "staff",
+  "students",
+  "timetable",
+  "transport",
+  "users",
+]);
 
-const REFRESH_COOKIE = "erp_refresh";
+const SESSION_COOKIE = "erp_session";
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Static assets, Next's own routes and the API proxy pass through untouched.
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname === "/favicon.ico" ||
-    pathname === "/manifest.webmanifest" ||
-    pathname === "/sw.js" ||
-    pathname.startsWith("/icons/") ||
-    pathname.startsWith("/images/")
-  ) {
+  if (!PRIVATE_SECTIONS.has(pathname.split("/")[1])) {
     return NextResponse.next();
   }
 
-  if (PUBLIC_ROUTES.some((re) => re.test(pathname))) {
-    return NextResponse.next();
-  }
-
-  // Protected path: look for the refresh cookie. Absent → bounce to /login with `next=`.
-  if (!req.cookies.has(REFRESH_COOKIE)) {
+  // Private page: look for the session marker. Absent → bounce to /login with `next=`.
+  if (!req.cookies.has(SESSION_COOKIE)) {
     const login = req.nextUrl.clone();
     login.pathname = "/login";
     login.searchParams.set("next", pathname + (req.nextUrl.search || ""));

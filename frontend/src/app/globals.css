@@ -746,7 +746,9 @@ input, select, textarea {
   transition: background-color var(--dur-fast) ease;
 }
 .stub:last-child { border-bottom: none; }
-.stub.is-done .stub-no, .stub.is-done .stub-body { opacity: 0.6; }
+/* Past lessons recede through colour and weight, not opacity, so the text keeps a 4.5:1 contrast. */
+.stub.is-done .stub-no, .stub.is-done .stub-title { color: var(--ink-3); font-weight: var(--fw-medium); }
+.stub.is-done .stub-swatch { opacity: 0.6; }
 a.stub:hover, .stub.is-link:hover { background: var(--surface-muted); text-decoration: none; }
 .stub-no {
   align-self: stretch;

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * End-to-end check against a running stack (default http://localhost:4000/api):
- * auth + permissions, timetable CRUD and conflicts, then for every fixture file
+ * auth + permissions, timetable rooms and session refusals, then for every fixture file
  * upload → analysis → preview → commit → display → edit → undo. Leaves the data as it found it.
  *
  *   node test/e2e-import.js [fixturesDir] [apiUrl]
@@ -118,30 +118,24 @@ async function main() {
     assert(del.status === 200, `delete ${del.status}`);
   });
 
-  await check('Séances : création, conflit 409, forçage, duplication, déplacement, suppression', async () => {
-    const [c1, c2] = resources.classes;
-    const teacher = resources.teachers[0];
-    const base = { dayOfWeek: 7, startTime: '09:00', endTime: '10:00', teacherId: teacher.id, label: 'E2E' };
-    const a = await call('POST', '/timetable/sessions', admin, { ...base, classId: c1.id });
-    assert(a.status === 201 && a.body.conflicts.some((c) => c.kind === 'CLOSED_DAY'), `create ${a.status}`);
-    const clash = await call('POST', '/timetable/sessions', admin, { ...base, classId: c2.id });
-    assert(clash.status === 409 && clash.body.conflicts.some((c) => c.kind === 'TEACHER'), `clash → ${clash.status}`);
-    const forced = await call('POST', '/timetable/sessions', admin, { ...base, classId: c2.id, force: true });
-    assert(forced.status === 201, `forced ${forced.status}`);
-    const listed = await call('GET', '/timetable/conflicts', admin);
-    assert(listed.body.sessions.some((s) => s.id === forced.body.id), 'conflict listed');
-    const invalid = await call('PATCH', `/timetable/sessions/${a.body.id}`, admin, { startTime: '11:00', endTime: '10:00' });
-    assert(invalid.status === 400, `invalid slot → ${invalid.status}`);
-    const moved = await call('PATCH', `/timetable/sessions/${forced.body.id}`, admin, { startTime: '10:00', endTime: '11:00' });
-    assert(moved.status === 200 && !moved.body.conflicts.some((c) => c.severity === 'error'), `move ${moved.status}`);
-    const dup = await call('POST', `/timetable/sessions/${a.body.id}/duplicate`, admin, { dayOfWeek: 7, startTime: '14:00' });
-    assert(dup.status === 201 && dup.body.startTime === '14:00' && dup.body.endTime === '15:00', `duplicate ${dup.status}`);
-    for (const id of [a.body.id, forced.body.id, dup.body.id]) {
-      const d = await call('DELETE', `/timetable/sessions/${id}`, admin);
-      assert(d.status === 200, `delete ${d.status}`);
+  // Creation, moves and undo under the planning rules are covered by e2e-planning.js.
+  await check('Séances : jour fermé refusé 409 (même forcé), annotation, créneau invalide 400, inconnue 404', async () => {
+    const closed = { classId: resources.classes[0].id, teacherId: resources.teachers[0].id, dayOfWeek: 7, startTime: '09:00', endTime: '10:00', label: 'E2E' };
+    for (const body of [closed, { ...closed, force: true }]) {
+      const refused = await call('POST', '/timetable/sessions', admin, body);
+      assert(refused.status === 409 && refused.body.checks.some((c) => c.id === 'GRID' && c.status === 'fail'), `closed day → ${refused.status}`);
     }
-    const gone = await call('PATCH', `/timetable/sessions/${a.body.id}`, admin, { label: 'x' });
-    assert(gone.status === 404, `deleted → ${gone.status}`);
+    const listed = await call('GET', '/timetable/sessions', admin);
+    const target = listed.body.sessions[0];
+    assert(target, 'no session in the demo timetable');
+    const noted = await call('PATCH', `/timetable/sessions/${target.id}`, admin, { notes: 'modifié par e2e' });
+    assert(noted.status === 200 && noted.body.notes === 'modifié par e2e', `annotate ${noted.status}`);
+    const restored = await call('PATCH', `/timetable/sessions/${target.id}`, admin, { notes: target.notes ?? null });
+    assert(restored.status === 200, `restore ${restored.status}`);
+    const invalid = await call('PATCH', `/timetable/sessions/${target.id}`, admin, { startTime: '11:00', endTime: '10:00' });
+    assert(invalid.status === 400, `invalid slot → ${invalid.status}`);
+    const gone = await call('PATCH', '/timetable/sessions/inconnue', admin, { label: 'x' });
+    assert(gone.status === 404, `unknown → ${gone.status}`);
   });
 
   await check('Validation des entrées (DTO) → 400', async () => {

@@ -5,7 +5,7 @@ import { AuthService, ClientMeta } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { IsString } from 'class-validator';
 import { ChangePasswordDto, ForgotPasswordDto, LoginDto, ResetPasswordDto, TotpCodeDto, TotpDisableDto } from './dto/login.dto';
-import { REFRESH_COOKIE, REFRESH_TTL_DAYS } from './token.service';
+import { REFRESH_COOKIE, REFRESH_TTL_DAYS, SESSION_COOKIE } from './token.service';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
@@ -21,6 +21,17 @@ function cookieOptions(): CookieOptions {
     maxAge: REFRESH_TTL_DAYS * 86400000,
     ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
   };
+}
+
+/** Refresh token on the auth routes, plus the marker the web app's middleware reads on every page. */
+function setSessionCookies(res: Response, refreshToken: string) {
+  res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions());
+  res.cookie(SESSION_COOKIE, '1', { ...cookieOptions(), httpOnly: false, path: '/' });
+}
+
+function clearSessionCookies(res: Response) {
+  res.clearCookie(REFRESH_COOKIE, { ...cookieOptions(), maxAge: undefined });
+  res.clearCookie(SESSION_COOKIE, { ...cookieOptions(), httpOnly: false, path: '/', maxAge: undefined });
 }
 
 function meta(req: Request): ClientMeta {
@@ -42,7 +53,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Sign in: short access token in the body, rotating refresh token in an HttpOnly cookie' })
   async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const { refresh, ...result } = await this.authService.login(dto.email, dto.password, dto.totp, meta(req));
-    res.cookie(REFRESH_COOKIE, refresh.token, cookieOptions());
+    setSessionCookies(res, refresh.token);
     return result;
   }
 
@@ -52,10 +63,10 @@ export class AuthController {
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try {
       const { refresh, ...result } = await this.authService.refresh(req.cookies?.[REFRESH_COOKIE], meta(req));
-      res.cookie(REFRESH_COOKIE, refresh.token, cookieOptions());
+      setSessionCookies(res, refresh.token);
       return result;
     } catch (err) {
-      res.clearCookie(REFRESH_COOKIE, { ...cookieOptions(), maxAge: undefined });
+      clearSessionCookies(res);
       throw err;
     }
   }
@@ -64,7 +75,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(req.cookies?.[REFRESH_COOKIE]);
-    res.clearCookie(REFRESH_COOKIE, { ...cookieOptions(), maxAge: undefined });
+    clearSessionCookies(res);
     return { success: true };
   }
 
@@ -111,7 +122,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.changePassword(user.userId, dto.currentPassword, dto.newPassword);
-    res.clearCookie(REFRESH_COOKIE, { ...cookieOptions(), maxAge: undefined });
+    clearSessionCookies(res);
     return result;
   }
 
@@ -121,7 +132,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logoutAll(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) res: Response) {
     await this.authService.revokeAll(user.userId);
-    res.clearCookie(REFRESH_COOKIE, { ...cookieOptions(), maxAge: undefined });
+    clearSessionCookies(res);
     return { success: true };
   }
 
