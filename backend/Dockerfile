@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache dumb-init curl openssl
 
 # Copy package files and the Prisma schema (needed to generate the client)
-COPY package*.json ./
+COPY package*.json prisma.config.ts ./
 COPY prisma ./prisma
 
 # Install dependencies and generate the Prisma client

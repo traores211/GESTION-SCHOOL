@@ -7,11 +7,11 @@
  *
  * Usage: node test/e2e-quotas.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const { clearThrottle } = require('./throttle');
 const bcrypt = require('bcrypt');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const NAME = `École Test-Quotas ${Date.now().toString().slice(-6)}`;
 const EMAIL = `directeur.quotas.${Date.now()}@example.ci`;
 const ROOT = `root.quotas.${Date.now()}@example.ci`;

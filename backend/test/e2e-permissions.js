@@ -7,9 +7,9 @@
  *
  * Usage: node test/e2e-permissions.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 let failures = 0;
 const ok = (cond, label, extra) => {
   if (cond) console.log(`  ✔ ${label}`);

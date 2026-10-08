@@ -1,9 +1,9 @@
 /* End-to-end check of the school gate: arrivals, departures, QR cards, families.
  * Usage (inside the backend container or in CI): node test/e2e-gate.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const TAG = 'Test-Portail';
 let failures = 0;
 const ok = (cond, label, extra) => {

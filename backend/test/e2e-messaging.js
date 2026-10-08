@@ -1,9 +1,9 @@
 /* End-to-end check of SMS notifications with the "log" provider (nothing leaves the server).
  * Usage (inside the backend container or in CI, SMS_PROVIDER=log): node test/e2e-messaging.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const NAME = 'Test-Messaging';
 let failures = 0;
 const ok = (cond, label, extra) => {
