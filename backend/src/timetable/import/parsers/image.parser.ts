@@ -43,8 +43,10 @@ export class ImageParser implements DocumentParser {
     try {
       // Sparse-text segmentation: the default page layout analysis drops the cells of bordered tables.
       await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: '1' });
-      const { data } = await worker.recognize(buffer);
-      const words = (data.words ?? [])
+      // Word boxes are only returned when the block tree is asked for.
+      const { data } = await worker.recognize(buffer, {}, { text: true, blocks: true });
+      const words = (data.blocks ?? [])
+        .flatMap((block) => block.paragraphs.flatMap((paragraph) => paragraph.lines.flatMap((line) => line.words)))
         .filter((w) => w.confidence > 30 && w.text.trim())
         .map((w) => ({
           text: w.text,

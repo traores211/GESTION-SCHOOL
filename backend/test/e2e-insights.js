@@ -1,10 +1,10 @@
 /* End-to-end check of the decision aids: weekly summary (screen and e-mail), collection forecast,
  * appreciation suggestion. Usage (inside the backend container or in CI): node test/e2e-insights.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
 const MAILHOG = process.env.MAILHOG_URL || 'http://mailhog:8025';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 let failures = 0;
 const ok = (cond, label, extra) => {
   if (cond) console.log(`  ✔ ${label}`);

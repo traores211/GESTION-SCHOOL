@@ -2,9 +2,9 @@
  * Destructive attempts only target throw-away records created for the test in school B.
  * Usage (inside the backend container or in CI): node test/e2e-tenancy.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 let failures = 0;
 const ok = (cond, label, extra) => {
   if (cond) console.log(`  ✔ ${label}`);
