@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * sign-up, school showcase, online payment) or does not exist, and falls through to Next so an
  * unknown address shows the 404 page instead of the sign-in.
  *
- * On a private page the middleware does a soft check for the cookie `erp_session`, set at sign-in
+ * On a private page the proxy does a soft check for the cookie `erp_session`, set at sign-in
  * by the API next to the refresh token (which is limited to `/api/auth` and never sent on pages).
  * It carries no secret and its presence is not a proof of authentication (the client still
  * validates by calling `/auth/me`): it is only a hint that lets us redirect anonymous visitors to
@@ -48,7 +48,7 @@ const PRIVATE_SECTIONS = new Set([
 
 const SESSION_COOKIE = "erp_session";
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (!PRIVATE_SECTIONS.has(pathname.split("/")[1])) {
@@ -67,7 +67,7 @@ export function middleware(req: NextRequest) {
 }
 
 /**
- * Run the middleware on every page except Next's internal ones and files with an extension
+ * Run the proxy on every page except Next's internal ones and files with an extension
  * (static assets Next cannot route). Keeps `/api/*` untouched too (Next's own API route folder
  * is `src/app/api/*` but we proxy everything through the backend, so it stays empty).
  */
