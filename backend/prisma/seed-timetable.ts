@@ -6,6 +6,7 @@
 import { PrismaClient } from '@prisma/client';
 import { Requirement, scheduleRequirements } from '../src/timetable/domain/scheduler';
 import { parseDays, parseRanges } from '../src/timetable/domain/time';
+import { createPrismaClient } from '../src/prisma/client';
 
 const WEEKLY_HOURS: Record<string, number> = { MATH: 4, FR: 4, ANG: 3, SVT: 2, HG: 2, EPS: 2 };
 const COLORS: Record<string, string> = { MATH: '#2563eb', FR: '#db2777', ANG: '#7c3aed', SVT: '#059669', HG: '#d97706', EPS: '#0891b2' };
@@ -74,7 +75,7 @@ export async function seedTimetable(prisma: PrismaClient) {
 }
 
 if (require.main === module) {
-  const prisma = new PrismaClient();
+  const prisma = createPrismaClient();
   seedTimetable(prisma)
     .catch((e) => {
       console.error(e);

@@ -59,11 +59,11 @@ jobs:
       - name: Types
         run: npx tsc --noEmit -p tsconfig.json
       - name: Unit tests
-        run: npx jest --runInBand --ci
+        run: npm test -- --runInBand --ci
       - name: Migrations on an empty database
         run: sh scripts/migrate.sh
       - name: Migrations match the Prisma schema
-        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - name: Demo data
         # The end-to-end checks expect DEMO-001 with every level: the volume seed adds them, then the
         # timetable is generated again for the full set of classes.

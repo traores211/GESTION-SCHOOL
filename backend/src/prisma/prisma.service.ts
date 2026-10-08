@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { ENCRYPTED_FIELDS, decryptResult, encryptData, loadKey } from '../infra/field-crypto';
+import { prismaAdapter } from './client';
 
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
@@ -37,32 +38,42 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   constructor() {
-    super();
-
-    // Monetary columns are stored as Decimal(14,2) but the rest of the app works with `number`.
-    // Convert on the way out, before anything else sees the result. Runs even when encryption is
-    // off, so the behaviour is identical in dev and in prod.
-    this.$use(async (params, next) => {
-      const result = await next(params);
-      return decimalsToNumbers(result);
-    });
+    super({ adapter: prismaAdapter() });
 
     const key = loadKey();
     this.encrypting = !!key;
     if (!key) {
       new Logger('Prisma').warn('DATA_ENCRYPTION_KEY absente ou invalide : les données sensibles ne sont pas chiffrées');
-      return;
     }
-    // Sensitive columns (see ENCRYPTED_FIELDS) are encrypted on the way in and decrypted on the way out.
-    this.$use(async (params, next) => {
-      if (params.model && ENCRYPTED_FIELDS[params.model] && params.args) {
-        encryptData(params.model, params.args.data, key);
-        if (params.action === 'upsert') {
-          encryptData(params.model, params.args.create, key);
-          encryptData(params.model, params.args.update, key);
-        }
-      }
-      return decryptResult(await next(params), key);
+
+    // Every operation, raw queries included, goes through this extension.
+    const extended = this.$extends({
+      query: {
+        async $allOperations({ model, operation, args, query }) {
+          // Sensitive columns (see ENCRYPTED_FIELDS) are encrypted on the way in and decrypted on the way out.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const input = args as any;
+          if (key && model && ENCRYPTED_FIELDS[model] && input) {
+            encryptData(model, input.data, key);
+            if (operation === 'upsert') {
+              encryptData(model, input.create, key);
+              encryptData(model, input.update, key);
+            }
+          }
+          const result = await query(args);
+          // Monetary columns are stored as Decimal(14,2) but the rest of the app works with `number`.
+          // Converted on the way out even when encryption is off, so dev and prod behave alike.
+          return decimalsToNumbers(key ? decryptResult(result, key) : result);
+        },
+      },
+    });
+
+    // `$extends` returns a new client instead of changing this one. Models, transactions and raw
+    // queries are served by the extended client; the methods of this class and the connection
+    // life cycle stay here.
+    const own = new Set<string | symbol>(['encryptionActive', 'encryptExisting', 'onModuleInit', 'onModuleDestroy', '$connect', '$disconnect', '$on']);
+    return new Proxy(this, {
+      get: (target, prop, receiver) => (!own.has(prop) && prop in extended ? Reflect.get(extended, prop) : Reflect.get(target, prop, receiver)),
     });
   }
 

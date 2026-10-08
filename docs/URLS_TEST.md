@@ -653,7 +653,7 @@ Branche `feature/saas-multi-tenant`, pile Docker locale, données de démonstrat
 | Connexion API des 5 rôles | 5/5 | `POST /api/auth/login` |
 | API en lecture, compte admin (67 routes) | 65 en 200, 2 en 400 attendus (`/timetable/options` et `/documents` exigent un paramètre) | sonde HTTP |
 | Cloisonnement des rôles (11 cas) | 11/11 refusés (403, 401 pour l'anonyme) | sonde HTTP |
-| Tests unitaires backend | 35 suites, 295 tests, tous verts | `docker exec school-backend npx jest --runInBand` |
+| Tests unitaires backend | 35 suites, 295 tests, tous verts | `docker exec school-backend npm test -- --runInBand` |
 | Tests unitaires frontend | 5 fichiers, 30 tests, tous verts | `docker exec school-frontend npx vitest run` |
 | E2E API, lanceur officiel | 28 suites sur 28, 617 vérifications | `docker exec school-backend sh test/run-e2e.sh` |
 | E2E API hors lanceur | `e2e-lifecycle`, `e2e-quotas`, `e2e-domains`, `e2e-permissions` verts ; `e2e-import` 8/13, puis 13/13 après correction | `node test/<nom>.js` |

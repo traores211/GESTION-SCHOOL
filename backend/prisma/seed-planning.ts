@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 import { generateTimetable } from '../src/timetable/domain/generator';
 import { gridFromStrings, formatHours } from '../src/timetable/domain/grid';
 import { mergeWindows, volumeKey, PlanningData } from '../src/timetable/domain/rules';
+import { createPrismaClient } from '../src/prisma/client';
 
 const GRID = {
   days: '1,2,3,4,5',
@@ -201,7 +202,7 @@ export async function seedPlanning(prisma: PrismaClient, force = false) {
 }
 
 if (require.main === module) {
-  const prisma = new PrismaClient();
+  const prisma = createPrismaClient();
   seedPlanning(prisma, process.argv.includes('--force'))
     .catch((e) => {
       console.error(e);

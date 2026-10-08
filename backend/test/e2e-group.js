@@ -1,10 +1,10 @@
 /* End-to-end check of school groups: several schools in one organisation, switching, isolation.
  * Usage (inside the backend container or in CI): node test/e2e-group.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const { clearThrottle } = require('./throttle');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const TAG = 'Test-Groupe';
 const HEAD = 'chef.groupe@test-groupe.local';
 const PASSWORD = 'Baobab-Lagune-2026!';

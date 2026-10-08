@@ -4,8 +4,7 @@
 set -e
 
 HAS_HISTORY=$(node -e "
-const { PrismaClient } = require('@prisma/client');
-const p = new PrismaClient();
+const p = require('./scripts/prisma-client').createPrismaClient();
 p.\$queryRawUnsafe(\"select to_regclass('public._prisma_migrations') is not null as history, to_regclass('public.\\\"User\\\"') is not null as tables\")
   .then((r) => { console.log(r[0].history ? 'history' : r[0].tables ? 'pushed' : 'empty'); })
   .catch(() => console.log('empty'))
