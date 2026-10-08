@@ -2,10 +2,10 @@
  * Runs in a school of its own (created by sign-up) so the demo school is left untouched.
  * Usage (inside the backend container or in CI): node test/e2e-promotion.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const { clearThrottle } = require('./throttle');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const TAG = 'Test-Passage';
 const HEAD = 'chef@test-passage.local';
 const PASSWORD = 'Baobab-Lagune-2026!';

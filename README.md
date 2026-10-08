@@ -138,7 +138,7 @@ Détails et compte-rendu lot par lot : [`docs/EVOLUTION-SAAS.md`](docs/EVOLUTION
 
 ```bash
 # Backend (unitaires : conflits, générateur, parseurs, normalisation, sécurité)
-docker compose exec backend npx jest
+docker compose exec backend npm test
 
 # Frontend (logique de la grille, tri/recherche)
 docker compose exec frontend npx vitest run

@@ -20,6 +20,6 @@ import { HostController } from './host.controller';
 })
 export class DomainsModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(DomainResolverMiddleware).forRoutes('*');
+    consumer.apply(DomainResolverMiddleware).forRoutes('{*splat}');
   }
 }

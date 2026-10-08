@@ -6,6 +6,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { DEFAULT_PIECES, STATUS_LABELS, AdmissionStatusName } from '../src/admissions/workflow';
+import { createPrismaClient } from '../src/prisma/client';
 
 /** Steps an application went through to reach its current status. */
 const PATHS: Record<AdmissionStatusName, AdmissionStatusName[]> = {
@@ -137,7 +138,7 @@ export async function seedAdmissions(prisma: PrismaClient) {
 }
 
 if (require.main === module) {
-  const prisma = new PrismaClient();
+  const prisma = createPrismaClient();
   seedAdmissions(prisma)
     .catch((e) => {
       console.error(e);

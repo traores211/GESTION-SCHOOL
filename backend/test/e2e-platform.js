@@ -1,11 +1,11 @@
 /* End-to-end check of self-service sign-up, the free trial and the platform administration.
  * Usage (inside the backend container or in CI): node test/e2e-platform.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const { clearThrottle } = require('./throttle');
 const bcrypt = require('bcrypt');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const NAME = `Collège Test-Platform ${Date.now().toString().slice(-6)}`;
 const EMAIL = `directeur.test-platform.${Date.now()}@example.ci`;
 const ROOT = `root.test-platform.${Date.now()}@example.ci`;
