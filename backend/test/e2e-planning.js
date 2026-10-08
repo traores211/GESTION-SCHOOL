@@ -96,11 +96,17 @@ function client(token) {
   ok(again.status === 409, 'second undo refused');
 
   console.log('Swap');
+  // The generated timetable differs from one machine to the next: any pair of lessons of the class
+  // will do, the first lesson alone may have no partner its teacher and room are free for.
   let swapped = null;
-  for (const b of mine) {
-    if (b.id === lesson.id) continue;
-    const r = await admin.post(`/timetable/sessions/${lesson.id}/swap`, { otherId: b.id });
-    if (r.status === 201) { swapped = b; break; }
+  const unlocked = mine.filter((s) => !s.locked);
+  for (const a of [lesson, ...unlocked.filter((s) => s.id !== lesson.id)]) {
+    for (const b of unlocked) {
+      if (b.id === a.id) continue;
+      const r = await admin.post(`/timetable/sessions/${a.id}/swap`, { otherId: b.id });
+      if (r.status === 201) { swapped = b; break; }
+    }
+    if (swapped) break;
   }
   ok(!!swapped, swapped ? `swapped with ${swapped.subject?.name}` : 'no valid swap found');
   if (swapped) {
