@@ -1,0 +1,13 @@
+/* Public privacy notice: a reading page, one comfortable column. */
+.privacy { min-height: 100vh; background: var(--paper); color: var(--ink); }
+.privacy-doc { max-width: 68ch; margin: 0 auto; padding: 40px 16px 72px; line-height: 1.65; }
+.privacy-brand { display: inline-flex; align-items: center; gap: 8px; color: inherit; text-decoration: none; margin-bottom: 28px; }
+.privacy-doc h1 { font-size: clamp(26px, 5vw, 36px); line-height: 1.15; margin: 0 0 16px; text-wrap: balance; }
+.privacy-lead { font-size: 17px; color: var(--text-muted); margin: 0; }
+.privacy-doc section { margin-top: 36px; }
+.privacy-doc h2 { font-size: 20px; line-height: 1.3; margin: 0 0 10px; }
+.privacy-doc p { margin: 0 0 12px; }
+.privacy-doc ul { margin: 0 0 12px; padding-left: 20px; }
+.privacy-doc li { margin-bottom: 8px; }
+.privacy-doc a { color: var(--accent-strong); }
+.privacy-doc footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--rule); }

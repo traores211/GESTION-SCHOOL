@@ -81,7 +81,7 @@ export function EmptyState({
 /** Placeholder rows shaped like the table that will appear, so the layout does not jump. */
 export function TableSkeleton({ rows = 6, columns = 5 }: { rows?: number; columns?: number }) {
   return (
-    <div aria-busy="true" aria-label="Chargement" style={{ padding: "6px 0" }}>
+    <div role="status" aria-busy="true" aria-label="Chargement" style={{ padding: "6px 0" }}>
       {Array.from({ length: rows }).map((_, r) => (
         <div key={r} style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 16, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
           {Array.from({ length: columns }).map((__, c) => (

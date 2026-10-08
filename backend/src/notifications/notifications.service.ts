@@ -1,17 +1,49 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/current-user.decorator';
+import { PushService } from './push.service';
+
+/** What a notification is about; an account may mute a category. */
+export const NOTIFICATION_CATEGORIES = ['GATE', 'GRADES', 'DOCUMENTS', 'ATTENDANCE'] as const;
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly push: PushService,
+  ) {}
 
   /** Internal helper used by other modules (attendance, billing, admissions...) to push a notification. */
-  async notify(userId: string | null | undefined, subject: string, message: string, type: string = 'in_app') {
+  async notify(userId: string | null | undefined, subject: string, message: string, type: string = 'in_app', category?: NotificationCategory) {
     if (!userId) return null;
-    return this.prisma.notification.create({
+    if (category) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { notificationPrefs: true } });
+      if (this.muted(user?.notificationPrefs).includes(category)) return null;
+    }
+    const created = await this.prisma.notification.create({
       data: { userId, subject, message, type },
     });
+    // The devices of the account are woken, without waiting and without any content
+    void this.push.wake(userId).catch(() => undefined);
+    return created;
+  }
+
+  private muted(prefs: unknown): string[] {
+    const list = (prefs as { muted?: unknown } | null)?.muted;
+    return Array.isArray(list) ? list.filter((c): c is string => typeof c === 'string') : [];
+  }
+
+  async preferences(user: AuthUser) {
+    const row = await this.prisma.user.findUnique({ where: { id: user.userId }, select: { notificationPrefs: true } });
+    const muted = this.muted(row?.notificationPrefs);
+    return { categories: NOTIFICATION_CATEGORIES.map((category) => ({ category, enabled: !muted.includes(category) })) };
+  }
+
+  async setPreferences(user: AuthUser, muted: string[]) {
+    const known = NOTIFICATION_CATEGORIES.filter((c) => muted.includes(c));
+    await this.prisma.user.update({ where: { id: user.userId }, data: { notificationPrefs: { muted: known } } });
+    return this.preferences(user);
   }
 
   findForUser(user: AuthUser, unreadOnly?: boolean) {

@@ -1,17 +1,19 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, LoaderCircle, LogIn } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, LogIn, ShieldCheck } from "lucide-react";
 import { BrandMark, FlagBand, ThemeToggle } from "../../components/Brand";
-import { api, errorMessage } from "../../lib/api";
-import { setSession } from "../../lib/auth";
+import { api, ApiError, errorMessage } from "../../lib/api";
+import { AuthUser, setSession } from "../../lib/auth";
 import { FormError } from "../../components/ui";
+import { LANGUAGES, setLang, useI18n } from "../../lib/i18n";
 import "./login.css";
 
 interface LoginResponse {
   accessToken: string;
-  user: { id: string; email: string; firstName: string; lastName: string; role: string };
+  user: AuthUser;
 }
 
 const DEMO_ACCOUNTS = [
@@ -21,31 +23,85 @@ const DEMO_ACCOUNTS = [
   { role: "Parent", email: "parent@school.local", password: "parent123" },
 ];
 
+/** Demo accounts are listed only on demo installs (never in production). */
+const SHOW_DEMO = process.env.NEXT_PUBLIC_DEMO_ACCOUNTS === "true";
+
 function LoginForm() {
+  const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
-  const [email, setEmail] = useState("admin@school.local");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState(SHOW_DEMO ? "admin@school.local" : "");
+  const [password, setPassword] = useState(SHOW_DEMO ? "admin123" : "");
+  const [totp, setTotp] = useState("");
+  const [needsCode, setNeedsCode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const expired = params.get("expired") === "1";
+  const reset = params.get("reset") === "1";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const data = await api.post<LoginResponse>("/auth/login", { email, password });
+      const data = await api.post<LoginResponse>("/auth/login", { email, password, ...(needsCode ? { totp } : {}) });
       setSession(data.accessToken, data.user);
       const next = params.get("next");
       const safeNext = next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : null;
-      router.push(data.user.role === "PARENT" ? "/portal" : safeNext || "/dashboard");
+      // Families go to their portal; supervisors start at the gate (they have no dashboard)
+      router.push(["PARENT", "ELEVE"].includes(data.user.role) ? "/portal" : safeNext || (["SURVEILLANT", "EDUCATEUR"].includes(data.user.role) ? "/gate" : "/dashboard"));
     } catch (err) {
-      setError(errorMessage(err));
+      if (err instanceof ApiError && (err.body as { code?: string } | undefined)?.code === "TOTP_REQUIRED") {
+        if (needsCode) setError(errorMessage(err));
+        setNeedsCode(true);
+        setTotp("");
+      } else {
+        setError(errorMessage(err));
+      }
       setLoading(false);
     }
   };
+
+  if (needsCode) {
+    return (
+      <form onSubmit={handleSubmit} className="login-form">
+        <div className="alert alert-info">
+          <ShieldCheck size={16} /> Double authentification : saisissez le code à 6 chiffres affiché par votre application d&apos;authentification.
+        </div>
+        <FormError message={error} />
+        <div className="field">
+          <label htmlFor="totp">{t("Code de vérification")}</label>
+          <input
+            id="totp"
+            className="input tabular"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="\d{3}\s?\d{3}"
+            maxLength={7}
+            autoFocus
+            required
+            value={totp}
+            onChange={(e) => setTotp(e.target.value)}
+            style={{ letterSpacing: "0.3em", fontSize: 20, textAlign: "center" }}
+          />
+        </div>
+        <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading}>
+          {loading ? <LoaderCircle size={18} className="spin" /> : <LogIn size={18} />} Valider
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-block"
+          onClick={() => {
+            setNeedsCode(false);
+            setError(null);
+          }}
+        >
+          Retour
+        </button>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="login-form">
@@ -54,13 +110,14 @@ function LoginForm() {
           Votre session a expiré. Reconnectez-vous pour continuer.
         </div>
       )}
+      {reset && !error && <div className="alert alert-success">Mot de passe modifié : connectez-vous avec le nouveau.</div>}
       <FormError message={error} />
       <div className="field">
-        <label htmlFor="email">Adresse email</label>
+        <label htmlFor="email">{t("Adresse email")}</label>
         <input id="email" type="email" autoComplete="username" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required />
       </div>
       <div className="field">
-        <label htmlFor="password">Mot de passe</label>
+        <label htmlFor="password">{t("Mot de passe")}</label>
         <div className="input-icon">
           <input
             id="password"
@@ -71,16 +128,25 @@ function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <button type="button" className="input-clear" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
+          <button type="button" className="input-clear" onClick={() => setShowPassword((v) => !v)} aria-label={t(showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe")}>
             {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
       </div>
       <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading}>
         {loading ? <LoaderCircle size={18} className="spin" /> : <LogIn size={18} />}
-        {loading ? "Connexion…" : "Se connecter"}
+        {t(loading ? "Connexion…" : "Se connecter")}
       </button>
+      <p style={{ textAlign: "center", margin: "4px 0 0", fontSize: 13 }}>
+        <Link href="/forgot-password">{t("Mot de passe oublié ?")}</Link>
+      </p>
+      <p style={{ textAlign: "center", margin: 0, fontSize: 12 }}>
+        <Link href="/confidentialite" className="muted">
+          {t("Protection des données personnelles")}
+        </Link>
+      </p>
 
+      {SHOW_DEMO && (
       <div className="login-demo">
         <p>Comptes de démonstration</p>
         <div className="login-demo-grid">
@@ -101,11 +167,13 @@ function LoginForm() {
           ))}
         </div>
       </div>
+      )}
     </form>
   );
 }
 
 export default function LoginPage() {
+  const { t, lang } = useI18n();
   return (
     <main className="login">
       <FlagBand />
@@ -165,6 +233,11 @@ export default function LoginPage() {
       </section>
       <section className="login-panel">
         <div className="login-panel-tools">
+          {LANGUAGES.filter((l) => l.code !== lang).map((l) => (
+            <button key={l.code} type="button" className="btn btn-ghost btn-sm" lang={l.code} onClick={() => setLang(l.code)}>
+              {l.label}
+            </button>
+          ))}
           <ThemeToggle />
         </div>
         <div className="login-card">
@@ -173,8 +246,8 @@ export default function LoginPage() {
               <BrandMark size={28} />
               <strong>School ERP</strong>
             </div>
-            <h1>Connexion</h1>
-            <p>Gestion scolaire de votre établissement</p>
+            <h1>{t("Connexion")}</h1>
+            <p>{t("Gestion scolaire de votre établissement")}</p>
           </div>
           <Suspense fallback={null}>
             <LoginForm />

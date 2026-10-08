@@ -41,8 +41,16 @@ temp/
 *.db
 *.sqlite
 
-# Prisma
-prisma/migrations/
+# Prisma: migrations are versioned (backend/prisma/migrations), never ignored.
+
+# Browser test output
+frontend/test-results/
+frontend/playwright-report/
 
 # Uploaded files (local dev)
 backend/uploads/
+
+# Local tool state (Claude Code worktrees, Impeccable review captures)
+.claude/worktrees/
+frontend/.impeccable/questions/
+frontend/.impeccable/review/

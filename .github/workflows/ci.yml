@@ -1,0 +1,271 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: API — lint, types, tests, migrations, end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: erp
+          POSTGRES_PASSWORD: erp
+          POSTGRES_DB: erp_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U erp" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+      mailhog:
+        image: mailhog/mailhog
+        ports: ["1025:1025", "8025:8025"]
+    env:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://erp:erp@localhost:5432/erp_ci
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-only-secret-that-is-long-enough-123456
+      FRONTEND_URL: http://localhost:3000
+      MAIL_HOST: localhost
+      MAIL_PORT: "1025"
+      MAILHOG_URL: http://localhost:8025
+      UPLOAD_DIR: /tmp/erp-uploads
+      DATA_ENCRYPTION_KEY: Y2ktb25seS1kYXRhLWVuY3J5cHRpb24ta2V5LTMyYnk=
+      SMS_PROVIDER: log
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx prisma generate
+      - name: Lint
+        run: npx eslint src --ext .ts --quiet
+      - name: Types
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Unit tests
+        run: npx jest --runInBand --ci
+      - name: Migrations on an empty database
+        run: sh scripts/migrate.sh
+      - name: Migrations match the Prisma schema
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+      - name: Demo data
+        # The end-to-end checks expect DEMO-001 with every level: the volume seed adds them, then the
+        # timetable is generated again for the full set of classes.
+        run: |
+          npx prisma db seed
+          npm run seed:bulk
+          npx ts-node prisma/seed-planning.ts --force
+      - name: Start the API
+        run: |
+          npm run build
+          nohup node dist/main > /tmp/api.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs http://localhost:4000/api/health && break; sleep 2; done
+          curl -fs http://localhost:4000/api/health
+      - name: End-to-end — authentication
+        run: node test/e2e-auth.js
+      - name: End-to-end — audit journal
+        run: node test/e2e-audit.js
+      - name: End-to-end — admissions
+        run: node test/e2e-admissions.js
+      - name: End-to-end — timetable planning
+        run: node test/e2e-planning.js
+      - name: End-to-end — tenant isolation
+        run: node test/e2e-tenancy.js
+      - name: End-to-end — billing, numbering, archiving
+        run: node test/e2e-records.js
+      - name: End-to-end — online payments (simulated gateway)
+        run: node test/e2e-payments.js
+      - name: End-to-end — SMS notifications (journal provider)
+        run: node test/e2e-messaging.js
+      - name: End-to-end — personal data (encryption, export, anonymisation, consent)
+        run: node test/e2e-privacy.js
+      - name: End-to-end — bulk imports (pupils, staff, balances, marks)
+        run: node test/e2e-imports.js
+      - name: End-to-end — report cards and class council
+        run: node test/e2e-bulletins.js
+      - name: End-to-end — parent portal
+        run: node test/e2e-portal.js
+      - name: End-to-end — weekly summary, forecast, suggestions
+        run: node test/e2e-insights.js
+      - name: End-to-end — discipline (school life records)
+        run: node test/e2e-discipline.js
+      - name: End-to-end — homework diary and parent conversations
+        run: node test/e2e-family.js
+      - name: End-to-end — self-service sign-up, trial, platform administration
+        run: node test/e2e-platform.js
+      - name: End-to-end — a teacher is limited to his classes and subjects
+        run: node test/e2e-teacher-scope.js
+      - name: End-to-end — school groups (several schools, switching, isolation)
+        run: node test/e2e-group.js
+      - name: End-to-end — pupil, guardian and staff files
+        run: node test/e2e-files.js
+      - name: End-to-end — documents of the records (versions, archive, families)
+        run: node test/e2e-documents.js
+      - name: End-to-end — school year life cycle and end-of-year promotion
+        run: node test/e2e-promotion.js
+      - name: End-to-end — school gate (arrivals, departures, QR cards)
+        run: node test/e2e-gate.js
+      - name: End-to-end — assisted entry (spoken roll call and marks, photographed sheet)
+        run: node test/e2e-smart-entry.js
+      - name: End-to-end — showcase (draft, preview, publication, contact form)
+        run: node test/e2e-showcase.js
+      - name: End-to-end — dashboards per role, notifications to families
+        run: node test/e2e-dashboards.js
+      - name: End-to-end — pupil accounts, identity photo, notification preferences
+        run: node test/e2e-pupil.js
+      - name: End-to-end — supervisor and educator roles
+        run: node test/e2e-supervision.js
+      - name: End-to-end — no credential in any response
+        run: node test/e2e-leaks.js
+      - name: End-to-end — custom domains per school (Host resolver, DNS verification, isolation)
+        run: node test/e2e-domains.js
+      - name: End-to-end — subscription lifecycle (state machine, timeline, auto-expiry)
+        run: node test/e2e-lifecycle.js
+      - name: End-to-end — plan quotas (enforcement, per-organisation override)
+        run: node test/e2e-quotas.js
+      - name: End-to-end — fine-grained permissions (catalogue, grants, guard)
+        run: node test/e2e-permissions.js
+      - name: API log
+        if: failure()
+        run: tail -200 /tmp/api.log
+
+  frontend:
+    name: Web — lint, types, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npx eslint src --ext .ts,.tsx --quiet
+      - name: Types
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npx vitest run --passWithNoTests
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
+  browser:
+    name: Browser — main journeys (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: erp
+          POSTGRES_PASSWORD: erp
+          POSTGRES_DB: erp_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U erp" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://erp:erp@localhost:5432/erp_ci
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-only-secret-that-is-long-enough-123456
+      FRONTEND_URL: http://localhost:3000
+      UPLOAD_DIR: /tmp/erp-uploads
+      DATA_ENCRYPTION_KEY: Y2ktb25seS1kYXRhLWVuY3J5cHRpb24ta2V5LTMyYnk=
+      SMS_PROVIDER: log
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      NEXT_PUBLIC_DEMO_ACCOUNTS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: API with demo data
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npx prisma generate
+          sh scripts/migrate.sh
+          npx prisma db seed
+          npm run seed:bulk
+          npx ts-node prisma/seed-planning.ts --force
+          npm run seed:admissions
+          npm run build
+          nohup node dist/main > /tmp/api.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs http://localhost:4000/api/health && break; sleep 2; done
+      - name: Web app
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          # The job runs with NODE_ENV=development for the API; `next build` only prerenders in production mode.
+          NODE_ENV=production npm run build
+          NODE_ENV=production nohup npx next start -p 3000 > /tmp/web.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs http://localhost:3000/login > /dev/null && break; sleep 2; done
+      - name: Browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Main journeys
+        working-directory: frontend
+        run: npx playwright test
+      - name: Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+            /tmp/api.log
+            /tmp/web.log
+
+  images:
+    name: Production images
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, browser]
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: API image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile.prod
+          push: false
+          tags: school-erp-api:ci
+      - name: Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile.prod
+          push: false
+          tags: school-erp-web:ci
+          build-args: NEXT_PUBLIC_API_URL=/api

@@ -1,0 +1,7 @@
+{
+  "printWidth": 160,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "semi": true,
+  "overrides": [{ "files": "frontend/**/*.{ts,tsx}", "options": { "singleQuote": false } }]
+}

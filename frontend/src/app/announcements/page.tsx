@@ -5,7 +5,7 @@ import { AlertTriangle, Check } from "lucide-react";
 import Shell from "../../components/Shell";
 import ImageField from "../../components/showcase/ImageField";
 import CollectionEditor from "../../components/showcase/CollectionEditor";
-import { FormError, Modal, useFeedback } from "../../components/ui";
+import { FormError, Modal, Pagination, SearchInput, useFeedback } from "../../components/ui";
 import { api, ApiError } from "../../lib/api";
 import { ShowcaseAdminData, ShowcaseSettings } from "../../lib/showcase";
 
@@ -57,6 +57,9 @@ export default function AnnouncementsPage() {
       <div className="page-header">
         <div>
           <h1>Annonces &amp; vitrine publique</h1>
+          <p>
+            <a href="/announcements/draft">Préparer un brouillon, le prévisualiser puis le publier →</a>
+          </p>
           <p>Contenu du site public de l&apos;établissement, accessible sans compte</p>
         </div>
         {code && (
@@ -372,21 +375,37 @@ function IdentityTab({ initial, onSaved }: { initial: ShowcaseSettings; onSaved:
   );
 }
 
+interface PagedAnnouncements {
+  items: Announcement[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
 function NewsTab() {
   const feedback = useFeedback();
-  const [items, setItems] = useState<Announcement[] | null>(null);
+  const [data, setData] = useState<PagedAnnouncements | null>(null);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Partial<Announcement> | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
+    const q = new URLSearchParams({ page: String(page), pageSize: "25" });
+    if (search) q.set("q", search);
     api
-      .get<Announcement[]>("/announcements")
-      .then(setItems)
+      .get<PagedAnnouncements>(`/announcements?${q.toString()}`)
+      .then((d) => {
+        setData(d);
+        setError(null);
+      })
       .catch((err) => setError(errorText(err)));
-  }, []);
+  }, [page, search]);
 
   useEffect(load, [load]);
+  const items = data?.items ?? null;
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -439,9 +458,12 @@ function NewsTab() {
         <p className="muted" style={{ fontSize: 13 }}>
           Les actualités publiées apparaissent sur la vitrine ; la plus récente est affichée « À la une ».
         </p>
-        <button className="btn btn-primary btn-sm" onClick={() => setEditing({ title: "", content: "", imageUrl: null })}>
-          + Nouvelle annonce
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <SearchInput value={search} onChange={(v) => { setPage(1); setSearch(v); }} placeholder="Rechercher…" />
+          <button className="btn btn-primary btn-sm" onClick={() => setEditing({ title: "", content: "", imageUrl: null })}>
+            + Nouvelle annonce
+          </button>
+        </div>
       </div>
 
       {error && !editing && <p className="text-danger" style={{ marginBottom: 12 }}>{error}</p>}
@@ -499,6 +521,9 @@ function NewsTab() {
             </tbody>
           </table>
           {items.length === 0 && <div className="empty-state">Aucune annonce.</div>}
+          {data && data.pageCount > 1 && (
+            <Pagination page={data.page} pageCount={data.pageCount} total={data.total} pageSize={data.pageSize} onPage={setPage} unit="annonce" />
+          )}
         </div>
       )}
 

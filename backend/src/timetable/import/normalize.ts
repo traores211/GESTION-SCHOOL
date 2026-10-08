@@ -14,7 +14,7 @@ export function textKey(value: string) {
 
 export function cleanCell(value: unknown): string {
   if (value === null || value === undefined) return '';
-  return String(value).replace(/ /g, ' ').replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
+  return String(value).replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
 }
 
 // ------------------------------------------------------------------ days

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Banknote, CheckCircle2, FileDown, LoaderCircle, Save, SlidersHorizontal, Wand2 } from "lucide-react";
 import Shell from "../../components/Shell";
-import { EmptyState, FormError, Modal, PageHeader, TableSkeleton, useFeedback } from "../../components/ui";
+import { EmptyState, FormError, Modal, PageHeader, Pagination, SearchInput, TableSkeleton, useFeedback } from "../../components/ui";
 import { KpiCard } from "../../components/dashboard/ui";
 import { api, errorMessage } from "../../lib/api";
 import { downloadFile } from "../../lib/download";
@@ -46,10 +46,28 @@ function periodLabel(period: string) {
   return new Date(y, m - 1, 1).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 }
 
+interface PagedPayslips {
+  items: Payslip[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
+interface PayrollStats {
+  totalGross: number;
+  totalNet: number;
+  count: number;
+  paidCount: number;
+}
+
 export default function PayrollPage() {
   const feedback = useFeedback();
   const [period, setPeriod] = useState(currentPeriod());
-  const [payslips, setPayslips] = useState<Payslip[] | null>(null);
+  const [data, setData] = useState<PagedPayslips | null>(null);
+  const [stats, setStats] = useState<PayrollStats | null>(null);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -60,21 +78,25 @@ export default function PayrollPage() {
   const [salaryForm, setSalaryForm] = useState({ staffId: "", baseSalary: 150000 });
 
   const load = useCallback(() => {
-    setPayslips(null);
+    setData(null);
+    const q = new URLSearchParams({ period, page: String(page), pageSize: "25" });
+    if (search) q.set("q", search);
     api
-      .get<Payslip[]>(`/payroll?period=${period}`)
-      .then((list) => {
-        setPayslips(list);
+      .get<PagedPayslips>(`/payroll?${q.toString()}`)
+      .then((d) => {
+        setData(d);
         setError(null);
       })
       .catch((err) => setError(errorMessage(err)));
-  }, [period]);
+    api.get<PayrollStats>(`/payroll/stats?period=${period}`).then(setStats).catch(() => setStats(null));
+  }, [period, page, search]);
   const loadStaff = useCallback(() => api.get<StaffRow[]>("/staff").then(setStaff).catch(() => {}), []);
 
   useEffect(load, [load]);
   useEffect(() => {
     loadStaff();
   }, [loadStaff]);
+  const payslips = data?.items ?? null;
 
   const generate = async () => {
     setGenerating(true);
@@ -152,8 +174,11 @@ export default function PayrollPage() {
     }
   };
 
-  const totalNet = payslips?.reduce((s, p) => s + p.netSalary, 0) ?? 0;
-  const paidCount = payslips?.filter((p) => p.status === "PAID").length ?? 0;
+  // KPIs use the dedicated /payroll/stats endpoint so they stay correct across all pages,
+  // not just the one currently shown in the table.
+  const totalNet = stats?.totalNet ?? 0;
+  const paidCount = stats?.paidCount ?? 0;
+  const totalCount = stats?.count ?? 0;
   const withoutSalary = staff.filter((s) => s.staffMember && !s.staffMember.baseSalary).length;
 
   return (
@@ -171,10 +196,10 @@ export default function PayrollPage() {
         }
       />
 
-      {payslips && payslips.length > 0 && (
+      {totalCount > 0 && (
         <div className="kpi-grid">
           <KpiCard label={`Masse salariale nette`} icon={<Banknote size={16} />} value={formatFCFA(totalNet)} sub={periodLabel(period)} />
-          <KpiCard label="Bulletins payés" icon={<CheckCircle2 size={16} />} accent="orange" value={`${paidCount}/${payslips.length}`} meter={(paidCount / payslips.length) * 100} />
+          <KpiCard label="Bulletins payés" icon={<CheckCircle2 size={16} />} accent="orange" value={`${paidCount}/${totalCount}`} meter={(paidCount / totalCount) * 100} />
         </div>
       )}
       {withoutSalary > 0 && (
@@ -182,6 +207,10 @@ export default function PayrollPage() {
           {withoutSalary} membre(s) du personnel n&apos;ont pas de salaire de base : ils sont exclus de la génération. Définissez-le ci-dessous.
         </div>
       )}
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+        <SearchInput value={search} onChange={(v) => { setPage(1); setSearch(v); }} placeholder="Rechercher un employé…" />
+      </div>
 
       <div className="table-wrap" style={{ marginBottom: 24 }}>
         {error ? (
@@ -266,6 +295,9 @@ export default function PayrollPage() {
               ))}
             </tbody>
           </table>
+        )}
+        {data && data.pageCount > 1 && (
+          <Pagination page={data.page} pageCount={data.pageCount} total={data.total} pageSize={data.pageSize} onPage={setPage} unit="bulletin" />
         )}
       </div>
 

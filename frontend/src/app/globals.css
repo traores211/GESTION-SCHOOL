@@ -31,7 +31,7 @@
   /* ---- Semantic (always paired with an icon or a label) ---- */
   --olive: #00754a; /* vert du drapeau, darkened for text (AA) */
   --olive-wash: #d9eedf;
-  --ochre: #8a5a00;
+  --ochre: #7a4f00;
   --ochre-mark: #d39a2a;
   --ochre-wash: #f5e7c8;
   --crimson: #a2302a;
@@ -746,7 +746,9 @@ input, select, textarea {
   transition: background-color var(--dur-fast) ease;
 }
 .stub:last-child { border-bottom: none; }
-.stub.is-done .stub-no, .stub.is-done .stub-body { opacity: 0.6; }
+/* Past lessons recede through colour and weight, not opacity, so the text keeps a 4.5:1 contrast. */
+.stub.is-done .stub-no, .stub.is-done .stub-title { color: var(--ink-3); font-weight: var(--fw-medium); }
+.stub.is-done .stub-swatch { opacity: 0.6; }
 a.stub:hover, .stub.is-link:hover { background: var(--surface-muted); text-decoration: none; }
 .stub-no {
   align-self: stretch;
@@ -1069,6 +1071,17 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
   gap: 0 16px;
 }
 .form-grid .full { grid-column: 1 / -1; }
+/* Heading of a group of fields in a long form (personnel file) */
+.form-section { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-muted); margin: 14px 0 8px; }
+.form-section:first-of-type { margin-top: 0; }
+/* Identity photo in the pupil record */
+.student-photo { display: grid; gap: 6px; justify-items: start; margin-bottom: 10px; }
+.student-photo img, .student-photo-empty { width: 96px; height: 120px; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--rule); }
+.student-photo-empty { display: grid; place-items: center; color: var(--text-muted); background: var(--paper-raised); }
+/* Row of small counters (gate page) */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+/* Short list inside a dialog (what an action is about to do) */
+.plain-list { margin: 8px 0 12px; padding-left: 18px; display: grid; gap: 4px; }
 
 .form-error {
   display: flex;
@@ -1134,7 +1147,8 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
   transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 .segmented button:hover { color: var(--text); }
-.segmented button[aria-pressed="true"] {
+.segmented button[aria-pressed="true"],
+.segmented button[aria-checked="true"] {
   background: var(--paper-raised);
   color: var(--ink);
   box-shadow: 0 0 0 1px var(--rule-strong);
@@ -1157,6 +1171,7 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
 .alert-body { flex: 1; min-width: 0; }
 .alert-title { font-weight: var(--fw-bold); }
 .alert-danger { background: var(--danger-light); border-color: color-mix(in srgb, var(--crimson) 30%, transparent); color: var(--danger); }
+.alert a { color: inherit; font-weight: var(--fw-semibold, 600); text-decoration: underline; text-underline-offset: 2px; }
 .alert-warning { background: var(--warning-light); border-color: color-mix(in srgb, var(--ochre) 30%, transparent); color: var(--warning); }
 .alert-info { background: var(--info-light); border-color: color-mix(in srgb, var(--slate) 30%, transparent); color: var(--info); }
 .alert-success { background: var(--success-light); border-color: color-mix(in srgb, var(--olive) 30%, transparent); color: var(--success); }
@@ -1247,6 +1262,12 @@ a.alert:hover { text-decoration: none; filter: brightness(0.98); }
 
 /* Heatmap */
 .heatmap-wrap { overflow-x: auto; }
+/* How far the strongest cell goes towards the series colour; shorter in dark mode so the light text stays readable. */
+.heatmap { --heat-range: 64%; }
+:root[data-theme="dark"] .heatmap { --heat-range: 34%; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .heatmap { --heat-range: 34%; }
+}
 .heatmap { border-collapse: separate; border-spacing: 2px; width: 100%; font-variant-numeric: tabular-nums; }
 .heatmap thead tr { background: none; }
 .heatmap th { position: static; background: none; border: none; padding: 4px 8px; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--ink-2); text-align: center; }
@@ -2099,3 +2120,84 @@ html:has(.save-bar) { scroll-padding-bottom: 104px; }
 /* Toasts sit above the assistant button. */
 .toast-viewport { bottom: 88px; }
 @media (max-width: 640px) { .toast-viewport { bottom: 84px; } }
+
+/* ---------- Account security ---------- */
+.account-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.account-grid .card-title { display: flex; align-items: center; gap: 8px; }
+.account-sessions { grid-column: 1 / -1; }
+.session-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.session-list li { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px dashed var(--rule); font-size: var(--fs-sm); }
+@media (max-width: 860px) { .account-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Audit journal ---------- */
+.audit-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.audit-filters .input { width: auto; min-width: 150px; flex: 1 1 150px; }
+.audit-detail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.audit-json { margin: 4px 0 0; max-height: 260px; overflow: auto; padding: 8px; border-radius: var(--radius); background: var(--paper-raised); border: 1px solid var(--rule); font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.status-ok { color: var(--success); font-weight: var(--fw-semibold); font-size: var(--fs-xs); }
+.status-ko { color: var(--danger); font-weight: var(--fw-semibold); font-size: var(--fs-xs); }
+@media (max-width: 760px) { .audit-detail { grid-template-columns: 1fr; } }
+
+/* ---------- Error and 404 pages ---------- */
+.status-page { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--paper); }
+.status-card { max-width: 460px; text-align: center; display: grid; gap: 10px; justify-items: center; }
+.status-card h1 { font-family: var(--font-serif); font-size: 26px; margin: 0; }
+.status-card p { margin: 0; color: var(--text-secondary); }
+.status-code { font-family: var(--font-serif); font-size: 54px; line-height: 1; color: var(--clay-ink) !important; margin-top: 8px !important; }
+.status-ref { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-muted) !important; }
+
+/* ---------- Figure tiles (generation, compliance, billing detail, imports) ---------- */
+.gen-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
+.gen-stat { padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--radius-lg); background: var(--paper-raised); }
+.gen-stat strong { display: block; font-family: var(--font-serif, inherit); font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.gen-stat span { font-size: var(--fs-xs); color: var(--text-muted); }
+.gen-stat.is-good strong { color: var(--success); }
+.gen-stat.is-bad strong { color: var(--danger); }
+
+/* Messaging page */
+.msg-events { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.msg-event { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--radius); cursor: pointer; }
+.msg-event input { margin-top: 3px; }
+.msg-event span { display: grid; gap: 2px; }
+.msg-event .muted { font-size: 13px; }
+.msg-quota { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--rule); }
+.msg-quota .field { flex: 1 1 260px; max-width: 420px; }
+.msg-quota .field-hint { flex: 1 1 100%; margin: 0; }
+.msg-body { min-width: 260px; max-width: 520px; white-space: normal; overflow-wrap: anywhere; }
+
+/* Imports page */
+.import-columns { display: flex; flex-wrap: wrap; gap: 6px; }
+.import-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+label.btn { cursor: pointer; }
+label.btn.is-disabled { opacity: 0.6; pointer-events: none; }
+label.btn:focus-within { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+
+/* Attendance: justification requests from parents */
+.att-request { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--rule); }
+.att-request > div:first-child { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.att-request-actions { display: flex; gap: 8px; }
+
+.council-appreciation { display: flex; gap: 6px; align-items: center; }
+.council-appreciation .input { flex: 1 1 auto; min-width: 0; }
+
+/* Language switch in the account menu */
+.menu-lang { display: flex; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.menu-lang .btn[aria-pressed="true"] { background: var(--paper-sunken); font-weight: var(--fw-semibold, 600); }
+
+/* Conversations between parents and the office */
+.link-button { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.thread-messages { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 10px; max-height: 46vh; overflow-y: auto; }
+.thread-message { max-width: 85%; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper-raised); }
+.thread-message.is-own { justify-self: end; background: var(--paper-sunken); }
+.thread-message p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread-meta { font-size: var(--fs-xs, 12px); color: var(--text-muted); }
+.thread-reply { display: grid; gap: 8px; justify-items: end; }
+.thread-reply .input { width: 100%; }
+
+/* Discipline: counts per kind, used as filters */
+.discipline-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.chip-stat { display: grid; gap: 2px; min-width: 132px; padding: 10px 14px; text-align: left; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper-raised); color: var(--ink); cursor: pointer; transition: border-color var(--dur-fast, 120ms) ease; }
+.chip-stat strong { font-size: 20px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.chip-stat span { font-size: var(--fs-xs, 12px); color: var(--text-muted); }
+.chip-stat:hover { border-color: var(--rule-strong); }
+.chip-stat[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }

@@ -1,7 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeacherScopeService } from '../common/teacher-scope.service';
 import { AuthUser } from '../common/current-user.decorator';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MessagingService } from '../messaging/messaging.service';
+import { assertYearOpen } from '../common/year-guard';
 import { MarkAttendanceDto } from './dto/mark-attendance.dto';
 
 @Injectable()
@@ -9,12 +12,16 @@ export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly messaging: MessagingService,
+    private readonly scope: TeacherScopeService,
   ) {}
 
   async mark(user: AuthUser, dto: MarkAttendanceDto) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
     const klass = await this.prisma.class.findUnique({ where: { id: dto.classId } });
     if (!klass || klass.schoolId !== user.schoolId) throw new NotFoundException('Classe introuvable');
+    await this.scope.assertClass(user, klass.id);
+    await assertYearOpen(this.prisma, klass.academicYearId);
 
     const date = new Date(dto.date);
     date.setHours(0, 0, 0, 0);
@@ -51,8 +58,12 @@ export class AttendanceService {
             parent.userId,
             'Présence',
             `Votre enfant ${student.firstName} ${student.lastName} ${label} aujourd'hui.`,
+            'in_app',
+            'ATTENDANCE',
           );
         }
+        // SMS for recent absences only (one per pupil, day and guardian); a sending problem never blocks the roll call.
+        if (record.status === 'ABSENT' && Date.now() - date.getTime() < 2 * 86400000) await this.messaging.absence(student.id, date).catch(() => undefined);
       }
     }
 
@@ -62,6 +73,7 @@ export class AttendanceService {
   async findByClassAndDate(user: AuthUser, classId: string, date: string) {
     const klass = await this.prisma.class.findUnique({ where: { id: classId } });
     if (!klass || klass.schoolId !== user.schoolId) throw new ForbiddenException();
+    await this.scope.assertClass(user, classId);
 
     const day = new Date(date);
     day.setHours(0, 0, 0, 0);
@@ -76,6 +88,7 @@ export class AttendanceService {
   async findByStudent(user: AuthUser, studentId: string) {
     const student = await this.prisma.student.findUnique({ where: { id: studentId } });
     if (!student || student.schoolId !== user.schoolId) throw new ForbiddenException();
+    await this.scope.assertStudent(user, studentId);
 
     return this.prisma.attendance.findMany({
       where: { studentId },
@@ -86,11 +99,37 @@ export class AttendanceService {
   async justify(user: AuthUser, id: string, justification: string) {
     const record = await this.prisma.attendance.findUnique({ where: { id } });
     if (!record || record.schoolId !== user.schoolId) throw new NotFoundException('Enregistrement introuvable');
+    await this.scope.assertClass(user, record.classId);
 
     return this.prisma.attendance.update({
       where: { id },
-      data: { isJustified: true, justification, status: 'ABSENCE_JUSTIFIEE' },
+      data: { isJustified: true, justification, status: 'ABSENCE_JUSTIFIEE', justificationRequest: null, justificationRequestedAt: null },
     });
+  }
+
+  /** Reasons sent by parents from the portal, waiting for a decision of the office. */
+  async pendingJustifications(user: AuthUser) {
+    if (!user.schoolId) return [];
+    const classIds = await this.scope.classIds(user);
+    return this.prisma.attendance.findMany({
+      where: { schoolId: user.schoolId, status: 'ABSENT', justificationRequest: { not: null }, ...(classIds ? { classId: { in: classIds } } : {}) },
+      include: { student: { select: { id: true, firstName: true, lastName: true, matricule: true } }, class: { select: { name: true } } },
+      orderBy: { justificationRequestedAt: 'asc' },
+      take: 200,
+    });
+  }
+
+  /** Refuses the reason sent by a parent: the absence stays unjustified and the parents are told. */
+  async refuseJustification(user: AuthUser, id: string) {
+    const record = await this.prisma.attendance.findUnique({ where: { id }, include: { student: { include: { parents: { where: { userId: { not: null } } } } } } });
+    if (!record || record.schoolId !== user.schoolId) throw new NotFoundException('Enregistrement introuvable');
+    await this.scope.assertClass(user, record.classId);
+    if (!record.justificationRequest) throw new BadRequestException('Aucun justificatif en attente pour cette absence');
+    await this.prisma.attendance.update({ where: { id }, data: { justificationRequest: null, justificationRequestedAt: null } });
+    for (const parent of record.student.parents) {
+      await this.notifications.notify(parent.userId, 'Justificatif refusé', `Le justificatif de l'absence de ${record.student.firstName} du ${record.date.toLocaleDateString('fr-FR')} n'a pas été retenu. Contactez l'établissement pour plus de précisions.`);
+    }
+    return { success: true };
   }
 
   async todayStats(user: AuthUser) {

@@ -3,7 +3,7 @@ import { cleanCell } from '../normalize';
 
 /** RFC 4180-style parsing (quotes, doubled quotes, newlines inside quotes) with a detected delimiter. */
 export function parseDelimited(text: string, delimiter?: string): string[][] {
-  const content = text.replace(/^﻿/, '');
+  const content = text.replace(/^\uFEFF/, '');
   const sep = delimiter ?? detectDelimiter(content);
   const rows: string[][] = [];
   let row: string[] = [];

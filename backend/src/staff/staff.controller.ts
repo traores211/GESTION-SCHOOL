@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsNumber, IsPositive } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsPositive, IsString, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
@@ -8,11 +8,29 @@ import { FINANCE, MANAGEMENT, OFFICE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { StaffService } from './staff.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
+import { StaffProfileDto } from './dto/staff-profile.dto';
+import { PageQueryDto } from '../common/pagination';
+
+class StaffStatusDto {
+  @IsIn(['ACTIVE', 'INACTIVE', 'ARCHIVED'])
+  status!: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+}
 
 class UpdateSalaryDto {
   @IsNumber()
   @IsPositive()
   baseSalary!: number;
+}
+
+class StaffQueryDto extends PageQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  role?: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  archived?: string;
 }
 
 @Controller('staff')
@@ -30,13 +48,25 @@ export class StaffController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query('role') role?: string) {
-    return this.staffService.findAll(user, role);
+  findAll(@CurrentUser() user: AuthUser, @Query() q: StaffQueryDto) {
+    return this.staffService.findAll(user, q.role, q.archived === 'true', q);
+  }
+
+  @Roles(...MANAGEMENT)
+  @Patch(':id/status')
+  setStatus(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: StaffStatusDto) {
+    return this.staffService.setStatus(user, id, dto.status);
   }
 
   @Get(':id')
   findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.staffService.findOne(user, id);
+  }
+
+  @Roles(...MANAGEMENT)
+  @Patch(':id/profile')
+  updateProfile(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: StaffProfileDto) {
+    return this.staffService.updateProfile(user, id, dto);
   }
 
   @Roles(...FINANCE)

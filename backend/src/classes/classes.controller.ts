@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { MANAGEMENT, OFFICE, TEACHING } from '../common/roles';
+import { MANAGEMENT, OFFICE, FIELD } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
 import { ClassesService } from './classes.service';
 import { CreateClassDto } from './dto/create-class.dto';
@@ -12,7 +12,7 @@ import { UpdateClassDto } from './dto/update-class.dto';
 @Controller('classes')
 @ApiTags('Classes')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(...TEACHING)
+@Roles(...FIELD)
 @ApiBearerAuth()
 export class ClassesController {
   constructor(private readonly classesService: ClassesService) {}
@@ -24,8 +24,8 @@ export class ClassesController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query('academicYearId') academicYearId?: string) {
-    return this.classesService.findAll(user, academicYearId);
+  findAll(@CurrentUser() user: AuthUser, @Query('academicYearId') academicYearId?: string, @Query('archived') archived?: string) {
+    return this.classesService.findAll(user, academicYearId, archived === 'true');
   }
 
   @Get(':id')
@@ -43,6 +43,24 @@ export class ClassesController {
   @Delete(':id')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.classesService.remove(user, id);
+  }
+
+  @Roles(...MANAGEMENT)
+  @Post(':id/archive')
+  archive(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.classesService.setArchived(user, id, true);
+  }
+
+  @Roles(...MANAGEMENT)
+  @Post(':id/restore')
+  restore(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.classesService.setArchived(user, id, false);
+  }
+
+  @Roles(...OFFICE)
+  @Post(':id/move/:studentId')
+  move(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('studentId') studentId: string, @Body('toClassId') toClassId: string) {
+    return this.classesService.move(user, id, studentId, toClassId);
   }
 
   @Roles(...OFFICE)

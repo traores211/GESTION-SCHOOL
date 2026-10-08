@@ -33,6 +33,17 @@ const STATUS_OPTIONS = [
   { value: "ABSENCE_JUSTIFIEE", label: "Justifiée", short: "J", badge: "badge-info" },
 ];
 
+interface JustificationRequest {
+  id: string;
+  date: string;
+  justificationRequest: string;
+  student: { firstName: string; lastName: string; matricule: string };
+  class: { name: string };
+}
+
+import { OFFLINE_QUEUE_EVENT } from "../../components/OfflineSync";
+import { isNetworkFailure, queueRollCall, recall, remember } from "../../lib/offline";
+
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export default function AttendancePage() {
@@ -46,15 +57,38 @@ export default function AttendancePage() {
   const [alreadyTaken, setAlreadyTaken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requests, setRequests] = useState<JustificationRequest[]>([]);
+
+  const loadRequests = () => api.get<JustificationRequest[]>("/attendance/justifications").then(setRequests).catch(() => setRequests([]));
+
+  /** Accepts (the absence becomes justified) or refuses the reason a parent sent from the portal. */
+  const decide = async (r: JustificationRequest, accept: boolean) => {
+    try {
+      if (accept) await api.patch(`/attendance/${r.id}/justify`, { justification: r.justificationRequest });
+      else await api.patch(`/attendance/${r.id}/refuse-justification`);
+      feedback.success(accept ? "Absence justifiée" : "Justificatif refusé", `${r.student.firstName} ${r.student.lastName} · ${new Date(r.date).toLocaleDateString("fr-FR")}`);
+      loadRequests();
+    } catch (err) {
+      feedback.error("Action impossible", errorMessage(err));
+    }
+  };
 
   useEffect(() => {
+    loadRequests();
     api
       .get<ClassOption[]>("/classes")
       .then((cls) => {
+        remember("classes", cls);
         setClasses(cls);
         if (cls[0]) setClassId(cls[0].id);
       })
-      .catch((err) => setError(errorMessage(err)));
+      .catch((err) => {
+        // No network: the classes seen last time are enough to take the roll call.
+        const cached = isNetworkFailure(err) ? recall<ClassOption[]>("classes") : null;
+        if (!cached) return setError(errorMessage(err));
+        setClasses(cached.value);
+        if (cached.value[0]) setClassId(cached.value[0].id);
+      });
   }, []);
 
   useEffect(() => {
@@ -62,6 +96,7 @@ export default function AttendancePage() {
     setStudents(null);
     Promise.all([api.get<ClassDetail>(`/classes/${classId}`), api.get<AttendanceRecord[]>(`/attendance?classId=${classId}&date=${date}`).catch(() => [])])
       .then(([c, records]) => {
+        remember(`class:${classId}`, c);
         setStudents(c.enrollments);
         const initial: Record<string, string> = {};
         records.forEach((r) => (initial[r.studentId] = r.status));
@@ -70,7 +105,15 @@ export default function AttendancePage() {
         setAlreadyTaken(records.length > 0);
         setError(null);
       })
-      .catch((err) => setError(errorMessage(err)));
+      .catch((err) => {
+        const cached = isNetworkFailure(err) ? recall<ClassDetail>(`class:${classId}`) : null;
+        if (!cached) return setError(errorMessage(err));
+        setStudents(cached.value.enrollments);
+        setMarks({});
+        setSavedMarks({});
+        setAlreadyTaken(false);
+        setError(null);
+      });
   }, [classId, date]);
 
   const statusOf = (id: string) => marks[id] || "PRESENT";
@@ -80,6 +123,8 @@ export default function AttendancePage() {
     (students ?? []).forEach((e) => (counts[statusOf(e.student.id)] += 1));
     return counts;
   }, [students, marks]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const className = classes?.find((c) => c.id === classId)?.name ?? "";
 
   const save = async () => {
     if (!students) return;
@@ -94,14 +139,23 @@ export default function AttendancePage() {
       const absents = summary.ABSENT + summary.RETARD;
       feedback.success("Appel enregistré", absents ? `${summary.ABSENT} absent(s), ${summary.RETARD} retard(s)` : "Tous les élèves sont présents");
     } catch (err) {
-      feedback.error("Enregistrement impossible", errorMessage(err));
+      if (isNetworkFailure(err)) {
+        // No network in the classroom: the roll call is kept on the device and sent later.
+        const records = students.map((e) => ({ studentId: e.student.id, status: statusOf(e.student.id) }));
+        queueRollCall({ classId, className, date, records });
+        window.dispatchEvent(new Event(OFFLINE_QUEUE_EVENT));
+        const snapshot = Object.fromEntries(records.map((r) => [r.studentId, r.status]));
+        setSavedMarks(snapshot);
+        setMarks(snapshot);
+        setAlreadyTaken(true);
+        feedback.toast({ kind: "warning", title: "Appel conservé sur cet appareil", message: "Pas de réseau : il sera envoyé automatiquement au retour de la connexion." });
+      } else feedback.error("Enregistrement impossible", errorMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
   const markAll = (status: string) => setMarks(Object.fromEntries((students ?? []).map((e) => [e.student.id, status])));
-  const className = classes?.find((c) => c.id === classId)?.name ?? "";
 
   return (
     <Shell title="Présence">
@@ -109,6 +163,38 @@ export default function AttendancePage() {
         title="Appel"
         description="Tous les élèves sont présents par défaut : ne cochez que les absences et les retards."
       />
+
+      {requests.length > 0 && (
+        <section className="card" style={{ marginBottom: 20 }} aria-label="Justificatifs à traiter">
+          <h2 className="card-title" style={{ marginBottom: 4 }}>
+            Justificatifs envoyés par les parents ({requests.length})
+          </h2>
+          <p className="muted" style={{ marginBottom: 8 }}>
+            Acceptez un motif pour que l&apos;absence devienne « justifiée » ; un refus est notifié à la famille.
+          </p>
+          {requests.map((r) => (
+            <div key={r.id} className="att-request">
+              <div>
+                <strong>
+                  {r.student.lastName} {r.student.firstName}
+                </strong>{" "}
+                <span className="muted">
+                  {r.class.name} · absence du {new Date(r.date).toLocaleDateString("fr-FR")}
+                </span>
+                <div>{r.justificationRequest}</div>
+              </div>
+              <div className="att-request-actions">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => decide(r, true)}>
+                  Accepter
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => decide(r, false)}>
+                  Refuser
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       <div className="filter-bar">
         <div className="filter-item">
@@ -190,7 +276,6 @@ export default function AttendancePage() {
                             type="button"
                             role="radio"
                             aria-checked={status === opt.value}
-                            aria-pressed={status === opt.value}
                             onClick={() => setMarks((m) => ({ ...m, [e.student.id]: opt.value }))}
                           >
                             {opt.label}

@@ -7,3 +7,7 @@ export const OFFICE = [...MANAGEMENT, 'SECRETARY'] as const;
 export const FINANCE = [...MANAGEMENT, 'COMPTABLE'] as const;
 export const TEACHING = [...OFFICE, 'ENSEIGNANT'] as const;
 export const ALL_STAFF = [...TEACHING, 'COMPTABLE'] as const;
+/** Supervisors and educators: they follow the pupils (gate, roll call, school life) across the whole school. */
+export const SUPERVISION = ['SURVEILLANT', 'EDUCATEUR'] as const;
+/** Everyone in daily contact with the pupils: teachers, the office, supervisors. No marks or money implied. */
+export const FIELD = [...TEACHING, ...SUPERVISION] as const;

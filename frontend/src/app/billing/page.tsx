@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CreditCard, LoaderCircle, Plus, Receipt, Wallet } from "lucide-react";
+import { Ban, Copy, CreditCard, Download, Eye, Link2, LoaderCircle, Plus, Receipt, Undo2, Wallet } from "lucide-react";
+import { downloadFile } from "../../lib/download";
 import Shell from "../../components/Shell";
 import { EmptyState, FormError, Modal, PageHeader, Pagination, SearchInput, SortHeader, TableSkeleton, useFeedback } from "../../components/ui";
 import { KpiCard } from "../../components/dashboard/ui";
 import { api, errorMessage } from "../../lib/api";
 import { useTable } from "../../lib/useTable";
 import { INVOICE_STATUS as STATUS } from "../../lib/labels";
+import { getStoredUser } from "../../lib/auth";
 
 interface StudentOption {
   id: string;
@@ -24,7 +26,11 @@ interface InvoiceRow {
   status: string;
   dueDate: string;
   student: StudentOption;
-  payments: { amount: number; method: string }[];
+  payments: { id: string; amount: number; method: string; status: string; paidAt: string; reference: string | null; refundReason: string | null; provider?: string | null; transactionId?: string }[];
+  /** Computed by the API from successful payments only. */
+  paidAmount?: number;
+  remainingAmount?: number;
+  cancelReason?: string | null;
 }
 
 const PAYMENT_METHODS = [
@@ -43,7 +49,9 @@ function formatFCFA(amount: number) {
   return new Intl.NumberFormat("fr-FR").format(Math.round(amount)) + " FCFA";
 }
 
-const paidOf = (inv: InvoiceRow) => inv.payments.reduce((s, p) => s + p.amount, 0);
+/** Successful payments only (failed and refunded lines do not count). */
+const paidOf = (inv: InvoiceRow) => inv.paidAmount ?? inv.payments.filter((p) => !p.status || p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0);
+const FINANCE_ROLES = ["SUPER_ADMIN", "ADMIN_ORGANISATION", "DIRECTOR", "COMPTABLE"];
 const isLate = (inv: InvoiceRow) => inv.status !== "PAID" && inv.status !== "CANCELLED" && new Date(inv.dueDate) < new Date(new Date().toDateString());
 
 export default function BillingPage() {
@@ -54,7 +62,18 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [payingInvoice, setPayingInvoice] = useState<InvoiceRow | null>(null);
+  const [viewing, setViewing] = useState<InvoiceRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [payLink, setPayLink] = useState<{ invoiceId: string; url: string; amount: number } | null>(null);
+  const [linking, setLinking] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  // Default period: from the first day of the month to today.
+  const [period, setPeriod] = useState(() => {
+    const now = new Date();
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)), to: iso(now) };
+  });
   const [formError, setFormError] = useState<string | null>(null);
   const [invoiceForm, setInvoiceForm] = useState({ studentId: "", label: "Scolarité", dueDate: new Date().toISOString().slice(0, 10), amount: 150000 });
   const [paymentForm, setPaymentForm] = useState({ amount: 0, method: "CASH", reference: "" });
@@ -72,6 +91,7 @@ export default function BillingPage() {
   useEffect(() => {
     load();
     api.get<StudentOption[]>("/students").then(setStudents).catch(() => {});
+    api.get<{ enabled: boolean }>("/payments/config").then((c) => setOnlineEnabled(c.enabled)).catch(() => {});
   }, [load]);
 
   const totals = useMemo(() => {
@@ -117,6 +137,53 @@ export default function BillingPage() {
   };
 
   const remaining = payingInvoice ? payingInvoice.totalAmount - paidOf(payingInvoice) : 0;
+  const canManageMoney = FINANCE_ROLES.includes(getStoredUser()?.role ?? "");
+
+  /** Cancel an invoice or refund a payment: both need a reason, kept in the accounts and the journal. */
+  const withReason = async (kind: "cancel" | "refund", id: string, label: string) => {
+    const reason = await feedback.prompt({
+      title: kind === "cancel" ? `Annuler la facture ${label} ?` : `Rembourser ce paiement (${label}) ?`,
+      message: kind === "cancel" ? "La facture reste visible avec le statut « Annulée » ; elle ne peut plus recevoir de paiement." : "Le paiement reste dans l'historique avec le statut « Remboursé » et le reste à payer est recalculé.",
+      label: "Motif",
+      confirmLabel: kind === "cancel" ? "Annuler la facture" : "Rembourser",
+    });
+    if (!reason) return;
+    try {
+      const updated = await api.post<InvoiceRow>(kind === "cancel" ? `/billing/invoices/${id}/cancel` : `/billing/payments/${id}/refund`, { reason });
+      feedback.success(kind === "cancel" ? "Facture annulée" : "Paiement remboursé");
+      setViewing(updated);
+      load();
+    } catch (err) {
+      feedback.error("Action impossible", errorMessage(err));
+    }
+  };
+
+  /** Online payment link (Mobile Money, card) for what is left to pay, ready to send to the family. */
+  const createPayLink = async (inv: InvoiceRow) => {
+    setLinking(true);
+    try {
+      const link = await api.post<{ shareUrl: string; amount: number }>(`/billing/invoices/${inv.id}/pay-link`, {});
+      setPayLink({ invoiceId: inv.id, url: link.shareUrl, amount: link.amount });
+      load();
+    } catch (err) {
+      feedback.error("Lien de paiement impossible", errorMessage(err));
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const copyPayLink = async () => {
+    if (!payLink) return;
+    try {
+      await navigator.clipboard.writeText(payLink.url);
+      feedback.success("Lien copié", "Envoyez-le à la famille par SMS, WhatsApp ou e-mail.");
+    } catch {
+      feedback.error("Copie impossible", "Sélectionnez le lien et copiez-le à la main.");
+    }
+  };
+
+  const exportCsv = (kind: "payments" | "invoices") =>
+    downloadFile(`/billing/export/${kind}?from=${period.from}&to=${period.to}`, `${kind}.csv`).catch((err) => feedback.error("Export impossible", errorMessage(err)));
 
   const recordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,17 +210,58 @@ export default function BillingPage() {
         title="Facturation & paiements"
         description="Espèces, Mobile Money (Orange, MTN, Moov, Wave), virement, chèque ou carte."
         actions={
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setFormError(null);
-              setShowInvoiceForm(true);
-            }}
-          >
-            <Plus size={16} /> Nouvelle facture
-          </button>
+          <>
+            {canManageMoney && (
+              <button className="btn btn-outline" onClick={() => setExporting(true)}>
+                <Download size={16} /> Exports comptables
+              </button>
+            )}
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setFormError(null);
+                setShowInvoiceForm(true);
+              }}
+            >
+              <Plus size={16} /> Nouvelle facture
+            </button>
+          </>
         }
       />
+
+      <Modal
+        open={exporting}
+        onClose={() => setExporting(false)}
+        title="Exports comptables"
+        description="Fichiers CSV lisibles dans Excel, pour le comptable ou le logiciel de comptabilité."
+        footer={
+          <button type="button" className="btn btn-outline" onClick={() => setExporting(false)}>
+            Fermer
+          </button>
+        }
+      >
+        <div className="form-grid">
+          <div className="field">
+            <label htmlFor="exp-from">Du</label>
+            <input id="exp-from" type="date" className="input" value={period.from} max={period.to} onChange={(e) => setPeriod({ ...period, from: e.target.value })} />
+          </div>
+          <div className="field">
+            <label htmlFor="exp-to">Au</label>
+            <input id="exp-to" type="date" className="input" value={period.to} min={period.from} onChange={(e) => setPeriod({ ...period, to: e.target.value })} />
+          </div>
+        </div>
+        <div className="import-actions">
+          <button type="button" className="btn btn-secondary" onClick={() => exportCsv("payments")}>
+            <Download size={16} /> Journal des encaissements
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => exportCsv("invoices")}>
+            <Download size={16} /> Factures émises
+          </button>
+        </div>
+        <p className="field-hint" style={{ marginTop: 12 }}>
+          Le journal liste chaque paiement reçu sur la période ; un remboursement y figure sur sa propre ligne, à sa date. 13 mois au maximum par fichier.
+        </p>
+      </Modal>
 
       {invoices && (
         <div className="kpi-grid">
@@ -226,6 +334,9 @@ export default function BillingPage() {
                         <span className={`badge ${late ? "badge-danger" : STATUS[inv.status]?.badge ?? "badge-neutral"}`}>{late ? "En retard" : STATUS[inv.status]?.label ?? inv.status}</span>
                       </td>
                       <td className="actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => setViewing(inv)} aria-label={`Détail de la facture ${inv.reference}`}>
+                          <Eye size={14} /> Détail
+                        </button>
                         {inv.status !== "PAID" && inv.status !== "CANCELLED" && (
                           <button
                             className="btn btn-secondary btn-sm"
@@ -353,6 +464,121 @@ export default function BillingPage() {
             </div>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={!!viewing}
+        onClose={() => {
+          setViewing(null);
+          setPayLink(null);
+        }}
+        size="lg"
+        title={viewing ? `Facture ${viewing.reference}` : ""}
+        description={viewing ? `${viewing.student.lastName} ${viewing.student.firstName} · ${viewing.label} · échéance ${new Date(viewing.dueDate).toLocaleDateString("fr-FR")}` : undefined}
+        footer={
+          viewing && (
+            <>
+              {canManageMoney && viewing.status !== "CANCELLED" && paidOf(viewing) === 0 && (
+                <button type="button" className="btn btn-danger-ghost" onClick={() => withReason("cancel", viewing.id, viewing.reference)}>
+                  <Ban size={16} /> Annuler la facture
+                </button>
+              )}
+              <span className="spacer" />
+              {onlineEnabled && viewing.status !== "CANCELLED" && viewing.status !== "PAID" && (
+                <button type="button" className="btn btn-secondary" onClick={() => createPayLink(viewing)} disabled={linking}>
+                  {linking ? <LoaderCircle size={16} className="spin" /> : <Link2 size={16} />} Lien de paiement
+                </button>
+              )}
+              <button type="button" className="btn btn-outline" onClick={() => setViewing(null)}>
+                Fermer
+              </button>
+            </>
+          )
+        }
+      >
+        {viewing && (
+          <>
+            <div className="gen-stats" style={{ marginTop: 0 }}>
+              <div className="gen-stat">
+                <strong>{formatFCFA(viewing.totalAmount)}</strong>
+                <span>montant facturé</span>
+              </div>
+              <div className="gen-stat is-good">
+                <strong>{formatFCFA(paidOf(viewing))}</strong>
+                <span>encaissé</span>
+              </div>
+              <div className={`gen-stat ${viewing.totalAmount - paidOf(viewing) > 0 ? "is-bad" : ""}`}>
+                <strong>{formatFCFA(Math.max(0, viewing.totalAmount - paidOf(viewing)))}</strong>
+                <span>reste à payer</span>
+              </div>
+            </div>
+            {viewing.status === "CANCELLED" && (
+              <div className="alert alert-warning" style={{ marginBottom: 12 }}>
+                <Ban size={16} />
+                <div className="alert-body">Facture annulée{viewing.cancelReason ? ` : ${viewing.cancelReason}` : ""}</div>
+              </div>
+            )}
+            {payLink && payLink.invoiceId === viewing.id && (
+              <div className="field" style={{ marginBottom: 16 }}>
+                <label htmlFor="pay-link">Lien de paiement en ligne · {formatFCFA(payLink.amount)}</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input id="pay-link" className="input" readOnly value={payLink.url} onFocus={(e) => e.currentTarget.select()} />
+                  <button type="button" className="btn btn-outline" onClick={copyPayLink}>
+                    <Copy size={16} /> Copier
+                  </button>
+                </div>
+                <span className="field-hint">La famille paie par Mobile Money ou carte ; la facture se met à jour dès la confirmation du paiement.</span>
+              </div>
+            )}
+            <h3 className="card-title" style={{ fontSize: 15 }}>
+              Paiements
+            </h3>
+            {viewing.payments.length === 0 ? (
+              <p className="muted">Aucun paiement enregistré.</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Mode</th>
+                      <th className="num">Montant</th>
+                      <th>Statut</th>
+                      <th className="actions">
+                        <span className="visually-hidden">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewing.payments.map((p) => (
+                      <tr key={p.id}>
+                        <td className="nowrap">{new Date(p.paidAt).toLocaleDateString("fr-FR")}</td>
+                        <td>
+                          {p.provider && p.status !== "SUCCESS" ? "Paiement en ligne" : PAYMENT_METHODS.find((m) => m.value === p.method)?.label ?? p.method}
+                          {p.provider ? <div className="cell-sub">En ligne · {p.transactionId}</div> : p.reference && <div className="cell-sub">{p.reference}</div>}
+                        </td>
+                        <td className="num">{formatFCFA(p.amount)}</td>
+                        <td>
+                          <span className={`badge ${p.status === "SUCCESS" ? "badge-green" : p.status === "REFUNDED" ? "badge-warning" : p.status === "PENDING" ? "badge-neutral" : "badge-danger"}`}>
+                            {p.status === "SUCCESS" ? "Encaissé" : p.status === "REFUNDED" ? "Remboursé" : p.status === "FAILED" ? "Échoué" : p.status === "PENDING" ? "En attente" : p.status}
+                          </span>
+                          {p.refundReason && <div className="cell-sub">{p.refundReason}</div>}
+                        </td>
+                        <td className="actions">
+                          {canManageMoney && p.status === "SUCCESS" && (
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => withReason("refund", p.id, formatFCFA(p.amount))}>
+                              <Undo2 size={14} /> Rembourser
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
       </Modal>
     </Shell>
   );

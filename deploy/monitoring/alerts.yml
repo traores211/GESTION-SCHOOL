@@ -1,0 +1,52 @@
+# Prometheus alert rules for School ERP. Scrape the API with:
+#
+#   scrape_configs:
+#     - job_name: school-erp
+#       metrics_path: /api/metrics
+#       authorization: { credentials: "<METRICS_TOKEN>" }
+#       static_configs: [{ targets: ["backend:4000"] }]
+#
+groups:
+  - name: school-erp
+    rules:
+      - alert: ApiDown
+        expr: up{job="school-erp"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "L'API School ERP ne répond plus"
+
+      - alert: DatabaseDown
+        expr: school_erp_database_up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "L'API ne joint plus PostgreSQL"
+
+      - alert: CacheDown
+        expr: school_erp_cache_up == 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Redis injoignable : limites de débit et cache en mémoire locale"
+
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status="5xx"}[5m])) / sum(rate(http_requests_total[5m])) > 0.02
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Plus de 2 % des requêtes échouent (erreurs 5xx)"
+
+      - alert: SlowRequests
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[10m])) by (le)) > 2.5
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "95 % des requêtes prennent plus de 2,5 s"
+
+      - alert: HighMemory
+        expr: process_resident_memory_bytes > 1.2e9
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "L'API utilise plus de 1,2 Go de mémoire"

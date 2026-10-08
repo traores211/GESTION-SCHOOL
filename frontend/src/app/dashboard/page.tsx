@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import TeacherDashboard from "../../components/dashboard/TeacherDashboard";
 import Shell from "../../components/Shell";
 import { api, ApiError } from "../../lib/api";
 import { getStoredUser } from "../../lib/auth";
@@ -53,7 +54,7 @@ function errorMessage(err: unknown) {
   return err instanceof ApiError ? err.message : "Impossible de joindre le serveur.";
 }
 
-export default function DashboardPage() {
+function SchoolDashboard() {
   const [options, setOptions] = useState<DashboardFilterOptions | null>(null);
   const [query, setQuery] = useState<DashboardQuery>(DEFAULT_QUERY);
   const [data, setData] = useState<Analytics | null>(null);
@@ -446,7 +447,7 @@ function Sections({ data, loading }: { data: Analytics | null; loading: boolean 
           empty={!data?.classFill.length}
           emptyText="Aucune classe pour cette année."
         >
-          <div className="meter-list meter-list-scroll">
+          <div className="meter-list meter-list-scroll" role="region" aria-label="Remplissage des classes" tabIndex={0}>
             {data?.classFill.map((c) => {
               const level =
                 c.rate === null || !thresholds ? "" : c.rate >= thresholds.classFillDanger ? " is-danger" : c.rate >= thresholds.classFillWarning ? " is-warning" : "";
@@ -1077,4 +1078,12 @@ function Network({ schools }: { schools: Analytics["schools"] }) {
       </section>
     </Section>
   );
+}
+
+/** Teachers get their own dashboard (their classes and their day); the other staff get the school's. */
+export default function DashboardPage() {
+  const [role, setRole] = useState<string | null>(null);
+  useEffect(() => setRole(getStoredUser()?.role ?? ""), []);
+  if (role === null) return null;
+  return role === "ENSEIGNANT" ? <TeacherDashboard /> : <SchoolDashboard />;
 }

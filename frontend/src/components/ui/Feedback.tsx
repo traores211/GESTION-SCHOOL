@@ -30,12 +30,23 @@ interface ConfirmOptions {
   tone?: "danger" | "warning";
 }
 
+interface PromptOptions {
+  title: string;
+  message?: ReactNode;
+  label: string;
+  confirmLabel?: string;
+  /** Minimum length of the answer (a reason must be explained). */
+  minLength?: number;
+}
+
 interface FeedbackApi {
   toast: (input: ToastInput) => void;
   success: (title: string, message?: string) => void;
   error: (title: string, message?: string) => void;
   /** Resolves true when the user confirms. Use before every destructive action. */
   confirm: (options: ConfirmOptions) => Promise<boolean>;
+  /** Asks for a short text (e.g. a reason); resolves null when cancelled. */
+  prompt: (options: PromptOptions) => Promise<string | null>;
 }
 
 const FeedbackContext = createContext<FeedbackApi | null>(null);
@@ -73,15 +84,33 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const [promptState, setPromptState] = useState<(PromptOptions & { resolve: (v: string | null) => void }) | null>(null);
+  const [promptValue, setPromptValue] = useState("");
+  const prompt = useCallback(
+    (options: PromptOptions) =>
+      new Promise<string | null>((resolve) => {
+        setPromptValue("");
+        setPromptState({ ...options, resolve });
+      }),
+    [],
+  );
+
   const api = useMemo<FeedbackApi>(
     () => ({
       toast,
       success: (title, message) => toast({ title, message, kind: "success" }),
       error: (title, message) => toast({ title, message, kind: "error" }),
       confirm,
+      prompt,
     }),
-    [toast, confirm],
+    [toast, confirm, prompt],
   );
+
+  const closePrompt = (value: string | null) => {
+    promptState?.resolve(value);
+    setPromptState(null);
+  };
+  const promptMin = promptState?.minLength ?? 3;
 
   const closeConfirm = (value: boolean) => {
     confirmState?.resolve(value);
@@ -139,6 +168,38 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           <AlertTriangle size={22} />
         </div>
         {confirmState?.message && <div style={{ color: "var(--text-secondary)", fontSize: 14 }}>{confirmState.message}</div>}
+      </Modal>
+      <Modal
+        open={!!promptState}
+        onClose={() => closePrompt(null)}
+        size="sm"
+        title={promptState?.title ?? ""}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline" onClick={() => closePrompt(null)}>
+              Annuler
+            </button>
+            <button type="submit" form="feedback-prompt" className="btn btn-primary" disabled={promptValue.trim().length < promptMin}>
+              {promptState?.confirmLabel ?? "Valider"}
+            </button>
+          </>
+        }
+      >
+        <form
+          id="feedback-prompt"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (promptValue.trim().length >= promptMin) closePrompt(promptValue.trim());
+          }}
+        >
+          {promptState?.message && <div style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 10 }}>{promptState.message}</div>}
+          <div className="field">
+            <label htmlFor="feedback-prompt-input" className="required">
+              {promptState?.label}
+            </label>
+            <textarea id="feedback-prompt-input" className="input" rows={3} maxLength={500} value={promptValue} onChange={(e) => setPromptValue(e.target.value)} data-autofocus />
+          </div>
+        </form>
       </Modal>
     </FeedbackContext.Provider>
   );

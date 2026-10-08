@@ -2,25 +2,46 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { PageQueryDto, pageArgs, pageResult } from '../common/pagination';
+import { inSchool } from '../platform/group.service';
+import { FINANCE } from '../common/roles';
+import { StaffProfileDto } from './dto/staff-profile.dto';
 import { AuthUser } from '../common/current-user.decorator';
 import { CreateStaffDto } from './dto/create-staff.dto';
+import { passwordProblem } from '../auth/password-policy';
+import { TokenService } from '../auth/token.service';
+import { QuotaService } from '../platform/quota.service';
 
+/** 14-character temporary password that satisfies the password policy (letters and digits). */
 function randomPassword() {
-  return randomBytes(9).toString('base64url');
+  const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+  const bytes = randomBytes(14);
+  const chars = [...bytes].map((b, i) => (i % 4 === 3 ? String(b % 10) : alphabet[b % alphabet.length]));
+  return chars.join('');
 }
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokens: TokenService,
+    private readonly quota: QuotaService,
+  ) {}
 
   async create(user: AuthUser, dto: CreateStaffDto) {
     if (!user.schoolId) throw new BadRequestException("L'utilisateur n'est rattaché à aucun établissement");
+    await this.quota.assertCanCreate(user, 'staffUsers');
 
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Un compte existe déjà avec cet email');
 
+    if (dto.password) {
+      const problem = passwordProblem(dto.password, dto);
+      if (problem) throw new BadRequestException(problem);
+    }
     const plainPassword = dto.password || randomPassword();
-    const passwordHash = await bcrypt.hash(plainPassword, 10);
+    const passwordHash = await bcrypt.hash(plainPassword, 12);
 
     const created = await this.prisma.user.create({
       data: {
@@ -31,6 +52,7 @@ export class StaffService {
         phone: dto.phone,
         role: dto.role as any,
         schoolId: user.schoolId,
+        memberships: { create: { schoolId: user.schoolId, role: dto.role as any } },
         staffMember: {
           create: {
             position: dto.position,
@@ -43,49 +65,88 @@ export class StaffService {
       include: { staffMember: true },
     });
 
-    return { ...created, temporaryPassword: dto.password ? undefined : plainPassword, password: undefined };
+    const school = await this.prisma.school.findUnique({ where: { id: user.schoolId }, select: { organisationId: true } });
+    if (school) await this.quota.invalidate(school.organisationId);
+    return { ...created, temporaryPassword: dto.password ? undefined : plainPassword, password: undefined, totpSecret: undefined };
   }
 
-  async findAll(user: AuthUser, role?: string) {
+  /** Bank details are for the management and the accounts only. */
+  private visible<T extends { staffMember?: { bankAccount?: string | null; bankName?: string | null } | null }>(user: AuthUser, row: T): T {
+    if ((FINANCE as readonly string[]).includes(user.role) || !row.staffMember) return row;
+    return { ...row, staffMember: { ...row.staffMember, bankAccount: undefined, bankName: undefined } };
+  }
+
+  /** Staff of the school. Paged when `page.page` is given ({ items, total, … }), otherwise a capped array. */
+  async findAll(user: AuthUser, role?: string, archived = false, page?: PageQueryDto) {
     if (!user.schoolId) return [];
-    const users = await this.prisma.user.findMany({
-      where: {
-        schoolId: user.schoolId,
+    const where: Prisma.UserWhereInput = {
+      AND: [{
+        // Staff shared with another school of the group stay listed in each of their schools
+        ...inSchool(user.schoolId),
         staffMember: { isNot: null },
-        ...(role ? { role: role as any } : {}),
-      },
-      include: {
-        staffMember: { include: { classes: true } },
-      },
-      orderBy: [{ lastName: 'asc' }],
-    });
-    return users.map(({ password, ...rest }) => rest);
+        status: archived ? 'ARCHIVED' : { not: 'ARCHIVED' },
+        ...(role ? { role: role as never } : {}),
+      }],
+      ...(page?.q ? { OR: [{ firstName: { contains: page.q, mode: 'insensitive' } }, { lastName: { contains: page.q, mode: 'insensitive' } }, { email: { contains: page.q, mode: 'insensitive' } }] } : {}),
+    };
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({ where, include: { staffMember: { include: { classes: true } } }, orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }], ...pageArgs(page) }),
+      page?.page ? this.prisma.user.count({ where }) : Promise.resolve(0),
+    ]);
+    return pageResult(page, users.map(({ password, totpSecret, ...rest }) => this.visible(user, rest)), total);
   }
 
   async findOne(user: AuthUser, id: string) {
-    const found = await this.prisma.user.findUnique({
-      where: { id },
+    const found = await this.prisma.user.findFirst({
+      where: { id, ...inSchool(user.schoolId ?? '-') },
       include: { staffMember: { include: { classes: true, classSubjects: { include: { subject: true, class: true } } } } },
     });
-    if (!found || found.schoolId !== user.schoolId || !found.staffMember) {
+    if (!found || !found.staffMember) {
       throw new NotFoundException('Membre du personnel introuvable');
     }
-    const { password, ...rest } = found;
-    return rest;
+    const { password, totpSecret, ...rest } = found;
+    return this.visible(user, rest);
+  }
+
+  /** Personnel file: identity, contract, qualifications, emergency contact, bank details. */
+  async updateProfile(user: AuthUser, id: string, dto: StaffProfileDto) {
+    const found = await this.prisma.user.findFirst({ where: { id, ...inSchool(user.schoolId ?? '-') }, include: { staffMember: true } });
+    if (!found || !found.staffMember) throw new NotFoundException('Membre du personnel introuvable');
+    const { firstName, lastName, phone, dateOfBirth, hireDate, ...file } = dto;
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id }, data: { ...(firstName ? { firstName } : {}), ...(lastName ? { lastName } : {}), ...(phone !== undefined ? { phone: phone || null } : {}) } }),
+      this.prisma.staffMember.update({
+        where: { id: found.staffMember.id },
+        data: { ...file, ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}), ...(hireDate ? { hireDate: new Date(hireDate) } : {}) },
+      }),
+    ]);
+    return this.findOne(user, id);
   }
 
   async updateSalary(user: AuthUser, id: string, baseSalary: number) {
-    const found = await this.prisma.user.findUnique({ where: { id }, include: { staffMember: true } });
-    if (!found || found.schoolId !== user.schoolId || !found.staffMember) {
+    const found = await this.prisma.user.findFirst({ where: { id, ...inSchool(user.schoolId ?? '-') }, include: { staffMember: true } });
+    if (!found || !found.staffMember) {
       throw new NotFoundException('Membre du personnel introuvable');
     }
     return this.prisma.staffMember.update({ where: { id: found.staffMember.id }, data: { baseSalary } });
   }
 
+  /**
+   * "Delete" archives the account (status ARCHIVED): it can no longer sign in, its sessions are cut
+   * at once, and its history (marks entered, payslips, timetable) stays.
+   */
   async remove(user: AuthUser, id: string) {
-    const found = await this.prisma.user.findUnique({ where: { id } });
-    if (!found || found.schoolId !== user.schoolId) throw new NotFoundException('Membre du personnel introuvable');
-    await this.prisma.user.delete({ where: { id } });
-    return { success: true };
+    return this.setStatus(user, id, 'ARCHIVED');
+  }
+
+  /** Activate, deactivate or archive a staff account; leaving ACTIVE cuts every session. */
+  async setStatus(user: AuthUser, id: string, status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED') {
+    const found = await this.prisma.user.findFirst({ where: { id, ...inSchool(user.schoolId ?? '-') } });
+    if (!found) throw new NotFoundException('Membre du personnel introuvable');
+    if (found.id === user.userId && status !== 'ACTIVE') throw new BadRequestException('Vous ne pouvez pas désactiver votre propre compte');
+    await this.prisma.user.update({ where: { id }, data: { status } });
+    if (status !== 'ACTIVE') await this.tokens.revokeAll(id);
+    else await this.tokens.forget(id);
+    return { success: true, status };
   }
 }

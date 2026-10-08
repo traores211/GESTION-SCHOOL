@@ -1,0 +1,242 @@
+import { Body, Controller, Get, Headers, HttpException, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
+import { Equals, IsBoolean, IsDateString, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { timingSafeEqual } from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { LoginRateLimiter } from '../auth/login-rate-limiter';
+import { Roles } from '../common/roles.decorator';
+import { RolesGuard } from '../common/roles.guard';
+import { CurrentUser, AuthUser } from '../common/current-user.decorator';
+import { PlatformService } from './platform.service';
+import { LifecycleService } from './lifecycle.service';
+import { LIFECYCLE_STATES } from './lifecycle';
+import { QuotaService } from './quota.service';
+import { PLANS, PLAN_IDS, QUOTA_KEYS } from './plans';
+import { IsInt, Min } from 'class-validator';
+
+class SignupDto {
+  @IsString()
+  @MinLength(3, { message: "Indiquez le nom de l'établissement" })
+  @MaxLength(120)
+  schoolName!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  phone?: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  firstName!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  lastName!: string;
+
+  @IsEmail({}, { message: 'Adresse e-mail invalide' })
+  email!: string;
+
+  @IsString()
+  @MaxLength(200)
+  password!: string;
+
+  @Equals(true, { message: "Vous devez accepter les conditions d'utilisation et la politique de protection des données" })
+  consent!: boolean;
+}
+
+class UpdateOrganisationDto {
+  @IsOptional()
+  @IsIn([...LIFECYCLE_STATES])
+  status?: (typeof LIFECYCLE_STATES)[number];
+
+  @IsOptional()
+  @IsIn(['STARTER', 'PRO', 'ENTERPRISE'])
+  plan?: string;
+
+  @IsOptional()
+  @IsDateString()
+  trialEndsAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  message?: string;
+}
+
+class TransitionDto {
+  @IsIn([...LIFECYCLE_STATES])
+  to!: (typeof LIFECYCLE_STATES)[number];
+
+  @IsOptional()
+  @IsIn(['STARTER', 'PRO', 'ENTERPRISE'])
+  plan?: string;
+
+  @IsOptional()
+  @IsDateString()
+  trialEndsAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  message?: string;
+}
+
+class SchoolActiveDto {
+  @IsBoolean()
+  isActive!: boolean;
+}
+
+/** Partial override of the quotas: null (or missing) means "fall back to the plan baseline". */
+class QuotaOverrideDto {
+  @IsOptional() @IsInt() @Min(0) students?: number | null;
+  @IsOptional() @IsInt() @Min(0) staffUsers?: number | null;
+  @IsOptional() @IsInt() @Min(0) classes?: number | null;
+  @IsOptional() @IsInt() @Min(0) schools?: number | null;
+  @IsOptional() @IsInt() @Min(0) customDomains?: number | null;
+  @IsOptional() @IsInt() @Min(0) storageMb?: number | null;
+  @IsOptional() @IsInt() @Min(0) smsMonthly?: number | null;
+
+  @IsOptional() @IsString() @MaxLength(500)
+  notes?: string;
+}
+
+@Controller()
+@ApiTags('Platform')
+export class PlatformController {
+  constructor(
+    private readonly platform: PlatformService,
+    private readonly limiter: LoginRateLimiter,
+    private readonly lifecycle: LifecycleService,
+    private readonly quota: QuotaService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  @Get('public/signup')
+  signupInfo() {
+    return { enabled: this.platform.signupEnabled };
+  }
+
+  /** A school creates its own space: organisation, school, current year and the head's account. */
+  @Post('public/signup')
+  async signup(@Body() dto: SignupDto, @Req() req: Request) {
+    if (!(await this.limiter.hit(`signup:${req.ip}`, 5, 3600))) throw new HttpException('Trop de demandes. Réessayez dans une heure.', HttpStatus.TOO_MANY_REQUESTS);
+    return this.platform.signup(dto);
+  }
+
+  @Get('subscription')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  subscription(@CurrentUser() user: AuthUser) {
+    return this.platform.mySubscription(user);
+  }
+
+  @Get('platform/organisations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  organisations() {
+    return this.platform.organisations();
+  }
+
+  @Patch('platform/schools/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  setSchoolActive(@Param('id') id: string, @Body() dto: SchoolActiveDto) {
+    return this.platform.setSchoolActive(id, dto.isActive);
+  }
+
+  @Patch('platform/organisations/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateOrganisationDto) {
+    return this.platform.updateOrganisation(user, id, dto);
+  }
+
+  /**
+   * Explicit state-machine transition: the server validates it against the allowed moves and
+   * writes a lifecycle event. Prefer this endpoint over PATCH when the back office needs to
+   * record a reason or a free-text message with the change.
+   */
+  @Post('platform/organisations/:id/transition')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  transition(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: TransitionDto) {
+    // Both endpoints share the same service entry; translate the explicit `to` field onto the
+    // generic `status` the service expects.
+    return this.platform.updateOrganisation(user, id, { status: dto.to, plan: dto.plan, trialEndsAt: dto.trialEndsAt, message: dto.message });
+  }
+
+  /** History of subscription transitions of an organisation (newest first). */
+  @Get('platform/organisations/:id/history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  history(@Param('id') id: string) {
+    return this.lifecycle.history(id);
+  }
+
+  // ------------------------------------------------------------ quotas
+
+  /** Quotas, usage and feature flags of the current user's organisation. */
+  @Get('subscription/quotas')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async myQuotas(@CurrentUser() user: AuthUser) {
+    return (await this.quota.report(user)) ?? { plan: 'STARTER', planLabel: 'Starter', features: PLANS.STARTER.features, quotas: [] };
+  }
+
+  /** Catalogue of plans and their baseline quotas (for the back-office picker). */
+  @Get('platform/plans')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  plans() {
+    return PLAN_IDS.map((id) => PLANS[id]);
+  }
+
+  /** Set the per-organisation overrides on top of the plan baseline. */
+  @Patch('platform/organisations/:id/quota')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiBearerAuth()
+  async setQuotaOverride(@Param('id') id: string, @Body() dto: QuotaOverrideDto) {
+    const data = Object.fromEntries(QUOTA_KEYS.map((k) => [k, dto[k] ?? null]));
+    await this.platform.setQuotaOverride(id, { ...data, notes: dto.notes ?? null });
+    return { ok: true };
+  }
+
+  /**
+   * Hostnames of every ACTIVE custom domain or subdomain. Consumed by the certbot container
+   * (deploy/certbot/renew.sh) to obtain or renew Let's Encrypt certificates. Protected by a
+   * shared bearer token (CERTBOT_TOKEN env). Keeps the response minimal to avoid leaking the
+   * identity of schools to a compromised certbot token.
+   */
+  @Get('platform/certbot/hostnames')
+  async certbotHostnames(@Headers('authorization') authorization: string | undefined) {
+    const token = process.env.CERTBOT_TOKEN;
+    if (!token) throw new HttpException('CERTBOT_TOKEN non configuré sur le serveur', HttpStatus.SERVICE_UNAVAILABLE);
+    const given = Buffer.from(authorization?.replace(/^Bearer\s+/i, '') ?? '');
+    const expected = Buffer.from(token);
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+      throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
+    }
+    const rows = await this.prisma.schoolDomain.findMany({
+      where: { status: 'ACTIVE', kind: { in: ['CUSTOM_DOMAIN', 'CUSTOM_DOMAIN_ALIAS', 'SUBDOMAIN'] } },
+      select: { hostname: true },
+      orderBy: { hostname: 'asc' },
+    });
+    return { hostnames: rows.map((r) => r.hostname) };
+  }
+}

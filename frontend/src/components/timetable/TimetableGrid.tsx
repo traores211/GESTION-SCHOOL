@@ -1,7 +1,7 @@
 "use client";
 
 import { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Lock } from "lucide-react";
 import {
   Conflict,
   DAY_NAMES,
@@ -12,6 +12,7 @@ import {
   fromMinutes,
   hasBlocking,
   layoutDay,
+  parseHalfDays,
   sessionDetails,
   snap,
   subjectColor,
@@ -31,6 +32,7 @@ export interface GridSession {
   teacher: { name: string } | null;
   room: { name: string } | null;
   conflicts?: Conflict[];
+  locked?: boolean;
 }
 
 export interface SlotChange {
@@ -47,6 +49,8 @@ interface Props<T extends GridSession> {
   view: ViewMode;
   editable?: boolean;
   highlightId?: string | null;
+  /** Lesson picked as the first half of a swap. */
+  markedId?: string | null;
   pxPerMinute?: number;
   onSlotClick?: (day: number, time: string) => void;
   onSessionClick?: (session: T) => void;
@@ -78,6 +82,7 @@ export default function TimetableGrid<T extends GridSession>({
   view,
   editable = false,
   highlightId,
+  markedId,
   pxPerMinute = 1.15,
   onSlotClick,
   onSessionClick,
@@ -261,6 +266,18 @@ export default function TimetableGrid<T extends GridSession>({
                     </div>
                   ) : null;
                 })}
+                {parseHalfDays(settings.freeHalfDays)
+                  .filter((h) => h.day === day)
+                  .map((h) => {
+                    const split = toMinutes(settings.halfDaySplit ?? "12:00");
+                    const s = Math.max(h.half === "AM" ? toMinutes(settings.start) : split, bounds.start);
+                    const e = Math.min(h.half === "AM" ? split : toMinutes(settings.end), bounds.end);
+                    return e > s ? (
+                      <div key={h.half} className="tt-break tt-free" style={{ top: y(s), height: (e - s) * pxPerMinute }} aria-hidden="true">
+                        <span>Demi-journée libre</span>
+                      </div>
+                    ) : null;
+                  })}
                 {day === today && nowMinutes !== null && nowMinutes > bounds.start && nowMinutes < bounds.end && (
                   <div className="tt-now" style={{ top: y(nowMinutes) }} aria-hidden="true" />
                 )}
@@ -275,7 +292,7 @@ export default function TimetableGrid<T extends GridSession>({
                   const details = sessionDetails(s, view);
                   const tall = (end - start) * pxPerMinute >= 54;
                   const tooltip = [
-                    `${title} — ${DAY_NAMES[s.dayOfWeek]} ${s.startTime}–${s.endTime} (${durationLabel(s.startTime, s.endTime)})`,
+                    `${title} — ${DAY_NAMES[s.dayOfWeek]} ${s.startTime}–${s.endTime} (${durationLabel(s.startTime, s.endTime)})${s.locked ? " — verrouillé" : ""}`,
                     [s.class.name, s.teacher?.name, s.room?.name].filter(Boolean).join(" · "),
                     ...(s.conflicts ?? []).map((c) => `${c.severity === "error" ? "⛔" : "⚠"} ${c.message}`),
                   ].join("\n");
@@ -286,7 +303,7 @@ export default function TimetableGrid<T extends GridSession>({
                       data-session={s.id}
                       className={`tt-session${blocking ? " has-conflict" : ""}${warning ? " has-warning" : ""}${isDragged ? " is-ghost" : ""}${
                         highlightId === s.id ? " is-highlight" : ""
-                      }${tall ? "" : " is-compact"}`}
+                      }${markedId === s.id ? " is-marked" : ""}${s.locked ? " is-locked" : ""}${tall ? "" : " is-compact"}`}
                       style={{
                         top: y(start),
                         height: Math.max((end - start) * pxPerMinute - 2, 18),
@@ -315,6 +332,11 @@ export default function TimetableGrid<T extends GridSession>({
                       {(blocking || warning) && (
                         <span className="tt-session-flag" aria-hidden="true">
                           <AlertTriangle size={13} />
+                        </span>
+                      )}
+                      {s.locked && !(blocking || warning) && (
+                        <span className="tt-session-flag tt-session-lock" aria-hidden="true">
+                          <Lock size={12} />
                         </span>
                       )}
                       {editable && onSessionChange && (

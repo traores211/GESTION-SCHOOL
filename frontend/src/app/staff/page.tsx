@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Copy, LoaderCircle, UserPlus, UserRound } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Copy, LoaderCircle, Shield, UserPlus, UserRound } from "lucide-react";
 import Shell from "../../components/Shell";
 import { Avatar, EmptyState, FormError, Modal, PageHeader, Pagination, SearchInput, SortHeader, TableSkeleton, useFeedback } from "../../components/ui";
 import { api, errorMessage } from "../../lib/api";
 import { useTable } from "../../lib/useTable";
+import { getStoredUser } from "../../lib/auth";
+import StaffFileModal, { STAFF_CATEGORIES } from "../../components/StaffFileModal";
 
 interface StaffRow {
   id: string;
@@ -13,7 +16,8 @@ interface StaffRow {
   lastName: string;
   email: string;
   role: string;
-  staffMember: { position: string; department?: string } | null;
+  status?: "ACTIVE" | "INACTIVE" | "ARCHIVED";
+  staffMember: { position: string; department?: string; category?: string | null } | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -21,6 +25,8 @@ const ROLE_LABELS: Record<string, string> = {
   SECRETARY: "Secrétaire",
   COMPTABLE: "Comptable",
   ENSEIGNANT: "Enseignant",
+  SURVEILLANT: "Surveillant",
+  EDUCATEUR: "Éducateur",
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -30,23 +36,51 @@ export default function StaffPage() {
   const feedback = useFeedback();
   const [staff, setStaff] = useState<StaffRow[] | null>(null);
   const [roleFilter, setRoleFilter] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const canManage = ["SUPER_ADMIN", "ADMIN_ORGANISATION", "DIRECTOR"].includes(getStoredUser()?.role ?? "");
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ email: string; temporaryPassword?: string } | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [fileOf, setFileOf] = useState<string | null>(null);
 
   const load = useCallback(() => {
+    setStaff(null);
     api
-      .get<StaffRow[]>("/staff")
+      .get<StaffRow[]>(`/staff${showArchived ? "?archived=true" : ""}`)
       .then((list) => {
         setStaff(list);
         setError(null);
       })
       .catch((err) => setError(errorMessage(err)));
-  }, []);
+  }, [showArchived]);
   useEffect(load, [load]);
+
+  /** Deactivating or archiving an account closes its sessions at once; nothing is deleted. */
+  const setStatus = async (s: StaffRow, status: "ACTIVE" | "INACTIVE" | "ARCHIVED") => {
+    const name = `${s.firstName} ${s.lastName}`;
+    if (status !== "ACTIVE") {
+      const yes = await feedback.confirm({
+        title: status === "ARCHIVED" ? `Archiver le compte de ${name} ?` : `Désactiver le compte de ${name} ?`,
+        message:
+          status === "ARCHIVED"
+            ? "La personne quitte la liste du personnel et ne peut plus se connecter. Son historique (cours, notes saisies, bulletins de paie) est conservé."
+            : "La personne ne peut plus se connecter tant que le compte n'est pas réactivé. Ses sessions ouvertes sont fermées immédiatement.",
+        confirmLabel: status === "ARCHIVED" ? "Archiver" : "Désactiver",
+        tone: "warning",
+      });
+      if (!yes) return;
+    }
+    try {
+      await api.patch(`/staff/${s.id}/status`, { status });
+      feedback.success(status === "ACTIVE" ? "Compte réactivé" : status === "ARCHIVED" ? "Compte archivé" : "Compte désactivé", name);
+      load();
+    } catch (err) {
+      feedback.error("Changement impossible", errorMessage(err));
+    }
+  };
 
   const table = useTable<StaffRow, "name" | "role" | "position">({
     rows: (staff ?? []).filter((s) => !roleFilter || s.role === roleFilter),
@@ -101,6 +135,10 @@ export default function StaffPage() {
               </option>
             ))}
           </select>
+          <label className="checkbox">
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            Comptes archivés
+          </label>
         </div>
       </div>
 
@@ -110,7 +148,7 @@ export default function StaffPage() {
             {error}
           </EmptyState>
         ) : !staff ? (
-          <TableSkeleton columns={4} />
+          <TableSkeleton columns={6} />
         ) : table.total === 0 ? (
           <EmptyState icon={<UserRound size={22} />} title={table.query || roleFilter ? "Aucun résultat" : "Aucun membre du personnel"} />
         ) : (
@@ -122,6 +160,10 @@ export default function StaffPage() {
                   <SortHeader label="Rôle" column="role" sort={table.sort} onSort={table.toggleSort} />
                   <SortHeader label="Poste" column="position" sort={table.sort} onSort={table.toggleSort} />
                   <th>Email</th>
+                  <th>Compte</th>
+                  <th className="actions">
+                    <span className="visually-hidden">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -138,9 +180,42 @@ export default function StaffPage() {
                     <td>
                       <span className={`badge ${s.role === "ENSEIGNANT" ? "badge-green" : s.role === "DIRECTOR" ? "badge-orange" : "badge-info"}`}>{ROLE_LABELS[s.role] || s.role}</span>
                     </td>
-                    <td>{s.staffMember?.position || <span className="muted">—</span>}</td>
+                    <td>
+                      {s.staffMember?.position || <span className="muted">—</span>}
+                      {s.staffMember?.category && <div className="cell-sub">{STAFF_CATEGORIES[s.staffMember.category] ?? s.staffMember.category}</div>}
+                    </td>
                     <td>
                       <a href={`mailto:${s.email}`}>{s.email}</a>
+                    </td>
+                    <td>
+                      <span className={`badge ${s.status === "INACTIVE" ? "badge-warning" : s.status === "ARCHIVED" ? "badge-neutral" : "badge-green"}`}>
+                        {s.status === "INACTIVE" ? "Désactivé" : s.status === "ARCHIVED" ? "Archivé" : "Actif"}
+                      </span>
+                    </td>
+                    <td className="actions">
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setFileOf(s.id)} aria-label={`Dossier de ${s.firstName} ${s.lastName}`}>
+                        Dossier
+                      </button>
+                      {canManage && (
+                        <Link href={`/users/${s.id}/permissions`} className="btn btn-ghost btn-sm" aria-label={`Permissions de ${s.firstName} ${s.lastName}`}>
+                          <Shield size={14} /> Permissions
+                        </Link>
+                      )}
+                      {canManage && s.status !== "ACTIVE" && (
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => setStatus(s, "ACTIVE")}>
+                          Réactiver
+                        </button>
+                      )}
+                      {canManage && s.status === "ACTIVE" && (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStatus(s, "INACTIVE")} aria-label={`Désactiver le compte de ${s.firstName} ${s.lastName}`}>
+                          Désactiver
+                        </button>
+                      )}
+                      {canManage && s.status !== "ARCHIVED" && (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStatus(s, "ARCHIVED")} aria-label={`Archiver le compte de ${s.firstName} ${s.lastName}`}>
+                          Archiver
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -150,6 +225,8 @@ export default function StaffPage() {
           </>
         )}
       </div>
+
+      <StaffFileModal staffId={fileOf} canEdit={canManage} onClose={() => setFileOf(null)} onSaved={load} />
 
       <Modal
         open={showForm}

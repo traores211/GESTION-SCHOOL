@@ -22,6 +22,7 @@ import {
 import { api, ApiError } from "../../../lib/api";
 import { Showcase, groupLevelsByCycle } from "../../../lib/showcase";
 import { FlagBand, ThemeToggle } from "../../../components/Brand";
+import { ContactForm, ContentSections } from "../../../components/showcase/ContentSections";
 import { AdmissionJourney, CalendarSection, FeesSection, PortalSection, ProgramsSection, QuickAccess } from "../../../components/showcase/sections";
 import "./showcase.css";
 
@@ -88,8 +89,10 @@ export default function SchoolShowcasePage() {
   const load = useCallback(() => {
     if (!params?.code) return;
     setError(null);
+    // "?apercu=1" shows the unpublished draft to the management of the school (signed in)
+    const preview = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("apercu") === "1";
     api
-      .get<Showcase>(`/public/schools/${params.code}/showcase`)
+      .get<Showcase>(`/public/schools/${params.code}/showcase${preview ? "/preview" : ""}`)
       .then(setData)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Impossible de charger la page de l'établissement."));
   }, [params?.code]);
@@ -98,6 +101,15 @@ export default function SchoolShowcasePage() {
 
   useEffect(() => {
     if (data) document.title = `${data.name}${data.city ? ` · ${data.city}` : ""}`;
+    // The tab shows the icon of the school: its favicon when it has one, otherwise its logo
+    const icon = api.mediaUrl(data?.content?.faviconUrl) || api.mediaUrl(data?.logoUrl);
+    if (!icon) return;
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]') ?? document.head.appendChild(Object.assign(document.createElement("link"), { rel: "icon" }));
+    const former = link.href;
+    link.href = icon;
+    return () => {
+      link.href = former;
+    };
   }, [data]);
 
   useEffect(() => {
@@ -177,7 +189,12 @@ export default function SchoolShowcasePage() {
   const [featured, ...otherNews] = data.announcements.slice(0, 7);
 
   return (
-    <div className="sc">
+    <div className="sc" style={data.content?.primaryColor ? ({ "--school-color": data.content.primaryColor } as React.CSSProperties) : undefined}>
+      {data.preview && (
+        <div className="sc-preview-banner" role="status">
+          Aperçu du brouillon : cette version n&apos;est pas encore publiée.
+        </div>
+      )}
       <FlagBand />
       {/* ---------- Top bar ---------- */}
       <div className="sc-topbar">
@@ -336,6 +353,8 @@ export default function SchoolShowcasePage() {
             )}
           </div>
         </section>
+
+        <ContentSections content={data.content ?? {}} />
 
         {/* ---------- Programmes ---------- */}
         {data.programs.length > 0 && (
@@ -602,6 +621,7 @@ export default function SchoolShowcasePage() {
                 </div>
               </a>
             </div>
+            <ContactForm code={data.code} />
           </div>
         </section>
 

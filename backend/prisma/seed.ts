@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { seedTimetable } from './seed-timetable';
+import { seedPlanning } from './seed-planning';
+import { seedAdmissions } from './seed-admissions';
 
 const prisma = new PrismaClient();
 
@@ -24,8 +26,10 @@ async function main() {
   // ---------- Organisation / School ----------
   const org = await prisma.organisation.upsert({
     where: { slug: 'demo-school' },
-    update: {},
-    create: { name: 'Demo School Group', slug: 'demo-school', email: 'contact@school.local' },
+    // ENTERPRISE on seed so the demo data (hundreds of pupils, several schools, dozens of staff)
+    // is above the STARTER caps of a self-service sign-up.
+    update: { subscriptionPlan: 'ENTERPRISE' },
+    create: { name: 'Demo School Group', slug: 'demo-school', email: 'contact@school.local', subscriptionPlan: 'ENTERPRISE' },
   });
 
   const schoolMarketing = {
@@ -477,6 +481,8 @@ async function main() {
   }
 
   await seedTimetable(prisma);
+  await seedPlanning(prisma);
+  await seedAdmissions(prisma);
 
   console.log('\nSeed complete.');
   console.log(`  ${students.length} élèves répartis sur ${Object.keys(classes).length} classes`);

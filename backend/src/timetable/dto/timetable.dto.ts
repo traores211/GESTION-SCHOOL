@@ -13,8 +13,10 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { TIME_PATTERN } from '../domain/time';
+import { SLOT_OPTIONS } from '../domain/grid';
 
 const TIME_MESSAGE = 'Horaire attendu au format HH:MM (ex. 08:30)';
 
@@ -140,11 +142,58 @@ export class RoomDto {
   @IsString()
   @MaxLength(60)
   building?: string | null;
+
+  /** Specialised room: the subjects that must use it (empty = ordinary room). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  subjectIds?: string[];
 }
 
 export class UpdateRoomDto extends PartialType(RoomDto) {}
 
+export class HalfDayDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(7)
+  day!: number;
+
+  @IsIn(['AM', 'PM'])
+  half!: 'AM' | 'PM';
+}
+
 export class TimetableSettingsDto {
+  /** Year to configure (current year by default). */
+  @IsOptional()
+  @IsString()
+  academicYearId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(14)
+  @ValidateNested({ each: true })
+  @Type(() => HalfDayDto)
+  freeHalfDays?: HalfDayDto[];
+
+  @IsOptional()
+  @Matches(TIME_PATTERN, { message: TIME_MESSAGE })
+  halfDaySplit?: string;
+
+  /** Daily maximums in official hours (null = no maximum). */
+  @IsOptional()
+  @Type(() => Number)
+  @Min(1)
+  @Max(14)
+  maxClassHoursPerDay?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @Min(1)
+  @Max(14)
+  maxTeacherHoursPerDay?: number | null;
+
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(7)
@@ -168,6 +217,6 @@ export class TimetableSettingsDto {
   breaks?: string;
 
   @IsOptional()
-  @IsIn([5, 10, 15, 20, 30, 60])
+  @IsIn(SLOT_OPTIONS, { message: `Durée de créneau autorisée : ${SLOT_OPTIONS.join(', ')} minutes` })
   slotMinutes?: number;
 }

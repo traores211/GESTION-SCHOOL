@@ -7,6 +7,9 @@ import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import { FINANCE } from '../common/roles';
 import { CurrentUser, AuthUser } from '../common/current-user.decorator';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequirePermissions } from '../permissions/require-permissions.decorator';
+import { PageQueryDto } from '../common/pagination';
 import { PayrollService } from './payroll.service';
 import { GeneratePayslipsDto } from './dto/generate-payslips.dto';
 import { UpdatePayslipDto } from './dto/update-payslip.dto';
@@ -17,7 +20,7 @@ function formatFCFA(amount: number) {
 
 @Controller('payroll')
 @ApiTags('Payroll')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(...FINANCE)
 @ApiBearerAuth()
 export class PayrollController {
@@ -29,8 +32,8 @@ export class PayrollController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query('period') period?: string) {
-    return this.payrollService.findAll(user, period);
+  findAll(@CurrentUser() user: AuthUser, @Query('period') period: string | undefined, @Query() page: PageQueryDto) {
+    return this.payrollService.findAll(user, period, page);
   }
 
   @Get('stats')
@@ -44,11 +47,13 @@ export class PayrollController {
   }
 
   @Patch(':id/validate')
+  @RequirePermissions('payroll:validate')
   validate(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.payrollService.validate(user, id);
   }
 
   @Patch(':id/pay')
+  @RequirePermissions('payroll:validate')
   pay(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.payrollService.pay(user, id);
   }
@@ -81,9 +86,9 @@ export class PayrollController {
     y += 20;
 
     const rows = [
-      ['Salaire de base', formatFCFA(payslip.baseSalary)],
-      ['Primes', formatFCFA(payslip.bonuses)],
-      ['Retenues', `- ${formatFCFA(payslip.deductions)}`],
+      ['Salaire de base', formatFCFA(Number(payslip.baseSalary))],
+      ['Primes', formatFCFA(Number(payslip.bonuses))],
+      ['Retenues', `- ${formatFCFA(Number(payslip.deductions))}`],
     ];
     doc.fillColor('#000');
     rows.forEach(([label, value], index) => {
@@ -97,7 +102,7 @@ export class PayrollController {
 
     doc.moveDown(2);
     doc.fontSize(13).fillColor('#009A44');
-    doc.text(`Salaire net à payer : ${formatFCFA(payslip.netSalary)}`);
+    doc.text(`Salaire net à payer : ${formatFCFA(Number(payslip.netSalary))}`);
     doc.fillColor('#666').fontSize(9);
     doc.text(`Statut : ${payslip.status}${payslip.paidAt ? ` — payé le ${new Date(payslip.paidAt).toLocaleDateString('fr-FR')}` : ''}`);
 

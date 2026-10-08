@@ -1,0 +1,17 @@
+/* Parent portal */
+.portal-children { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.portal-identity { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.portal-identity h2 { font-size: 18px; margin: 0 0 2px; }
+.portal-identity p { margin: 0; }
+.portal-count { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--paper-sunken); font-size: 12px; font-variant-numeric: tabular-nums; }
+.portal-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--rule); }
+.portal-line:last-child { border-bottom: 0; }
+.portal-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.portal-cards .card > p { margin: 0 0 10px; }
+.portal-average { font-size: 15px; }
+.portal-average strong { font-size: 28px; font-variant-numeric: tabular-nums; }
+.portal-quote { font-style: italic; }
+.portal-lesson { display: grid; grid-template-columns: 96px 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--rule); }
+.portal-lesson:last-child { border-bottom: 0; }
+.portal-lesson > span:last-child { display: grid; }
+.portal-lesson .muted { font-size: 13px; }

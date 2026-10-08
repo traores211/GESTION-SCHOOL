@@ -1,5 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { SensitiveFieldsInterceptor } from './common/sensitive-fields.interceptor';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -27,6 +29,21 @@ import { ShowcaseModule } from './showcase/showcase.module';
 import { TimetableModule } from './timetable/timetable.module';
 import { AssistantModule } from './assistant/assistant.module';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
+import { InfraModule } from './infra/infra.module';
+import { AuditModule } from './audit/audit.module';
+import { MessagingModule } from './messaging/messaging.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { ImportsModule } from './imports/imports.module';
+import { InsightsModule } from './insights/insights.module';
+import { DisciplineModule } from './discipline/discipline.module';
+import { FamilyModule } from './family/family.module';
+import { PlatformModule } from './platform/platform.module';
+import { DocumentsModule } from './documents/documents.module';
+import { PromotionModule } from './promotion/promotion.module';
+import { GateModule } from './gate/gate.module';
+import { SmartEntryModule } from './smart-entry/smart-entry.module';
+import { DomainsModule } from './domains/domains.module';
+import { PermissionsModule } from './permissions/permissions.module';
 
 @Module({
   imports: [
@@ -35,6 +52,7 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
       envFilePath: '.env.local',
     }),
     PrismaModule,
+    InfraModule,
     AuthModule,
     UsersModule,
     StudentsModule,
@@ -58,9 +76,24 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
     ShowcaseModule,
     TimetableModule,
     AssistantModule,
+    AuditModule,
+    MessagingModule,
+    PrivacyModule,
+    ImportsModule,
+    InsightsModule,
+    DisciplineModule,
+    FamilyModule,
+    PlatformModule,
+    DocumentsModule,
+    PromotionModule,
+    GateModule,
+    SmartEntryModule,
+    DomainsModule,
+    PermissionsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  // Credentials are stripped from every JSON response, whatever a service returns.
+  providers: [AppService, { provide: APP_INTERCEPTOR, useClass: SensitiveFieldsInterceptor }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

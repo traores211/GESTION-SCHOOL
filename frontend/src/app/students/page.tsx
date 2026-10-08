@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GraduationCap, LoaderCircle, Plus, UserPlus } from "lucide-react";
+import { Archive, ArchiveRestore, GraduationCap, LoaderCircle, Plus, UserPlus } from "lucide-react";
 import Shell from "../../components/Shell";
 import { Avatar, EmptyState, FormError, Modal, PageHeader, Pagination, SearchInput, SortHeader, TableSkeleton, useFeedback } from "../../components/ui";
 import { api, errorMessage } from "../../lib/api";
@@ -34,6 +34,7 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<StudentRow[] | null>(null);
   const [classes, setClasses] = useState<ClassRef[]>([]);
   const [classFilter, setClassFilter] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -41,14 +42,46 @@ export default function StudentsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
 
   const load = useCallback(() => {
+    const query = new URLSearchParams();
+    if (classFilter) query.set("classId", classFilter);
+    if (showArchived) query.set("archived", "true");
+    setStudents(null);
     api
-      .get<StudentRow[]>(`/students${classFilter ? `?classId=${classFilter}` : ""}`)
+      .get<StudentRow[]>(`/students${query.size ? `?${query}` : ""}`)
       .then((list) => {
         setStudents(list);
         setError(null);
       })
       .catch((err) => setError(errorMessage(err)));
-  }, [classFilter]);
+  }, [classFilter, showArchived]);
+
+  /** A pupil who leaves is archived: out of the lists, history (marks, invoices) kept, restorable. */
+  const archive = async (s: StudentRow) => {
+    const reason = await feedback.prompt({
+      title: `Archiver ${s.firstName} ${s.lastName} ?`,
+      message: "L'élève quitte les listes et sa classe. Ses notes, ses présences et ses factures sont conservées, et il peut être restauré.",
+      label: "Motif du départ",
+      confirmLabel: "Archiver l'élève",
+    });
+    if (!reason) return;
+    try {
+      await api.delete(`/students/${s.id}?reason=${encodeURIComponent(reason)}`);
+      feedback.success("Élève archivé", `${s.firstName} ${s.lastName}`);
+      load();
+    } catch (err) {
+      feedback.error("Archivage impossible", errorMessage(err));
+    }
+  };
+
+  const restore = async (s: StudentRow) => {
+    try {
+      await api.post(`/students/${s.id}/restore`);
+      feedback.success("Élève restauré", `${s.firstName} ${s.lastName} — pensez à le réinscrire dans une classe.`);
+      load();
+    } catch (err) {
+      feedback.error("Restauration impossible", errorMessage(err));
+    }
+  };
 
   useEffect(load, [load]);
   useEffect(() => {
@@ -116,6 +149,10 @@ export default function StudentsPage() {
               </option>
             ))}
           </select>
+          <label className="checkbox">
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            Élèves archivés
+          </label>
         </div>
       </div>
 
@@ -125,11 +162,11 @@ export default function StudentsPage() {
             {error}
           </EmptyState>
         ) : !students ? (
-          <TableSkeleton columns={5} />
+          <TableSkeleton columns={6} />
         ) : table.total === 0 ? (
           <EmptyState
             icon={<GraduationCap size={22} />}
-            title={table.query || classFilter ? "Aucun élève ne correspond" : "Aucun élève inscrit"}
+            title={showArchived ? "Aucun élève archivé" : table.query || classFilter ? "Aucun élève ne correspond" : "Aucun élève inscrit"}
             action={
               table.query || classFilter ? (
                 <button className="btn btn-outline" onClick={() => { table.setQuery(""); setClassFilter(""); }}>
@@ -152,6 +189,9 @@ export default function StudentsPage() {
                   <SortHeader label="Classe" column="class" sort={table.sort} onSort={table.toggleSort} />
                   <th>Sexe</th>
                   <SortHeader label="Statut" column="status" sort={table.sort} onSort={table.toggleSort} />
+                  <th className="actions">
+                    <span className="visually-hidden">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -170,6 +210,17 @@ export default function StudentsPage() {
                     <td>{s.gender === "F" ? "Fille" : "Garçon"}</td>
                     <td>
                       <span className={`badge ${STATUS_LABELS[s.status]?.badge || "badge-neutral"}`}>{STATUS_LABELS[s.status]?.label || s.status}</span>
+                    </td>
+                    <td className="actions" onClick={(e) => e.stopPropagation()}>
+                      {showArchived ? (
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => restore(s)}>
+                          <ArchiveRestore size={14} /> Restaurer
+                        </button>
+                      ) : (
+                        <button type="button" className="btn btn-ghost btn-sm" aria-label={`Archiver ${s.firstName} ${s.lastName}`} onClick={() => archive(s)}>
+                          <Archive size={14} /> Archiver
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

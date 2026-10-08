@@ -5,6 +5,10 @@ import { useParams } from "next/navigation";
 import Shell from "../../../components/Shell";
 import { EmptyState, PageHeader, TableSkeleton } from "../../../components/ui";
 import { api, ApiError } from "../../../lib/api";
+import { getStoredUser } from "../../../lib/auth";
+import DocumentsPanel from "../../../components/DocumentsPanel";
+import StudentActions, { StudentPhoto } from "../../../components/StudentActions";
+import { downloadFile } from "../../../lib/download";
 import { ATTENDANCE_STATUS, INVOICE_STATUS, STUDENT_STATUS, statusBadge } from "../../../lib/labels";
 
 interface StudentDetail {
@@ -18,7 +22,19 @@ interface StudentDetail {
   address?: string;
   phone?: string;
   status: string;
-  parents: { id: string; firstName: string; lastName: string; phone: string; relationship: string }[];
+  photoUrl?: string | null;
+  userId?: string | null;
+  placeOfBirth?: string;
+  countryOfOrigin?: string;
+  city?: string;
+  country?: string;
+  email?: string;
+  regime?: string;
+  entryDate?: string;
+  previousSchool?: string;
+  previousClass?: string;
+  previousAverage?: number | null;
+  parents: { id: string; firstName: string; lastName: string; phone: string; phone2?: string | null; relationship: string; relation: string; isLegalGuardian: boolean; isEmergencyContact: boolean; canPickUp: boolean }[];
   enrollments: { class: { id: string; name: string } }[];
   attendance: { id: string; date: string; status: string }[];
   attendanceStats: { status: string; _count: number }[];
@@ -38,6 +54,9 @@ function formatFCFA(amount: number) {
   return new Intl.NumberFormat("fr-FR").format(Math.round(amount)) + " FCFA";
 }
 
+const RELATIONS: Record<string, string> = { PERE: "Père", MERE: "Mère", TUTEUR: "Tuteur", AUTRE: "Responsable" };
+const REGIMES: Record<string, string> = { EXTERNE: "Externe", DEMI_PENSIONNAIRE: "Demi-pensionnaire", INTERNE: "Interne" };
+
 const ATT_LABELS: Record<string, string> = {
   PRESENT: "Présences",
   ABSENT: "Absences",
@@ -49,7 +68,10 @@ export default function StudentDetailPage() {
   const params = useParams<{ id: string }>();
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"info" | "attendance" | "grades" | "billing">("info");
+  const [tab, setTab] = useState<"info" | "attendance" | "grades" | "billing" | "documents">("info");
+
+  const [version, setVersion] = useState(0);
+  const reload = () => setVersion((v) => v + 1);
 
   useEffect(() => {
     if (!params?.id) return;
@@ -57,7 +79,8 @@ export default function StudentDetailPage() {
       .get<StudentDetail>(`/students/${params.id}`)
       .then(setStudent)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Erreur de chargement"));
-  }, [params?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params?.id, version]);
 
   return (
     <Shell title="Fiche élève">
@@ -80,7 +103,18 @@ export default function StudentDetailPage() {
             breadcrumbs={[{ label: "Élèves", href: "/students" }, { label: `${student.firstName} ${student.lastName}` }]}
             title={`${student.firstName} ${student.lastName}`}
             description={`Matricule ${student.matricule} — ${student.enrollments[0]?.class?.name || "Non affecté"}`}
-            actions={<span className={`badge ${statusBadge(STUDENT_STATUS, student.status).badge}`}>{statusBadge(STUDENT_STATUS, student.status).label}</span>}
+            actions={
+              <>
+                <span className={`badge ${statusBadge(STUDENT_STATUS, student.status).badge}`}>{statusBadge(STUDENT_STATUS, student.status).label}</span>
+                <StudentActions studentId={student.id} name={`${student.firstName} ${student.lastName}`} hasAccount={!!student.userId} onChanged={reload} />
+                {["SUPER_ADMIN", "ADMIN_ORGANISATION", "DIRECTOR"].includes(getStoredUser()?.role ?? "") && (
+                  // Right of access: everything held on the pupil and the guardians, to hand to the family.
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => downloadFile(`/privacy/students/${student.id}/export`, `donnees-${student.matricule}.json`).catch(() => undefined)}>
+                    Exporter les données
+                  </button>
+                )}
+              </>
+            }
           />
 
           <div className="tabs" role="tablist">
@@ -96,11 +130,15 @@ export default function StudentDetailPage() {
             <button type="button" role="tab" className="tab" aria-selected={tab === "billing"} onClick={() => setTab("billing")}>
               Scolarité
             </button>
+            <button type="button" role="tab" className="tab" aria-selected={tab === "documents"} onClick={() => setTab("documents")}>
+              Documents
+            </button>
           </div>
 
           {tab === "info" && (
             <div className="record-sheet">
-              <div className="record-stub" aria-hidden="true">
+              <div className="record-stub">
+                <StudentPhoto studentId={student.id} hasPhoto={!!student.photoUrl} name={`${student.firstName} ${student.lastName}`} onChanged={reload} />
                 <span>Matricule</span>
                 <strong>{student.matricule}</strong>
               </div>
@@ -120,12 +158,45 @@ export default function StudentDetailPage() {
                     <dd>{student.nationality || "—"}</dd>
                   </div>
                   <div>
+                    <dt>Lieu de naissance</dt>
+                    <dd>{student.placeOfBirth || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Pays d&apos;origine</dt>
+                    <dd>{student.countryOfOrigin || "—"}</dd>
+                  </div>
+                  <div>
                     <dt>Adresse</dt>
-                    <dd>{student.address || "—"}</dd>
+                    <dd>{[student.address, student.city, student.country].filter(Boolean).join(", ") || "—"}</dd>
                   </div>
                   <div>
                     <dt>Téléphone</dt>
                     <dd className="tabular">{student.phone || "—"}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section className="record-part" aria-labelledby="rec-school">
+                <h2 id="rec-school">Scolarité</h2>
+                <dl className="record-list">
+                  <div>
+                    <dt>Régime</dt>
+                    <dd>{student.regime ? REGIMES[student.regime] || student.regime : "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Date d&apos;entrée</dt>
+                    <dd className="tabular">{student.entryDate ? new Date(student.entryDate).toLocaleDateString("fr-FR") : "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Établissement précédent</dt>
+                    <dd>{student.previousSchool || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Classe précédente</dt>
+                    <dd>{student.previousClass || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Moyenne précédente</dt>
+                    <dd className="tabular">{student.previousAverage != null ? `${student.previousAverage.toLocaleString("fr-FR")} / 20` : "—"}</dd>
                   </div>
                 </dl>
               </section>
@@ -135,10 +206,14 @@ export default function StudentDetailPage() {
                 <dl className="record-list">
                   {student.parents.map((p) => (
                     <div key={p.id}>
-                      <dt>{p.relationship}</dt>
+                      <dt>{RELATIONS[p.relation] || p.relationship}</dt>
                       <dd>
                         {p.firstName} {p.lastName}
-                        <span className="cell-sub tabular">{p.phone}</span>
+                        <span className="cell-sub tabular">{[p.phone, p.phone2].filter(Boolean).join(" · ")}</span>
+                        <span className="cell-sub">
+                          {p.isLegalGuardian && <span className="badge badge-neutral">Responsable légal</span>} {p.isEmergencyContact && <span className="badge badge-info">Contact d&apos;urgence</span>}{" "}
+                          {!p.canPickUp && <span className="badge badge-warning">Ne récupère pas l&apos;enfant</span>}
+                        </span>
                       </dd>
                     </div>
                   ))}
@@ -218,6 +293,8 @@ export default function StudentDetailPage() {
               </div>
             </div>
           )}
+
+          {tab === "documents" && <DocumentsPanel studentId={student.id} />}
 
           {tab === "billing" && (
             <div className="table-wrap">

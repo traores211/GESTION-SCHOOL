@@ -16,6 +16,57 @@ export interface TimetableSettings {
   end: string;
   breaks: { start: string; end: string }[];
   slotMinutes: number;
+  /** "3:PM,6:AM" — free half-days */
+  freeHalfDays?: string;
+  halfDaySplit?: string;
+  maxClassHoursPerDay?: number | null;
+  maxTeacherHoursPerDay?: number | null;
+}
+
+export interface Qualification {
+  teacherId: string;
+  subjectId: string;
+  level: string;
+  classId: string | null;
+}
+
+export interface PlanningInfo {
+  qualifications: Qualification[];
+  /** teacherId → merged availability windows (absent = no restriction) */
+  availability: Record<string, { day: number; start: string; end: string }[]>;
+  volumes: { level: string; subjectId: string; minutesPerWeek: number; maxSessionMinutes: number | null; coefficient: number | null }[];
+}
+
+/** One rule of the shared server-side validation (✅ / ❌ / not applicable). */
+export interface Check {
+  id: "GRID" | "QUALIFIED" | "AVAILABLE" | "TEACHER_FREE" | "CLASS_FREE" | "ROOM" | "CLASS_VOLUME" | "TEACHER_MAX" | "DAY_MAX";
+  status: "ok" | "fail" | "na";
+  label: string;
+  detail?: string;
+}
+
+export interface SoftWarning {
+  id: string;
+  message: string;
+}
+
+export interface LessonReport {
+  ok: boolean;
+  checks: Check[];
+  warnings: SoftWarning[];
+}
+
+export interface FormOptions {
+  teachers: { id: string; name: string; qualified: boolean; free: boolean | null; loadHours: number; maxHours: number | null }[];
+  rooms: { id: string; name: string; suitable: boolean; free: boolean | null; reason: string | null }[];
+  freeSlots: { dayOfWeek: number; startTime: string; endTime: string }[];
+  volume: { officialHours: number; plannedHours: number; maxSessionHours: number | null } | null;
+}
+
+export interface Suggestions {
+  slots: { dayOfWeek: number; startTime: string; endTime: string; warnings: number }[];
+  teachers: Ref[];
+  rooms: Ref[];
 }
 
 export interface Ref {
@@ -36,6 +87,7 @@ export interface Session {
   label: string | null;
   notes: string | null;
   importId: string | null;
+  locked?: boolean;
   class: Ref & { level: string };
   subject: (Ref & { code: string; color: string | null }) | null;
   teacher: Ref | null;
@@ -48,11 +100,64 @@ export interface Resources {
   academicYear: Ref;
   classes: (Ref & { level: string; studentCount: number })[];
   subjects: (Ref & { code: string; color: string | null })[];
-  teachers: (Ref & { position: string })[];
-  rooms: (Ref & { type: string | null; capacity: number | null; building: string | null })[];
+  teachers: (Ref & { position: string; matricule?: string | null; weeklyMaxMinutes?: number | null })[];
+  rooms: (Ref & { type: string | null; capacity: number | null; building: string | null; subjectIds?: string[] })[];
   terms: (Ref & { order: number })[];
   settings: TimetableSettings;
+  planning?: PlanningInfo;
   me: { role: string; teacherId: string | null };
+}
+
+/** Free half-days of the grid as a set of "day:AM|PM". */
+export function parseHalfDays(value: string | null | undefined): { day: number; half: "AM" | "PM" }[] {
+  return (value ?? "")
+    .split(",")
+    .map((p) => p.trim().toUpperCase().split(":"))
+    .filter(([d, h]) => Number(d) >= 1 && Number(d) <= 7 && (h === "AM" || h === "PM"))
+    .map(([d, h]) => ({ day: Number(d), half: h as "AM" | "PM" }));
+}
+
+/**
+ * Quick client-side pre-checks for the lesson form (instant feedback while the server check runs).
+ * The server stays the authority: it applies the same rules and refuses what breaks them.
+ */
+export function clientChecks(
+  d: { classId: string; subjectId: string; teacherId: string; dayOfWeek: number; startTime: string; endTime: string },
+  resources: Resources,
+): { id: Check["id"]; message: string }[] {
+  const issues: { id: Check["id"]; message: string }[] = [];
+  const s = resources.settings;
+  if (!/^\d{2}:\d{2}$/.test(d.startTime) || !/^\d{2}:\d{2}$/.test(d.endTime) || d.startTime >= d.endTime) {
+    return [{ id: "GRID", message: "L'heure de fin doit être après l'heure de début" }];
+  }
+  if (s.days.length && !s.days.includes(d.dayOfWeek)) issues.push({ id: "GRID", message: `${DAY_NAMES[d.dayOfWeek]} n'est pas un jour de cours` });
+  if (d.startTime < s.start || d.endTime > s.end) issues.push({ id: "GRID", message: `En dehors de la journée (${s.start}–${s.end})` });
+  for (const b of s.breaks) if (d.startTime < b.end && b.start < d.endTime) issues.push({ id: "GRID", message: `Empiète sur la pause ${b.start}–${b.end}` });
+  const split = s.halfDaySplit ?? "12:00";
+  for (const h of parseHalfDays(s.freeHalfDays)) {
+    if (h.day !== d.dayOfWeek) continue;
+    const [a, b] = h.half === "AM" ? [s.start, split] : [split, s.end];
+    if (d.startTime < b && a < d.endTime) issues.push({ id: "GRID", message: `${DAY_NAMES[d.dayOfWeek]} ${h.half === "AM" ? "matin" : "après-midi"} est libre` });
+  }
+  const planning = resources.planning;
+  const klass = resources.classes.find((c) => c.id === d.classId);
+  if (planning && d.teacherId && d.subjectId && klass) {
+    const qualified = planning.qualifications.some((q) => q.teacherId === d.teacherId && q.subjectId === d.subjectId && (q.classId ? q.classId === d.classId : q.level === klass.level));
+    if (!qualified) issues.push({ id: "QUALIFIED", message: "Ce professeur n'est pas habilité pour cette matière à ce niveau" });
+  }
+  if (planning && d.teacherId) {
+    const windows = planning.availability[d.teacherId];
+    if (windows?.length && !windows.some((w) => w.day === d.dayOfWeek && w.start <= d.startTime && w.end >= d.endTime)) {
+      issues.push({ id: "AVAILABLE", message: "Le professeur n'est pas disponible sur ce créneau" });
+    }
+  }
+  return issues;
+}
+
+export function formatHours(hours: number): string {
+  const h = Math.floor(hours + 1e-9);
+  const m = Math.round((hours - h) * 60);
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
 }
 
 export type ViewMode = "class" | "teacher" | "room";

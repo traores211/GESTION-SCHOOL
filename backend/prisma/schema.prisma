@@ -22,8 +22,21 @@ model Organisation {
   city              String?
   logo              String?
   subscriptionPlan  String   @default("STARTER") // STARTER, PRO, ENTERPRISE
+  /// Lifecycle machine. Values and allowed transitions live in platform/lifecycle.ts.
+  /// PROSPECT  — created by the editor, not yet aware
+  /// PENDING   — signed up, waiting for validation
+  /// TRIAL     — free trial until trialEndsAt
+  /// ACTIVE    — paying subscription in order
+  /// SUSPENDED — temporarily shut (read-only)
+  /// EXPIRED   — trial ended (read-only); kept distinct from SUSPENDED so dashboards can tell them apart
+  /// CLOSED    — permanently closed (read-only); the data stays for the retention period
+  subscriptionStatus String  @default("ACTIVE")
+  trialEndsAt       DateTime?
   isActive          Boolean  @default(true)
   schools           School[]
+  domains           SchoolDomain[]
+  lifecycleEvents   SchoolLifecycleEvent[]
+  quotaOverride     OrganisationQuotaOverride?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -60,18 +73,38 @@ model School {
   linkedinUrl           String?
   youtubeUrl            String?
   whatsappNumber        String?
+  /// Published showcase content beyond the columns above (colour, history, values, events, downloads…)
+  showcaseContent       Json     @default("{}")
+  /// Changes being prepared: previewed, then published in one go
+  showcaseDraft         Json?
+  showcaseDraftAt       DateTime?
+  showcasePublishedAt   DateTime?
   // Timetable grid: open days (1 = Monday … 7 = Sunday), day bounds, breaks ("12:00-14:00,…"), snapping step
   timetableDays         String   @default("1,2,3,4,5,6")
   timetableStart        String   @default("07:00")
   timetableEnd          String   @default("18:00")
   timetableBreaks       String   @default("12:00-14:00")
   timetableSlotMinutes  Int      @default(30)
+  /// SMS / WhatsApp: monthly quota (message segments) and the events that send a message to families
+  /// Personal data: years an archived pupil file is kept before anonymisation, and the privacy contact
+  dataRetentionYears    Int      @default(5)
+  privacyContact        String?
+  smsMonthlyQuota       Int      @default(1000)
+  smsEvents             String   @default("ABSENCE,OVERDUE,ADMISSION,PAYMENT")
+  messageLogs           MessageLog[]
+  disciplineRecords     DisciplineRecord[]
+  homework              Homework[]
+  conversations         Conversation[]
   highlights            SchoolHighlight[]
   photos                SchoolPhoto[]
   partners              SchoolPartner[]
   testimonials          Testimonial[]
   academicYears         AcademicYear[]
   users                 User[]
+  memberships           SchoolMembership[]
+  promotionBatches      PromotionBatch[]
+  gateEvents            GateEvent[]
+  documents             Document[]
   students              Student[]
   classes               Class[]
   subjects              Subject[]
@@ -86,6 +119,7 @@ model School {
   rooms                 Room[]
   timetableSessions     TimetableSession[]
   timetableImports      TimetableImport[]
+  domains               SchoolDomain[]
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -102,11 +136,17 @@ model AcademicYear {
   startDate         DateTime
   endDate           DateTime
   isCurrent         Boolean  @default(false)
+  /// PREPARATION → OUVERTE → CLOTUREE → ARCHIVEE; a closed year keeps its history and is frozen
+  status            String   @default("OUVERTE")
+  closedAt          DateTime?
   classes           Class[]
   admissions        Admission[]
   terms             Term[]
   invoices          Invoice[]
   timetableSessions TimetableSession[]
+  timetableGrid     TimetableGrid?
+  officialVolumes   OfficialVolume[]
+  availabilities    TeacherAvailability[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -124,6 +164,8 @@ enum UserRole {
   SECRETARY             // School secretary
   COMPTABLE             // Accountant
   ENSEIGNANT            // Teacher
+  SURVEILLANT           // Supervisor: gate, roll call, school life (no marks, no money)
+  EDUCATEUR             // Educator: same reach as a supervisor
   ELEVE                 // Student
   PARENT                // Parent
 }
@@ -222,11 +264,170 @@ model User {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   lastLogin         DateTime?
+  /// Tokens issued before this date are refused (password change, sessions revoked)
+  passwordChangedAt DateTime?
+  /// TOTP secret (two-factor authentication); active once totpEnabled is true
+  totpSecret        String?
+  totpEnabled       Boolean  @default(false)
+  refreshTokens     RefreshToken[]
+  passwordResets    PasswordReset[]
+  pupil             Student? @relation("PupilAccount")
+  pushSubscriptions PushSubscription[]
+  /// What the account does not want to be notified of: { muted: ["GATE", "GRADES", …] }
+  notificationPrefs Json     @default("{}")
+  /// Schools this account may work in; schoolId above is the one currently open.
+  memberships       SchoolMembership[]
+  /// Custom domains added by this account (platform or group administrator).
+  createdDomains    SchoolDomain[]
+  /// Lifecycle transitions this account made (sign-up, platform administrator).
+  lifecycleTransitions SchoolLifecycleEvent[]
 
   @@index([email])
   @@index([role])
   @@index([status])
   @@index([schoolId])
+}
+
+/// A staff account attached to a school of the group, with the role held there.
+model SchoolMembership {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  role              UserRole
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, schoolId])
+  @@index([schoolId])
+}
+
+/// Custom domain or alias pointing at a school: the HTTP Host header is resolved against this
+/// table before any tenant decision is taken. A row stays PENDING until its DNS has been verified
+/// (TXT challenge). Only one hostname can point at a school at a time, platform-wide.
+///
+/// kind:
+///   PLATFORM             — the main SaaS portal (mon-saas-ecole.ci), not school-scoped
+///   SUBDOMAIN            — subdomain of the platform (ecole1.mon-saas-ecole.ci), auto-trusted
+///   CUSTOM_DOMAIN        — fully custom hostname (mon-ecole-1.ci), needs DNS verification
+///   CUSTOM_DOMAIN_ALIAS  — an additional hostname pointing at the same school (www.mon-ecole-1.ci)
+///
+/// status:
+///   PENDING     — created, waiting for the DNS record
+///   VERIFYING   — a verification attempt is in flight
+///   ACTIVE      — verified and in use
+///   SUSPENDED   — temporarily disabled by the platform administrator
+///   FAILED      — last verification attempt failed; stays usable only if previously ACTIVE
+///   REMOVED     — soft-deleted; kept for audit
+model SchoolDomain {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  school             School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  organisationId     String
+  organisation       Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  hostname           String
+  kind               String   @default("CUSTOM_DOMAIN")
+  status             String   @default("PENDING")
+  isPrimary          Boolean  @default(false)
+  /// Secret token the school must publish as a DNS TXT record _school-verify.<hostname>
+  verificationToken  String
+  /// DNS_TXT | HTTP_FILE
+  verificationMethod String   @default("DNS_TXT")
+  verifiedAt         DateTime?
+  /// PENDING | ISSUED | FAILED | NOT_APPLICABLE (for internal subdomains)
+  sslStatus          String   @default("PENDING")
+  sslIssuedAt        DateTime?
+  lastCheckedAt      DateTime?
+  lastError          String?
+  notes              String?
+  createdById        String?
+  createdBy          User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // A hostname can only point at one school on the whole platform (prevents takeover).
+  @@unique([hostname])
+  // Only one primary domain per school; the partial unique constraint is created by the migration,
+  // Prisma does not model partial indexes but the DDL carries it (WHERE "isPrimary" = true).
+  @@index([schoolId])
+  @@index([organisationId])
+  @@index([status])
+}
+
+/// Per-organisation overrides on top of the baseline plan quotas. Plans themselves live in code
+/// (platform/plans.ts); this table lets the editor grant extra capacity to one customer without
+/// touching the shared defaults. A null column means "keep the plan default".
+model OrganisationQuotaOverride {
+  organisationId    String   @id
+  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  students          Int?
+  staffUsers        Int?
+  classes           Int?
+  schools           Int?
+  customDomains     Int?
+  storageMb         Int?
+  smsMonthly        Int?
+  notes             String?
+  updatedAt         DateTime @updatedAt
+}
+
+/// One transition of the subscription state machine (PROSPECT → PENDING → TRIAL → ACTIVE …).
+/// Appended to on every allowed transition; never updated or deleted (SUPER_ADMIN can clean up
+/// test data manually if needed). The audit journal has its own entries too; this table is kept
+/// separate because it carries lifecycle-only metadata (trial dates, plan, operator reason).
+model SchoolLifecycleEvent {
+  id                String   @id @default(cuid())
+  organisationId    String
+  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  /// Previous status; null for the very first event (sign-up or creation).
+  fromStatus        String?
+  toStatus          String
+  /// Previous plan; included so a lifecycle timeline can show plan changes without joining audit.
+  fromPlan          String?
+  toPlan            String?
+  trialEndsAt       DateTime?
+  /// SIGNUP, VALIDATE, START_TRIAL, EXTEND_TRIAL, ACTIVATE, SUSPEND, EXPIRE, CLOSE, REOPEN
+  reason            String
+  message           String?
+  operatorId        String?
+  operator          User?    @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  operatorName      String?
+  /// How the transition was triggered: MANUAL (admin), SIGNUP (self-service), AUTO (trial expiry).
+  trigger           String   @default("MANUAL")
+  createdAt         DateTime @default(now())
+
+  @@index([organisationId, createdAt])
+}
+
+/// Rotating refresh token (stored hashed). A reused revoked token revokes its whole family.
+model RefreshToken {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String   @unique
+  family            String
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedById      String?
+  userAgent         String?
+  ip                String?
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([family])
+}
+
+/// One-time password reset link (stored hashed, valid one hour).
+model PasswordReset {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String   @unique
+  expiresAt         DateTime
+  usedAt            DateTime?
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Permission {
@@ -248,11 +449,37 @@ model StaffMember {
   position          String   // "Teacher", "Secretary", etc.
   department        String?
   hireDate          DateTime
-  baseSalary        Float?
+  /// FCFA (Decimal(14,2) in DB, serialised as number by PrismaService.toNumber middleware).
+  baseSalary        Decimal? @db.Decimal(14, 2)
+  matricule         String?  // Staff number used to match timetable planning imports
+  weeklyMaxMinutes  Int?     // Teaching load ceiling (obligation de service); null = no ceiling
+  /// Personnel file. category: ENSEIGNANT, SURVEILLANT, EDUCATEUR, ADMINISTRATION, DIRECTION, COMPTABILITE, SECRETARIAT, TECHNIQUE, SECURITE, AUTRE
+  category          String?
+  gender            String?
+  dateOfBirth       DateTime?
+  placeOfBirth      String?
+  nationality       String?
+  countryOfOrigin   String?
+  photoUrl          String?
+  address           String?
+  /// CDI, CDD, VACATAIRE, STAGE, AUTRE
+  contractType      String?
+  diploma           String?
+  qualification     String?
+  specialty         String?
+  experienceYears   Int?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  bankName          String?
+  /// Encrypted at rest; shown to the management only
+  bankAccount       String?
   classes           Class[] @relation("TeacherClasses")
   classSubjects     ClassSubject[]
   payslips          Payslip[]
   timetableSessions TimetableSession[]
+  qualifications    TeacherQualification[]
+  availabilities    TeacherAvailability[]
+  documents         Document[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -267,7 +494,8 @@ model Student {
   school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   firstName         String
   lastName          String
-  matricule         String   @unique
+  /// Unique within a school (see @@unique below): two schools may use the same numbering
+  matricule         String
   dateOfBirth       DateTime
   gender            String   // "M", "F"
   nationality       String?
@@ -276,22 +504,49 @@ model Student {
   phone             String?
   allergies         String?
   specialNeeds      String?
+  countryOfOrigin   String?
+  city              String?
+  country           String?
+  email             String?
+  photoUrl          String?
+  /// EXTERNE, DEMI_PENSIONNAIRE, INTERNE
+  regime            String?
+  entryDate         DateTime?
+  previousSchool    String?
+  previousClass     String?
+  previousAverage   Float?
   status            StudentStatus @default(INSCRIT)
   parents           Parent[]
+  guardianships     Guardianship[]
+  gateEvents        GateEvent[]
+  /// Account of the pupil himself (role ELEVE): he reads his own record, nothing else
+  userId            String?  @unique
+  user              User?    @relation("PupilAccount", fields: [userId], references: [id], onDelete: SetNull)
+  /// Code printed as a QR code on the pupil's card, read at the gate
+  cardToken         String?  @unique
   enrollments       Enrollment[]
   attendance        Attendance[]
   documents         Document[]
   admissions        Admission[] @relation("AdmissionStudent")
   grades            Grade[]
+  reportCards       ReportCard[]
+  disciplineRecords DisciplineRecord[]
+  conversations     Conversation[]
   invoices          Invoice[]
   payments          Payment[]
   transportSubscriptions TransportSubscription[]
+  /// Archived students leave the lists but keep their history (grades, invoices, attendance).
+  archivedAt        DateTime?
+  archiveReason     String?
+  /// Identity erased (right to erasure / end of retention); marks, attendance and accounts are kept.
+  anonymizedAt      DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
   @@index([status])
+  @@index([archivedAt])
 }
 
 model Parent {
@@ -305,11 +560,82 @@ model Parent {
   relationship      String   // "Father", "Mother", "Guardian"
   profession        String?
   address           String?
+  gender            String?
+  dateOfBirth       DateTime?
+  nationality       String?
+  countryOfOrigin   String?
+  phone2            String?
+  employer          String?
+  city              String?
+  country           String?
+  /// CNI, PASSEPORT, CARTE_CONSULAIRE, PERMIS, AUTRE
+  idType            String?
+  /// Encrypted at rest
+  idNumber          String?
+  photoUrl          String?
   students          Student[]
+  guardianships     Guardianship[]
+  conversations     Conversation[]
+  /// The guardian asked not to receive SMS / WhatsApp messages.
+  smsOptOut         Boolean  @default(false)
+  archivedAt        DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([email])
+}
+
+/// What a guardian is for one child: the same person may be the father of one pupil and the tutor of
+/// another. The link itself stays in Parent.students; this row carries its attributes.
+model Guardianship {
+  id                 String   @id @default(cuid())
+  parentId           String
+  parent             Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  /// PERE, MERE, TUTEUR, AUTRE
+  relation           String   @default("AUTRE")
+  isLegalGuardian    Boolean  @default(true)
+  isEmergencyContact Boolean  @default(false)
+  /// May collect the child at the gate
+  canPickUp          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([parentId, studentId])
+  @@index([studentId])
+}
+
+/// Every SMS / WhatsApp message sent (or skipped) to a family: proof, cost follow-up and quota.
+model MessageLog {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  /// "sms" | "whatsapp"
+  channel           String   @default("sms")
+  to                String
+  /// ABSENCE | OVERDUE | ADMISSION | PAYMENT | TEST
+  event             String
+  body              String
+  /// SENT | FAILED | SKIPPED
+  status            String
+  error             String?
+  provider          String
+  segments          Int      @default(1)
+  studentId         String?
+  /// Prevents sending the same message twice (e.g. one absence message per pupil, day and guardian).
+  dedupeKey         String?  @unique
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+  @@index([schoolId, status])
+}
+
+/// Gap-free counters (invoice references, student numbers…) incremented atomically.
+model Sequence {
+  key               String   @id
+  value             Int
+  updatedAt         DateTime @updatedAt
 }
 
 // ==================== Academic ====================
@@ -324,12 +650,20 @@ model Class {
   code              String   // "5A-001"
   level             String   // "5ème", "4ème", "3ème"
   capacity          Int      @default(50)
+  /// Série / filière ("A", "C", "D"…) for the lycée
+  series            String?
+  /// Usual room of the class
+  roomId            String?
+  room              Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  /// An archived class leaves the lists; its pupils, marks and roll calls are kept
+  archivedAt        DateTime?
   teacherId         String?
   teacher           StaffMember? @relation(name: "TeacherClasses", fields: [teacherId], references: [id], onDelete: SetNull)
   enrollments       Enrollment[]
   attendance        Attendance[]
   classSubjects     ClassSubject[]
   grades            Grade[]
+  homework          Homework[]
   timetableSessions TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -348,6 +682,9 @@ model Enrollment {
   student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   enrollmentDate    DateTime @default(now())
   withdrawalDate    DateTime?
+  /// End-of-year result in this class: ADMIS, REDOUBLE, ORIENTE, SORTANT; TRANSFERE for a move during the year
+  outcome           String?
+  outcomeAt         DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -371,16 +708,128 @@ model Admission {
   dateOfBirth       DateTime?
   gender            String   @default("M")
   status            AdmissionStatus @default(CANDIDATURE)
+  /// Dossier number shown to families ("ADM-2026-0042")
+  reference         String?
+  /// "EN_LIGNE" (public showcase form) or "GUICHET" (entered by the office)
+  source            String   @default("GUICHET")
+  requestedLevel    String?
+  previousSchool    String?
+  address           String?
+  guardianName      String?
+  guardianPhone     String?
+  guardianEmail     String?
+  guardianRelation  String?
+  testScheduledAt   DateTime?
+  testScore         Float?
+  testMaxScore      Float?
+  interviewAt       DateTime?
+  interviewDone     Boolean  @default(false)
+  interviewNotes    String?
+  /// FAVORABLE | RESERVE | DEFAVORABLE
+  interviewOpinion  String?
+  classId           String?
+  decisionReason    String?
+  /// When the family accepted the use of its data (online form).
+  consentAt         DateTime?
+  decidedAt         DateTime?
+  enrolledAt        DateTime?
+  confirmedAt       DateTime?
   documents         Document[]
+  pieces            AdmissionPiece[]
+  events            AdmissionEvent[]
   submittedAt       DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  @@unique([schoolId, reference])
   @@index([schoolId])
   @@index([academicYearId])
   @@index([status])
 }
 
+/// A piece of the application file (birth certificate, report cards…) and its review state.
+model AdmissionPiece {
+  id                String   @id @default(cuid())
+  admissionId       String
+  admission         Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  kind              String   // ACTE_NAISSANCE, BULLETINS, PHOTO, CERTIFICAT_SCOLARITE, CARNET_VACCINATION, AUTRE
+  label             String
+  required          Boolean  @default(true)
+  status            String   @default("MANQUANT") // MANQUANT, RECU, VALIDE, REFUSE
+  note              String?
+  fileName          String?
+  filePath          String?  // stored outside the public uploads, served with authentication
+  fileMime          String?
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+
+  @@index([admissionId])
+}
+
+/// Everything that happened to an application, in order: the timeline of the dossier.
+model AdmissionEvent {
+  id                String   @id @default(cuid())
+  admissionId       String
+  admission         Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  /// CREATED, STATUS, NOTE, PIECE, TEST, INTERVIEW, CLASS, UPDATED, ENROLLED, CONTACT
+  type              String
+  fromStatus        String?
+  toStatus          String?
+  title             String
+  message           String?
+  data              String?  // JSON details (changed fields, score…)
+  userId            String?
+  userName          String?
+  createdAt         DateTime @default(now())
+
+  @@index([admissionId, createdAt])
+}
+
+/// One execution of the end-of-year promotion of a class: who decided what, and the result.
+model PromotionBatch {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  fromClassId       String
+  toYearId          String
+  decisions         Json
+  summary           Json
+  executedById      String?
+  executedByName    String?
+  executedAt        DateTime @default(now())
+
+  @@index([schoolId, executedAt])
+  @@index([fromClassId])
+}
+
 // ==================== Attendance ====================
+
+/// One passage at the school gate. The roll call of the teachers (Attendance) is a separate record.
+model GateEvent {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  /// ENTREE | SORTIE
+  kind              String
+  occurredAt        DateTime @default(now())
+  accessPoint       String?
+  /// MANUEL | QR | BADGE
+  method            String   @default("MANUEL")
+  /// Arrival after the start of the day plus the tolerance
+  late              Boolean  @default(false)
+  /// Departure before the end of the school day
+  early             Boolean  @default(false)
+  reason            String?
+  pickedUpParentId  String?
+  pickedUpBy        String?
+  recordedById      String?
+  recordedByName    String?
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId, occurredAt])
+  @@index([studentId, occurredAt])
+}
 
 model Attendance {
   id                String   @id @default(cuid())
@@ -397,6 +846,9 @@ model Attendance {
   reason            String?
   isJustified       Boolean  @default(false)
   justification     String?
+  /// Reason sent by a parent from the portal, waiting for the office to accept or refuse it
+  justificationRequest     String?
+  justificationRequestedAt DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -406,6 +858,88 @@ model Attendance {
   @@index([schoolId])
   @@index([date])
   @@index([status])
+}
+
+/// Homework diary (cahier de textes): what a class has to do, and for when.
+model Homework {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classId           String
+  class             Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId         String?
+  subject           Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  title             String
+  description       String?
+  dueDate           DateTime
+  createdById       String?
+  createdByName     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([classId, dueDate])
+  @@index([schoolId])
+}
+
+/// A discussion between a guardian and the school office.
+model Conversation {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  parentId          String
+  parent            Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId         String?
+  student           Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  subject           String
+  /// OPEN | CLOSED
+  status            String   @default("OPEN")
+  /// Who has something to read: the school, the parent, or nobody
+  unreadBySchool    Boolean  @default(true)
+  unreadByParent    Boolean  @default(false)
+  lastMessageAt     DateTime @default(now())
+  messages          ConversationMessage[]
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId, lastMessageAt])
+  @@index([parentId])
+}
+
+model ConversationMessage {
+  id                String   @id @default(cuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromParent        Boolean
+  authorId          String?
+  authorName        String
+  body              String
+  createdAt         DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+/// Discipline: what happened, who reported it and the sanction decided (school life record of a pupil).
+model DisciplineRecord {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date              DateTime
+  /// OBSERVATION | AVERTISSEMENT | RETENUE | EXCLUSION | CONVOCATION | ENCOURAGEMENT
+  kind              String
+  reason            String
+  description       String?
+  /// What was decided ("2 heures de retenue samedi", "exclusion de 3 jours"…)
+  sanction          String?
+  reportedById      String?
+  reportedByName    String?
+  /// Hidden from the family until the school decides to share it
+  visibleToParents  Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([schoolId, date])
+  @@index([studentId])
 }
 
 // ==================== Academic: Subjects, Terms, Grades ====================
@@ -420,7 +954,11 @@ model Subject {
   color             String?  // Timetable colour (hex); a stable colour is derived from the name when empty
   classSubjects     ClassSubject[]
   grades            Grade[]
+  homework          Homework[]
   timetableSessions TimetableSession[]
+  rooms             Room[]   @relation("RoomSubjects")
+  officialVolumes   OfficialVolume[]
+  qualifications    TeacherQualification[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -446,6 +984,28 @@ model ClassSubject {
   @@index([teacherId])
 }
 
+/// What the class council and the teachers write on a report card (one per pupil and term).
+model ReportCard {
+  id                  String   @id @default(cuid())
+  studentId           String
+  student             Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  termId              String
+  term                Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  classId             String
+  /// Appreciation of the class council
+  councilAppreciation String?
+  /// Subject appreciations written by the teachers: { subjectId: text }
+  appreciations       Json     @default("{}")
+  /// End-of-year decision: ADMIS | REDOUBLE | EXCLU
+  decision            String?
+  updatedById         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([studentId, termId])
+  @@index([classId, termId])
+}
+
 model Term {
   id                String   @id @default(cuid())
   academicYearId    String
@@ -455,6 +1015,7 @@ model Term {
   startDate         DateTime
   endDate           DateTime
   grades            Grade[]
+  reportCards       ReportCard[]
   timetableSessions TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -498,16 +1059,22 @@ model Invoice {
   student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   academicYearId    String
   academicYear      AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  reference         String   @unique
+  /// Unique within a school: two schools of the SaaS may both use "INV-2026-00001" without clash.
+  reference         String
   label             String
-  totalAmount       Float
+  /// FCFA (Decimal(14,2) in DB, serialised as number by PrismaService.toNumber middleware).
+  totalAmount       Decimal  @db.Decimal(14, 2)
   dueDate           DateTime
   status            InvoiceStatus @default(PENDING)
   items             InvoiceItem[]
   payments          Payment[]
+  /// Invoices are cancelled (with a reason), never deleted.
+  cancelledAt       DateTime?
+  cancelReason      String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  @@unique([schoolId, reference])
   @@index([schoolId])
   @@index([studentId])
   @@index([academicYearId])
@@ -519,7 +1086,8 @@ model InvoiceItem {
   invoiceId         String
   invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   label             String
-  amount            Float
+  /// FCFA (Decimal(14,2) in DB, serialised as number).
+  amount            Decimal  @db.Decimal(14, 2)
 
   @@index([invoiceId])
 }
@@ -532,10 +1100,19 @@ model Payment {
   student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   transactionId     String   @unique @default(cuid())
   reference         String?
-  amount            Float
+  /// FCFA (Decimal(14,2) in DB, serialised as number).
+  amount            Decimal  @db.Decimal(14, 2)
   method            PaymentMethod
   status            PaymentStatus @default(SUCCESS)
   receivedById      String?
+  /// Online payment (payment link): gateway name, checkout page and paying phone number.
+  provider          String?
+  checkoutUrl       String?
+  payerPhone        String?
+  /// A refund keeps the payment line (status REFUNDED) for the accounts.
+  refundedAt        DateTime?
+  refundReason      String?
+  refundedById      String?
   paidAt            DateTime @default(now())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -547,19 +1124,44 @@ model Payment {
 
 // ==================== Documents ====================
 
+/// A file kept in the record of a pupil or of a staff member. Replacing a document creates a new
+/// version and archives the previous one; nothing is deleted before being archived.
 model Document {
   id                String   @id @default(cuid())
+  schoolId          String?
+  school            School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   name              String
-  type              String   // "PDF", "IMAGE", etc.
-  url               String
+  type              String   // "PDF", "IMAGE"
+  /// Former public address; files are now stored privately (filePath) and served with authentication
+  url               String?
+  /// PHOTO, BULLETIN, ACTE_NAISSANCE, CERTIFICAT_SCOLARITE, PIECE_IDENTITE, CONTRAT, DIPLOME, ADMINISTRATIF, JUSTIFICATIF, AUTRE
+  category          String   @default("AUTRE")
+  filePath          String?
+  fileMime          String?
+  fileSize          Int?
+  documentDate      DateTime?
+  version           Int      @default(1)
+  /// Previous version of this document, archived when this one was added
+  replacesId        String?
+  /// ACTIF | ARCHIVE
+  status            String   @default("ACTIF")
+  /// INTERNE (staff only) | FAMILLE (also shown to the guardians of the pupil)
+  visibility        String   @default("INTERNE")
+  uploadedById      String?
+  uploadedByName    String?
+  archivedAt        DateTime?
   studentId         String?
   student           Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  staffId           String?
+  staff             StaffMember? @relation(fields: [staffId], references: [id], onDelete: Cascade)
   admissionId       String?
   admission         Admission? @relation(fields: [admissionId], references: [id], onDelete: Cascade)
   uploadedAt        DateTime @default(now())
 
   @@index([studentId])
   @@index([admissionId])
+  @@index([staffId])
+  @@index([schoolId, status])
 }
 
 // ==================== Audit ====================
@@ -587,6 +1189,20 @@ model AuditLog {
 }
 
 // ==================== Notifications ====================
+
+/// A device that asked to be woken when its account gets a notification (web push).
+model PushSubscription {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Address given by the browser's push service; requests only go to the known services
+  endpoint          String   @unique
+  failures          Int      @default(0)
+  lastUsedAt        DateTime?
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+}
 
 model Notification {
   id                String   @id @default(cuid())
@@ -636,7 +1252,8 @@ model TransportRoute {
   vehicleId         String?
   vehicle           Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   departureTime     String?  // "06:30"
-  monthlyFee        Float    @default(0)
+  /// FCFA (Decimal(14,2) in DB, serialised as number).
+  monthlyFee        Decimal  @default(0) @db.Decimal(14, 2)
   subscriptions     TransportSubscription[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -676,10 +1293,11 @@ model Payslip {
   staffMemberId     String
   staffMember       StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
   period            String   // "2026-01"
-  baseSalary        Float
-  bonuses           Float    @default(0)
-  deductions        Float    @default(0)
-  netSalary         Float
+  /// FCFA (Decimal(14,2) in DB, serialised as number).
+  baseSalary        Decimal  @db.Decimal(14, 2)
+  bonuses           Decimal  @default(0) @db.Decimal(14, 2)
+  deductions        Decimal  @default(0) @db.Decimal(14, 2)
+  netSalary         Decimal  @db.Decimal(14, 2)
   status            PayslipStatus @default(DRAFT)
   paidAt            DateTime?
   createdAt         DateTime @default(now())
@@ -774,9 +1392,12 @@ model Room {
   schoolId          String
   school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   name              String   // "Salle 12", "Labo SVT"
+  classes           Class[]
   type              String?  // "Salle de classe", "Laboratoire", "Salle informatique", "Terrain"…
   capacity          Int?
   building          String?
+  /// Specialised room: only these subjects may use it, and they must use one of their rooms.
+  subjects          Subject[] @relation("RoomSubjects")
   sessions          TimetableSession[]
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -807,6 +1428,7 @@ model TimetableSession {
   endTime           String
   label             String?  // Free label when there is no subject ("Étude", "Sport"…)
   notes             String?
+  locked            Boolean  @default(false) // Kept as is by automatic generation
   importId          String?
   import            TimetableImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
   createdAt         DateTime @default(now())
@@ -834,4 +1456,90 @@ model TimetableImport {
   createdAt         DateTime @default(now())
 
   @@index([schoolId])
+}
+
+// ==================== Timetable planning ====================
+
+/// Timetable grid of one academic year (falls back to the School timetable* fields when absent).
+model TimetableGrid {
+  id                      String   @id @default(cuid())
+  academicYearId          String   @unique
+  academicYear            AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  days                    String   @default("1,2,3,4,5")
+  start                   String   @default("07:30")
+  end                     String   @default("17:30")
+  slotMinutes             Int      @default(60)
+  /// "10:00-10:15,12:30-14:30" (recesses and lunch)
+  breaks                  String   @default("10:30-10:45,12:30-14:30")
+  /// Free half-days: "3:PM,6:PM" (AM ends / PM starts at halfDaySplit)
+  freeHalfDays            String   @default("3:PM")
+  halfDaySplit            String   @default("12:30")
+  maxClassMinutesPerDay   Int?
+  maxTeacherMinutesPerDay Int?
+  updatedAt               DateTime @updatedAt
+}
+
+/// Official weekly volume of a subject for a level (set by the State).
+model OfficialVolume {
+  id                String   @id @default(cuid())
+  schoolId          String
+  academicYearId    String
+  academicYear      AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  level             String
+  subjectId         String
+  subject           Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  minutesPerWeek    Int
+  maxSessionMinutes Int?
+  coefficient       Int?
+
+  @@unique([academicYearId, level, subjectId])
+  @@index([schoolId])
+}
+
+/// A teacher may teach a subject to a whole level, or to one class of it (classId set).
+model TeacherQualification {
+  id                String   @id @default(cuid())
+  staffMemberId     String
+  staffMember       StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  subjectId         String
+  subject           Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  level             String
+  classId           String?
+
+  @@index([staffMemberId])
+  @@index([subjectId])
+}
+
+/// Weekly availability window of a teacher. A teacher with no window for the year has no restriction.
+model TeacherAvailability {
+  id                String   @id @default(cuid())
+  staffMemberId     String
+  staffMember       StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  academicYearId    String
+  academicYear      AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  dayOfWeek         Int
+  startTime         String
+  endTime           String
+
+  @@index([staffMemberId, academicYearId])
+}
+
+/// History of timetable edits. Changes sharing a batchId (a swap, a generation) are undone together.
+model TimetableChange {
+  id                String   @id @default(cuid())
+  schoolId          String
+  academicYearId    String
+  batchId           String
+  action            String   // CREATE, UPDATE, DELETE, SWAP, LOCK, GENERATE, UNDO
+  sessionId         String?
+  before            String?  // JSON snapshot
+  after             String?  // JSON snapshot
+  summary           String
+  userId            String?
+  userName          String?
+  undoneAt          DateTime?
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId, academicYearId, createdAt])
+  @@index([batchId])
 }

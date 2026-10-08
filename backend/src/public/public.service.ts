@@ -2,12 +2,22 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicAdmissionDto } from './dto/public-admission.dto';
+import { AdmissionsService } from '../admissions/admissions.service';
+import { AdmissionStatusName, STATUS_LABELS } from '../admissions/workflow';
+import { ShowcaseContent, previewOf, upcomingEvents } from '../showcase/showcase-content';
+import { MailService } from '../infra/mail.service';
+import { OFFICE } from '../common/roles';
 
 @Injectable()
 export class PublicService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly admissions: AdmissionsService,
+    private readonly mail: MailService,
+  ) {}
 
-  async getShowcase(code: string) {
+  /** The public page of a school; with `preview`, as it would look once the draft is published. */
+  async getShowcase(code: string, preview = false) {
     const ordered = { orderBy: [{ order: 'asc' as const }, { createdAt: 'asc' as const }] };
     const school = await this.prisma.school.findUnique({
       where: { code },
@@ -30,7 +40,7 @@ export class PublicService {
     const year = school.academicYears[0];
     const [fees, programs] = year ? await Promise.all([this.feesByLevel(school.id, year.id), this.programsByLevel(school.id, year.id)]) : [[], []];
 
-    return {
+    const page = {
       name: school.name,
       code: school.code,
       tagline: school.tagline,
@@ -78,6 +88,62 @@ export class PublicService {
         publishedAt: a.publishedAt,
       })),
     };
+    const merged = previewOf(page, school.showcaseContent as ShowcaseContent, preview ? (school.showcaseDraft as Record<string, unknown> | null) : null);
+    return { ...merged, content: { ...merged.content, events: upcomingEvents(merged.content.events, new Date()) }, preview: preview && school.showcaseDraft !== null };
+  }
+
+  /** The preview is for the management of that very school. */
+  async previewShowcase(user: { schoolId: string | null }, code: string) {
+    const school = await this.prisma.school.findUnique({ where: { code }, select: { id: true } });
+    if (!school || school.id !== user.schoolId) throw new NotFoundException('Établissement introuvable');
+    return this.getShowcase(code, true);
+  }
+
+  /** A message left on the public page reaches the office: in the application and by e-mail. */
+  async contact(code: string, dto: { name: string; email: string; phone?: string; message: string }) {
+    const school = await this.prisma.school.findUnique({ where: { code }, select: { id: true, name: true, email: true, isActive: true } });
+    if (!school || !school.isActive) throw new NotFoundException('Établissement introuvable');
+    const from = `${dto.name.trim()} (${dto.email.trim().toLowerCase()}${dto.phone?.trim() ? `, ${dto.phone.trim()}` : ''})`;
+    const office = await this.prisma.user.findMany({ where: { schoolId: school.id, status: 'ACTIVE', role: { in: [...OFFICE] as never } }, select: { id: true }, take: 30 });
+    if (office.length) await this.prisma.notification.createMany({ data: office.map((u) => ({ userId: u.id, type: 'in_app', subject: 'Message reçu depuis la vitrine', message: `${from} : ${dto.message.trim()}` })) });
+    await this.mail
+      .send({ to: school.email, subject: `Message reçu depuis la page de ${school.name}`, text: `De : ${from}\n\n${dto.message.trim()}\n\nRépondez directement à ${dto.email.trim()}.` })
+      .catch(() => undefined);
+    return { success: true };
+  }
+
+  /**
+   * State of an application for the family: step, pieces still expected, convocations. The dossier
+   * number alone is not enough (it is guessable): the e-mail given when applying must match. A wrong
+   * number and a wrong e-mail give the same answer.
+   */
+  async trackAdmission(code: string, reference: string, email: string) {
+    const school = await this.prisma.school.findUnique({ where: { code }, select: { id: true, name: true, phone: true, email: true } });
+    if (!school) throw new NotFoundException('Établissement introuvable');
+    const admission = await this.prisma.admission.findFirst({
+      where: { schoolId: school.id, reference: { equals: reference.trim(), mode: 'insensitive' } },
+      include: { pieces: { orderBy: { createdAt: 'asc' } } },
+    });
+    const given = email.trim().toLowerCase();
+    if (!admission || ![admission.email, admission.guardianEmail].some((e) => e?.toLowerCase() === given)) {
+      throw new NotFoundException('Aucun dossier ne correspond à ce numéro et à cette adresse e-mail');
+    }
+    const status = admission.status as AdmissionStatusName;
+    const future = (d: Date | null) => (d && d.getTime() > Date.now() - 86400000 ? d : null);
+    return {
+      reference: admission.reference,
+      candidate: `${admission.firstName} ${admission.lastName.charAt(0)}.`,
+      requestedLevel: admission.requestedLevel,
+      submittedAt: admission.submittedAt,
+      status,
+      statusLabel: STATUS_LABELS[status],
+      closed: status === 'CONFIRME' || status === 'REJETE',
+      pieces: admission.pieces.map((p) => ({ label: p.label, required: p.required, status: p.status })),
+      missingPieces: admission.pieces.filter((p) => p.required && (p.status === 'MANQUANT' || p.status === 'REFUSE')).map((p) => p.label),
+      testAt: status === 'TEST' ? future(admission.testScheduledAt) : null,
+      interviewAt: status === 'ENTRETIEN' ? future(admission.interviewAt) : null,
+      school: { name: school.name, phone: school.phone, email: school.email },
+    };
   }
 
   async submitAdmission(code: string, dto: PublicAdmissionDto) {
@@ -87,20 +153,12 @@ export class PublicService {
     const year = await this.prisma.academicYear.findFirst({ where: { schoolId: school.id, isCurrent: true } });
     if (!year) throw new BadRequestException("Les candidatures ne sont pas ouvertes pour le moment");
 
-    const admission = await this.prisma.admission.create({
-      data: {
-        schoolId: school.id,
-        academicYearId: year.id,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        email: dto.email,
-        phone: dto.phone,
-        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-        gender: dto.gender ?? 'M',
-      },
-    });
-
-    return { success: true, reference: admission.id };
+    // Same dossier as an office entry: reference number, pieces to provide, first timeline entry.
+    const { consent: _consent, ...application } = dto;
+    void _consent;
+    const admission = await this.admissions.createDossier(school.id, application, 'EN_LIGNE', { userId: null, userName: 'Famille (en ligne)' });
+    await this.prisma.admission.update({ where: { id: admission.id }, data: { consentAt: new Date() } });
+    return { success: true, reference: admission.reference ?? admission.id };
   }
 
   /**

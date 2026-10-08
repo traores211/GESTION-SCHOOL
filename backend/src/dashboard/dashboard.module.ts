@@ -3,10 +3,11 @@ import { AttendanceModule } from '../attendance/attendance.module';
 import { BillingModule } from '../billing/billing.module';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
+import { RoleDashboardsService } from './role-dashboards.service';
 
 @Module({
   imports: [AttendanceModule, BillingModule],
   controllers: [DashboardController],
-  providers: [DashboardService],
+  providers: [DashboardService, RoleDashboardsService],
 })
 export class DashboardModule {}

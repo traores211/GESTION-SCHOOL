@@ -1,0 +1,3 @@
+# Daily encrypted backup at 02:30, restore test on the 1st of each month at 04:00.
+30 2 * * * . /etc/backup.env && /usr/local/bin/backup.sh >> /backups/backup.log 2>&1
+0 4 1 * * . /etc/backup.env && /usr/local/bin/verify.sh >> /backups/verify.log 2>&1
