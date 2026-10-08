@@ -2,9 +2,9 @@
  * school; no marks, no money, no staff records.
  * Usage (inside the backend container or in CI): node test/e2e-supervision.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const TAG = 'Test-Surveillant';
 const EMAIL = 'surveillant@test-surveillance.local';
 const PASSWORD = 'Baobab-Lagune-2026!';

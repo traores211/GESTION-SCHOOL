@@ -2,11 +2,11 @@
  * Runs in a school of its own (created by sign-up) so the demo showcase is left untouched.
  * Usage (inside the backend container or in CI): node test/e2e-showcase.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const { clearThrottle } = require('./throttle');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
 const MAILHOG = process.env.MAILHOG_URL || 'http://mailhog:8025';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const TAG = 'Test-Vitrine';
 const HEAD = 'chef@test-vitrine.local';
 const PASSWORD = 'Baobab-Lagune-2026!';

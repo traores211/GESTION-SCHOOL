@@ -1,10 +1,10 @@
 /* End-to-end check of bulk imports (pupils with guardians, staff, opening balances, marks).
  * Usage (inside the backend container or in CI): node test/e2e-imports.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const ExcelJS = require('exceljs');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const NAME = 'Test-Import';
 let failures = 0;
 const ok = (cond, label, extra) => {
