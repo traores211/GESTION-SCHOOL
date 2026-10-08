@@ -2,13 +2,13 @@
  * by e-mail (read from MailHog), two-factor authentication, sign-out everywhere.
  * Usage (inside the backend container): node test/e2e-auth.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const { clearThrottle } = require('./throttle');
 const { generate } = require('otplib');
 
 const BASE = process.argv[2] || 'http://localhost:4000/api';
 const MAILHOG = process.env.MAILHOG_URL || 'http://mailhog:8025';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 let failures = 0;
 const ok = (cond, label, extra) => {
   if (cond) console.log(`  ✔ ${label}`);

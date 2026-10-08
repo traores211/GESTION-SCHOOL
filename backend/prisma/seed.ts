@@ -1,10 +1,10 @@
-import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { seedTimetable } from './seed-timetable';
 import { seedPlanning } from './seed-planning';
 import { seedAdmissions } from './seed-admissions';
+import { createPrismaClient } from '../src/prisma/client';
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 async function hash(pwd: string) {
   return bcrypt.hash(pwd, 10);
