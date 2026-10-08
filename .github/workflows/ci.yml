@@ -46,7 +46,7 @@ jobs:
       DATA_ENCRYPTION_KEY: Y2ktb25seS1kYXRhLWVuY3J5cHRpb24ta2V5LTMyYnk=
       SMS_PROVIDER: log
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -153,7 +153,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -200,7 +200,7 @@ jobs:
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
       NEXT_PUBLIC_DEMO_ACCOUNTS: "true"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -252,7 +252,7 @@ jobs:
     needs: [backend, frontend, browser]
     if: github.event_name == 'push'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - name: API image
         uses: docker/build-push-action@v6
