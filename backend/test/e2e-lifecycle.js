@@ -5,11 +5,11 @@
  *
  * Usage: node test/e2e-lifecycle.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const { clearThrottle } = require('./throttle');
 const bcrypt = require('bcrypt');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const NAME = `École Test-Lifecycle ${Date.now().toString().slice(-6)}`;
 const EMAIL = `directeur.lifecycle.${Date.now()}@example.ci`;
 const ROOT = `root.lifecycle.${Date.now()}@example.ci`;

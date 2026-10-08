@@ -37,6 +37,7 @@
     "@nestjs/passport": "^10.0.2",
     "@nestjs/platform-express": "^10.2.8",
     "@nestjs/swagger": "^7.1.11",
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@sentry/node": "^8.55.2",
     "bcrypt": "^5.1.1",
@@ -89,9 +90,6 @@
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.1.0",
     "typescript": "^5.2.2"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
   },
   "jest": {
     "moduleFileExtensions": [

@@ -1,10 +1,10 @@
 /* End-to-end check of report cards and the class council sheet, on a class created for the test.
  * Usage (inside the backend container or in CI): node test/e2e-bulletins.js [baseUrl] [pdfOutputPath]
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const fs = require('fs');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const NAME = 'Test-Bulletin';
 let failures = 0;
 const ok = (cond, label, extra) => {
