@@ -1,9 +1,9 @@
 /* End-to-end check of online payments (payment links) with the simulated gateway.
  * Usage (inside the backend container or in CI, without CinetPay keys): node test/e2e-payments.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const LABEL = 'Test-Payments';
 let failures = 0;
 const ok = (cond, label, extra) => {

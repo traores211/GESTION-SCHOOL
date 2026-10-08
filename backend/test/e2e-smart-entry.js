@@ -2,9 +2,9 @@
  * The point checked throughout: these routes only PROPOSE; recording goes through the usual routes.
  * Usage (inside the backend container or in CI): node test/e2e-smart-entry.js
  */
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../scripts/prisma-client');
 const BASE = process.argv[2] || 'http://localhost:4000/api';
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 const TAG = 'Test-Vocal';
 const DAY = '2020-01-06';
 let failures = 0;

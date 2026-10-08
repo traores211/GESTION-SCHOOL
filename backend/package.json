@@ -37,7 +37,8 @@
     "@nestjs/passport": "^10.0.2",
     "@nestjs/platform-express": "^10.2.8",
     "@nestjs/swagger": "^7.1.11",
-    "@prisma/client": "^5.4.1",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "@sentry/node": "^8.55.2",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
@@ -53,7 +54,7 @@
     "passport-jwt": "^4.0.1",
     "pdfjs-dist": "3.11.174",
     "pdfkit": "^0.15.0",
-    "prisma": "^5.22.0",
+    "prisma": "^7.10.0",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^5.0.5",
@@ -89,9 +90,6 @@
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.1.0",
     "typescript": "^5.2.2"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
   },
   "jest": {
     "moduleFileExtensions": [

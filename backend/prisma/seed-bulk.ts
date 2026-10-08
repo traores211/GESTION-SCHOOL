@@ -19,11 +19,12 @@
  *  three tuition instalments with Mobile Money / cash / bank payments, admissions, transport,
  *  monthly payslips.
  */
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { createPrismaClient } from '../src/prisma/client';
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 // ---------------------------------------------------------------- deterministic randomness
 
