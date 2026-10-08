@@ -1,7 +1,7 @@
 # Production image of the web app: `next build` in standalone mode, served by `node server.js` as a
 # non-root user. The API URL is baked in at build time:
 #   docker build -f Dockerfile.prod --build-arg NEXT_PUBLIC_API_URL=https://ecole.example.ci/api -t school-erp-web .
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
@@ -12,7 +12,7 @@ ARG NEXT_PUBLIC_DEMO_ACCOUNTS=false
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL NEXT_PUBLIC_DEMO_ACCOUNTS=$NEXT_PUBLIC_DEMO_ACCOUNTS NEXT_OUTPUT=standalone
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 RUN apk add --no-cache dumb-init curl
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
